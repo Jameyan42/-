@@ -1,10 +1,81 @@
-import test from 'node:test';
-import assert from 'node:assert/strict';
-import {validateBackup,validatePolicy,defaultPolicy} from './settings.js';
-import {review,transition} from './domain.js';
-import {budgetRows} from './budget.js';
-const sample=()=>({format:'qingbao-backup',version:1,items:[{id:'a',name:'出差',employee:'林晓',department:'销售部',type:'差旅交通',amount:100,date:'2026-10-22',status:'待主管审批',invoice:'001',receipt:'a.pdf',note:'客户拜访',history:[]}],budgets:{销售部:1000,产品部:2000,运营部:3000},policy:{...defaultPolicy},audit:[]});
-test('配置规则后即时应用额度和开关',()=>{const x={...sample().items[0],amount:4000,receipt:''};assert.equal(review(x,[],defaultPolicy).length,2);assert.equal(review(x,[],{limit:5000,requireReceipt:false,checkDuplicate:false}).length,0);assert.throws(()=>validatePolicy({limit:-1,requireReceipt:true,checkDuplicate:true}));assert.throws(()=>validatePolicy({limit:3000,requireReceipt:'yes',checkDuplicate:true}))});
-test('草稿不占预算，不参与预审与其他单据查重',()=>{const x=sample().items[0];const draft={...x,id:'b',status:'草稿'};assert.equal(review(draft,[x]).length,0);assert.equal(review(x,[draft]).length,0);assert.equal(budgetRows([draft],{销售部:1000},'2026-10')[0].reserved,0);assert.throws(()=>transition(draft,'approve','主管'));assert.throws(()=>transition(x,'unknown','主管'))});
-test('有效备份可往返，空草稿可恢复',()=>{const x=sample();assert.deepEqual(validateBackup(JSON.parse(JSON.stringify(x))),x);x.items[0].status='草稿';x.items[0].amount=0;x.items[0].note='';assert.doesNotThrow(()=>validateBackup(x))});
-test('拒绝错误版本、重复标识、非法金额与畸形数据',()=>{const x=sample();x.version=2;assert.throws(()=>validateBackup(x));const d=sample();d.items.push({...d.items[0]});assert.throws(()=>validateBackup(d));const n=sample();n.items[0].amount=-1;assert.throws(()=>validateBackup(n));const h=sample();h.items[0].history=[{text:123}];assert.throws(()=>validateBackup(h));const p=sample();p.policy.limit='3000';assert.throws(()=>validateBackup(p))});
+import test from "node:test";
+import assert from "node:assert/strict";
+import { validateBackup, validatePolicy, defaultPolicy } from "./settings.js";
+import { review, transition } from "./domain.js";
+import { budgetRows } from "./budget.js";
+const sample = () => ({
+  format: "qingbao-backup",
+  version: 1,
+  items: [
+    {
+      id: "a",
+      name: "出差",
+      employee: "林晓",
+      department: "销售部",
+      type: "差旅交通",
+      amount: 100,
+      date: "2026-10-22",
+      status: "待主管审批",
+      invoice: "001",
+      receipt: "a.pdf",
+      note: "客户拜访",
+      history: [],
+    },
+  ],
+  budgets: { 销售部: 1000, 产品部: 2000, 运营部: 3000 },
+  policy: { ...defaultPolicy },
+  audit: [],
+});
+test("配置规则后即时应用额度和开关", () => {
+  const x = { ...sample().items[0], amount: 4000, receipt: "" };
+  assert.equal(review(x, [], defaultPolicy).length, 2);
+  assert.equal(
+    review(x, [], { limit: 5000, requireReceipt: false, checkDuplicate: false })
+      .length,
+    0,
+  );
+  assert.throws(() =>
+    validatePolicy({ limit: -1, requireReceipt: true, checkDuplicate: true }),
+  );
+  assert.throws(() =>
+    validatePolicy({
+      limit: 3000,
+      requireReceipt: "yes",
+      checkDuplicate: true,
+    }),
+  );
+});
+test("草稿不占预算，不参与预审与其他单据查重", () => {
+  const x = sample().items[0];
+  const draft = { ...x, id: "b", status: "草稿" };
+  assert.equal(review(draft, [x]).length, 0);
+  assert.equal(review(x, [draft]).length, 0);
+  assert.equal(budgetRows([draft], { 销售部: 1000 }, "2026-10")[0].reserved, 0);
+  assert.throws(() => transition(draft, "approve", "主管"));
+  assert.throws(() => transition(x, "unknown", "主管"));
+});
+test("有效备份可往返，空草稿可恢复", () => {
+  const x = sample();
+  assert.deepEqual(validateBackup(JSON.parse(JSON.stringify(x))), x);
+  x.items[0].status = "草稿";
+  x.items[0].amount = 0;
+  x.items[0].note = "";
+  assert.doesNotThrow(() => validateBackup(x));
+});
+test("拒绝错误版本、重复标识、非法金额与畸形数据", () => {
+  const x = sample();
+  x.version = 2;
+  assert.throws(() => validateBackup(x));
+  const d = sample();
+  d.items.push({ ...d.items[0] });
+  assert.throws(() => validateBackup(d));
+  const n = sample();
+  n.items[0].amount = -1;
+  assert.throws(() => validateBackup(n));
+  const h = sample();
+  h.items[0].history = [{ text: 123 }];
+  assert.throws(() => validateBackup(h));
+  const p = sample();
+  p.policy.limit = "3000";
+  assert.throws(() => validateBackup(p));
+});

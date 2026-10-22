@@ -38,3 +38,11 @@ npm run preview
 
 打开与发布步骤见 [打开与发布](docs/打开与发布.md)。
 浏览器场景测试：`npx playwright install chromium` 后执行 `npm run test:e2e`。当前云环境可使用 `QINGBAO_BROWSER_PATH=/usr/bin/chromium npm run test:e2e`。
+
+## 在线演示与本轮更新
+
+在线地址：https://jameyan42.github.io/-/
+
+新增发票关联台账、主管审批前的员工撤回、结构化付款登记和交互式演示指南。旧浏览器数据与旧备份继续可用；不要通过清理站点数据刷新版本。
+
+当前站点使用 gh-pages 分支发布。main 工作流负责构建验证，更新网站执行 `npm run export:demo` 后运行 `python3 scripts/publish_pages.py --publish`。详情见 [打开与发布](docs/打开与发布.md)。
