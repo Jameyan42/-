@@ -1,3 +1,5 @@
+import { caseStudyView } from "./case-study.js";
+import { ocrPanel, mountOcr } from "./ocr-ui.js";
 import "./style.css";
 import { review, transition } from "./domain.js";
 import { withdraw, invoiceRows } from "./expenses.js";
@@ -177,6 +179,7 @@ function render() {
     ["操作记录", "≡"],
     ["数据管理", "⇅"],
     ["演示指南", "▷"],
+    ["项目案例", "◈"],
     ["产品说明", "◇"],
   ]
     .map(
@@ -189,23 +192,25 @@ function render() {
 <div class="shell"><header><div>工作空间 <span>/</span> ${page}</div><div class="header-right"><span class="demo-tag">产品原型</span><label>体验角色 <select id="role">${["员工", "主管", "财务"].map((r) => `<option ${r === role ? "selected" : ""}>${r}</option>`).join("")}</select></label><div class="avatar">${role === "员工" ? "林" : role === "主管" ? "许" : "周"}</div></div></header>
 <main><div class="page-heading"><div><div class="eyebrow">让每一笔费用，都清晰有序</div><h1>${page === "工作台" ? "工作台" : page}</h1><p>${role === "员工" ? "林晓，你好。提交费用、追踪进度，让报销更轻松。" : role === "主管" ? "许经理，你好。这里是团队费用与审批的最新动态。" : "周会计，你好。集中处理财务审核与付款登记。"}</p></div><button class="primary" id="create">＋ 新建报销</button></div>
 ${
-  page === "产品说明"
-    ? about()
-    : page === "费用洞察"
-      ? insights()
-      : page === "预算管理"
-        ? budgetView()
-        : page === "规则配置"
-          ? policyView()
-          : page === "操作记录"
-            ? auditView()
-            : page === "数据管理"
-              ? dataView()
-              : page === "发票台账"
-                ? invoiceView()
-                : page === "演示指南"
-                  ? guideView()
-                  : `
+  page === "项目案例"
+    ? caseStudyView()
+    : page === "产品说明"
+      ? about()
+      : page === "费用洞察"
+        ? insights()
+        : page === "预算管理"
+          ? budgetView()
+          : page === "规则配置"
+            ? policyView()
+            : page === "操作记录"
+              ? auditView()
+              : page === "数据管理"
+                ? dataView()
+                : page === "发票台账"
+                  ? invoiceView()
+                  : page === "演示指南"
+                    ? guideView()
+                    : `
 ${
   page === "工作台"
     ? `<section class="stats">${[
@@ -250,19 +255,19 @@ ${
     : ""
 }
 <section class="panel"><div class="panel-title"><div><h3>${page === "审批中心" ? "我的审批待办" : "报销记录"}</h3><span>跟踪每一笔费用的处理进度</span></div><button class="quiet" id="export">↓ 导出 CSV</button></div><div class="toolbar"><div class="tabs">${["全部", "草稿", "待主管审批", "待财务审核", "待付款", "已付款", "已退回", "已撤回"].map((s) => `<button data-filter="${s}" class="${filter === s ? "chosen" : ""}">${s === "待主管审批" ? "待审批" : s === "待财务审核" ? "待审核" : s}</button>`).join("")}</div><input id="search" aria-label="搜索报销" placeholder="⌕ 搜索名称、单号或姓名" value="${esc(query)}"></div><div class="table-wrap"><table><thead><tr><th>报销事项 / 单号</th><th>申请人</th><th>费用类型</th><th class="amount">报销金额</th><th>状态</th><th>预审结果</th><th>操作</th></tr></thead><tbody>${
-                      visible()
-                        .map(
-                          (x) =>
-                            `<tr><td><strong>${esc(x.name)}</strong><small>${esc(x.id)} · ${x.date}</small></td><td><div class="person"><span>${esc(x.employee[0])}</span><div>${esc(x.employee)}<small>${esc(x.department)}</small></div></div></td><td>${esc(x.type)}</td><td class="amount"><strong>${money(x.amount)}</strong></td><td><span class="badge s${["待主管审批", "待财务审核", "待付款", "已付款", "已退回", "已撤回"].indexOf(x.status)}">${x.status}</span></td><td><span class="${flags(x).length ? "risk" : "safe"}">${flags(x).length ? "⚑ " + flags(x).length + " 项待核查" : "✓ 未发现风险"}</span></td><td><button class="link" data-detail="${esc(x.id)}">查看 →</button></td></tr>`,
-                        )
-                        .join("") ||
-                      '<tr><td colspan="7" class="empty">暂无符合条件的报销记录</td></tr>'
-                    }</tbody></table></div><div class="table-footer">共 ${visible().length} 条记录<span>所有金额均为人民币 CNY</span></div></section><div class="footnote">ⓘ 演示使用虚构人员与票据；预审为规则计算，未接入大模型、发票验真或银行付款。</div>`
+                        visible()
+                          .map(
+                            (x) =>
+                              `<tr><td><strong>${esc(x.name)}</strong><small>${esc(x.id)} · ${x.date}</small></td><td><div class="person"><span>${esc(x.employee[0])}</span><div>${esc(x.employee)}<small>${esc(x.department)}</small></div></div></td><td>${esc(x.type)}</td><td class="amount"><strong>${money(x.amount)}</strong></td><td><span class="badge s${["待主管审批", "待财务审核", "待付款", "已付款", "已退回", "已撤回"].indexOf(x.status)}">${x.status}</span></td><td><span class="${flags(x).length ? "risk" : "safe"}">${flags(x).length ? "⚑ " + flags(x).length + " 项待核查" : "✓ 未发现风险"}</span></td><td><button class="link" data-detail="${esc(x.id)}">查看 →</button></td></tr>`,
+                          )
+                          .join("") ||
+                        '<tr><td colspan="7" class="empty">暂无符合条件的报销记录</td></tr>'
+                      }</tbody></table></div><div class="table-footer">共 ${visible().length} 条记录<span>所有金额均为人民币 CNY</span></div></section><div class="footnote">ⓘ 演示使用虚构人员与票据；预审为规则计算，未接入大模型、发票验真或银行付款。</div>`
 }</main><footer>轻报 QINGBAO <span>让费用管理回归简单</span><button id="reset">重置演示数据</button></footer></div><div id="overlay"></div>`;
   bind();
 }
 function about() {
-  return `<section class="panel prose"><h2>用 AI 辅助构建，让产品思考可见</h2><p>轻报是面向 200 人成长型企业的费控产品原型，目标是减少报销反复填写、审批进度不透明和票据重复审核的成本。</p><h3>体验一条完整业务流程</h3><p>切换到员工创建报销 → 切换主管审批 → 切换财务审核 → 财务登记付款。出现风险时退回，员工在详情中修正并重新提交。</p><h3>三个演示案例</h3><p>上海客户拜访：正常审批；产品共创工作坊：超标预警；客户出行交通：重复票据提示。风险单应退回修改后再审核。</p><h3>预算管理</h3><p>按部门与月份查看额度、已付款、在途占用和可用余额。超过额度显示预警；财务可调整部门月度额度。额度为各月共用的演示标准，调整会影响所有月份的统计，不拦截报销。</p><h3>票据与付款闭环</h3><p>发票台账按报销单关联票据名称和发票号码，可筛选重复号码；未上传或验真票据。员工可在主管审批前撤回，释放预算占用。财务登记付款需填写日期、方式和参考号，仍不执行转账。</p><h3>能力边界</h3><p>预审仅使用透明规则。附件仅保存文件名，不上传或解析文件；角色切换是演示机制，不具备真实身份认证与访问隔离。所有数据保存在当前浏览器，没有后端或多人协作。付款仅改变记录状态，不执行资金转账。</p><h3>后续验证</h3><p>招募员工、主管、财务各 2 人完成任务，记录提交耗时、一次通过率及风险提示理解率；以测试结果调整设计，不将演示数据当作真实业务效果。</p></section>`;
+  return `<section class="panel prose"><h2>用 AI 辅助构建，让产品思考可见</h2><p>轻报是面向 200 人成长型企业的费控产品原型，目标是减少报销反复填写、审批进度不透明和票据重复审核的成本。</p><h3>体验一条完整业务流程</h3><p>切换到员工创建报销 → 切换主管审批 → 切换财务审核 → 财务登记付款。出现风险时退回，员工在详情中修正并重新提交。</p><h3>三个演示案例</h3><p>上海客户拜访：正常审批；产品共创工作坊：超标预警；客户出行交通：重复票据提示。风险单应退回修改后再审核。</p><h3>预算管理</h3><p>按部门与月份查看额度、已付款、在途占用和可用余额。超过额度显示预警；财务可调整部门月度额度。额度为各月共用的演示标准，调整会影响所有月份的统计，不拦截报销。</p><h3>票据与付款闭环</h3><p>发票台账按报销单关联票据名称和发票号码，可筛选重复号码；未上传或验真票据。员工可在主管审批前撤回，释放预算占用。财务登记付款需填写日期、方式和参考号，仍不执行转账。</p><h3>能力边界</h3><p>预审仅使用透明规则。图片可通过浏览器 OCR 辅助提取，核对后填入表单；附件保存时仅记录名称，不保存原图；角色切换是演示机制，不具备真实身份认证与访问隔离。所有数据保存在当前浏览器，没有后端或多人协作。付款仅改变记录状态，不执行资金转账。</p><h3>后续验证</h3><p>招募员工、主管、财务各 2 人完成任务，记录提交耗时、一次通过率及风险提示理解率；以测试结果调整设计，不将演示数据当作真实业务效果。</p></section>`;
 }
 function insights() {
   const groups = {};
@@ -371,11 +376,41 @@ function bind() {
 }
 function modal(html) {
   const o = document.querySelector("#overlay");
-  o.innerHTML = `<div class="backdrop"><section class="modal">${html}</section></div>`;
-  o.querySelector(".backdrop").onclick = (e) => {
-    if (e.target === e.currentTarget) o.innerHTML = "";
+  o.innerHTML = `<div class="backdrop"><section class="modal" role="dialog" aria-modal="true" aria-label="业务操作窗口" tabindex="-1">${html}</section></div>`;
+  const close = () => {
+    if (
+      o.querySelector("form[data-dirty=true]") &&
+      !confirm("报销尚未保存，确定关闭并放弃本次填写吗？")
+    )
+      return;
+    o.innerHTML = "";
   };
-  o.querySelector("[data-close]").onclick = () => (o.innerHTML = "");
+  o.querySelector(".modal").onkeydown = (e) => {
+    if (e.key === "Escape") {
+      e.preventDefault();
+      close();
+    }
+    if (e.key === "Tab") {
+      const focusable = [
+        ...o.querySelectorAll(
+          "button:not([disabled]),input:not([disabled]),select:not([disabled]),textarea:not([disabled]),summary",
+        ),
+      ].filter((x) => !x.hidden && x.getClientRects().length);
+      const first = focusable[0],
+        last = focusable.at(-1);
+      if (e.shiftKey && document.activeElement === first) {
+        e.preventDefault();
+        last?.focus();
+      } else if (!e.shiftKey && document.activeElement === last) {
+        e.preventDefault();
+        first?.focus();
+      }
+    }
+  };
+  o.querySelector(".backdrop").onclick = (e) => {
+    if (e.target === e.currentTarget) close();
+  };
+  o.querySelector("[data-close]").onclick = close;
   o.querySelector("button,input")?.focus();
 }
 function detail(id) {
@@ -386,7 +421,7 @@ function detail(id) {
     (role === "主管" && x.status === "待主管审批") ||
     (role === "财务" && ["待财务审核", "待付款"].includes(x.status));
   modal(
-    `<div class="modal-title"><div><small>${esc(x.id)}</small><h2>${esc(x.name)}</h2></div><button data-close aria-label="关闭">✕</button></div><div class="detail-amount">${money(x.amount)} <span class="badge">${x.status}</span></div><div class="detail-grid"><p>申请人<b>${esc(x.employee)} · ${esc(x.department)}</b></p><p>费用类型<b>${esc(x.type)}</b></p><p>发票号码<b>${esc(x.invoice || "未填写")}</b></p><p>附件（仅记录名称）<b>${esc(x.receipt || "未提供")}</b></p></div><p>${esc(x.note)}</p><div class="review-box"><h3>✧ 预审说明 · 规则计算</h3>${f.length ? f.map((s) => `<p class="risk">⚑ ${s}</p>`).join("") : '<p class="safe">✓ 未发现超标、缺失附件或重复号码风险</p>'}<small>未进行票据真伪验证；提示不替代人工审核。</small></div>${x.payment ? `<div class="review-box payment-summary"><h3>付款登记信息</h3><p>方式：${esc(x.payment.method)} · 日期：${esc(x.payment.date)}</p><p>参考号：${esc(x.payment.reference)}</p><small>仅作模拟登记，未连接银行或执行转账。</small></div>` : x.status === "已付款" ? '<p class="footnote">历史演示记录未提供付款参考号。</p>' : ""}<h3>流转记录</h3><div class="timeline">${x.history.map((h) => `<p>${esc(h.text)}<small>${esc(h.time)}</small></p>`).join("")}</div>${role === "员工" && x.employee === "林晓" && x.status === "待主管审批" ? '<div class="review-box"><label>撤回原因<textarea id="withdraw-reason" maxlength="200" placeholder="如金额填写有误，需要修改"></textarea></label><button id="withdraw">撤回并修改</button><p>仅主管审批前可撤回，之后需由审核人退回。</p></div>' : ""}${can ? `${x.status === "待付款" ? paymentFields() : ""}<label>处理备注<textarea id="reason" placeholder="退回时必须填写原因"></textarea></label><div class="actions"><button id="reject">退回修改</button><button class="primary" id="approve">${x.status === "待付款" ? "登记付款" : "审核通过"}</button></div>` : role === "员工" && x.employee === "林晓" && ["已退回", "草稿", "已撤回"].includes(x.status) ? `<button class="primary" id="edit">${x.status === "草稿" ? "继续填写草稿" : "修改并重新提交"}</button>` : '<p class="footnote">切换对应角色，在可处理的阶段执行操作。</p>'}`,
+    `<div class="modal-title"><div><small>${esc(x.id)}</small><h2>${esc(x.name)}</h2></div><button data-close aria-label="关闭">✕</button></div><div class="detail-amount">${money(x.amount)} <span class="badge">${x.status}</span></div><div class="detail-grid"><p>申请人<b>${esc(x.employee)} · ${esc(x.department)}</b></p><p>费用类型<b>${esc(x.type)}</b></p><p>发票号码<b>${esc(x.invoice || "未填写")}</b></p><p>附件（仅记录名称）<b>${esc(x.receipt || "未提供")}</b></p></div><p>${esc(x.note)}</p><div class="review-box"><h3>✧ 预审说明 · 规则计算</h3>${f.length ? f.map((s) => `<p class="risk">⚑ ${s}</p>`).join("") : '<p class="safe">✓ 未发现超标、缺失附件或重复号码风险</p>'}<small>未进行票据真伪验证；提示不替代人工审核。</small></div>${x.payment ? `<div class="review-box payment-summary"><h3>付款登记信息</h3><p>方式：${esc(x.payment.method)} · 日期：${esc(x.payment.date)}</p><p>参考号：${esc(x.payment.reference)}</p><small>仅作模拟登记，未连接银行或执行转账。</small></div>` : x.status === "已付款" ? '<p class="footnote">历史演示记录未提供付款参考号。</p>' : ""}${x.ocr ? '<p class="footnote">曾使用浏览器 OCR 辅助并由员工核对，识别不代表发票真实或字段准确。</p>' : ""}<h3>流转记录</h3><div class="timeline">${x.history.map((h) => `<p>${esc(h.text)}<small>${esc(h.time)}</small></p>`).join("")}</div>${role === "员工" && x.employee === "林晓" && x.status === "待主管审批" ? '<div class="review-box"><label>撤回原因<textarea id="withdraw-reason" maxlength="200" placeholder="如金额填写有误，需要修改"></textarea></label><button id="withdraw">撤回并修改</button><p>仅主管审批前可撤回，之后需由审核人退回。</p></div>' : ""}${can ? `${x.status === "待付款" ? paymentFields() : ""}<label>处理备注<textarea id="reason" placeholder="退回时必须填写原因"></textarea></label><div class="actions"><button id="reject">退回修改</button><button class="primary" id="approve">${x.status === "待付款" ? "登记付款" : "审核通过"}</button></div>` : role === "员工" && x.employee === "林晓" && ["已退回", "草稿", "已撤回"].includes(x.status) ? `<button class="primary" id="edit">${x.status === "草稿" ? "继续填写草稿" : "修改并重新提交"}</button>` : '<p class="footnote">切换对应角色，在可处理的阶段执行操作。</p>'}`,
   );
   if (can) {
     document.querySelector("#reject").onclick = () => act("reject");
@@ -447,12 +482,13 @@ function act(action) {
   }
 }
 function form(existing) {
+  let ocrEvidence = existing?.ocr || null;
   if (role !== "员工") {
     toast("请先将体验角色切换为员工，再创建报销");
     return;
   }
   modal(
-    `<div class="modal-title"><h2>${existing ? "编辑报销" : "新建报销"}</h2><button data-close aria-label="关闭">✕</button></div><p class="muted">申请人：林晓 · 销售部</p><form id="expense-form"><label>报销事项<input name="name" maxlength="60" required value="${esc(existing?.name || "")}" placeholder="例如：上海客户拜访差旅"></label><div class="form-grid"><label>费用类型<select name="type">${["差旅交通", "业务招待", "办公采购", "其他费用"].map((t) => `<option ${existing?.type === t ? "selected" : ""}>${t}</option>`).join("")}</select></label><label>金额（元）<input name="amount" type="number" min="0.01" max="1000000" step="0.01" required value="${existing?.amount || ""}"></label></div><label>发票号码<input name="invoice" maxlength="40" value="${esc(existing?.invoice || "")}" placeholder="用于重复报销检测"></label><label>票据附件<input name="receipt" type="file" accept=".pdf,.png,.jpg,.jpeg"><small>仅保留文件名，不上传或识别。${existing?.receipt ? "当前：" + esc(existing.receipt) : ""}</small></label>${existing?.receipt ? '<label class="check-line"><input type="checkbox" name="removeReceipt">移除当前附件名称</label>' : ""}<label>业务说明<textarea name="note" maxlength="500" required placeholder="说明费用用途">${esc(existing?.note || "")}</textarea></label><div id="form-review" class="review-box"></div><div class="actions"><button type="button" id="draft">保存草稿</button><button type="submit" class="primary">提交报销 →</button></div></form>`,
+    `<div class="modal-title"><h2>${existing ? "编辑报销" : "新建报销"}</h2><button data-close aria-label="关闭">✕</button></div><p class="muted">申请人：林晓 · 销售部</p><form id="expense-form"><label>报销事项<input name="name" maxlength="60" required value="${esc(existing?.name || "")}" placeholder="例如：上海客户拜访差旅"></label><div class="form-grid"><label>费用类型<select name="type">${["差旅交通", "业务招待", "办公采购", "其他费用"].map((t) => `<option ${existing?.type === t ? "selected" : ""}>${t}</option>`).join("")}</select></label><label>金额（元）<input name="amount" type="number" min="0.01" max="1000000" step="0.01" required value="${existing?.amount || ""}"></label></div><label>发票号码<input name="invoice" maxlength="40" value="${esc(existing?.invoice || "")}" placeholder="用于重复报销检测"></label><label>票据附件<input name="receipt" type="file" accept=".pdf,.png,.jpg,.jpeg,.webp"><small>图片可在浏览器中识别，不上传原图；保存时仅记录文件名。${existing?.receipt ? "当前：" + esc(existing.receipt) : ""}</small></label>${ocrPanel()}${existing?.receipt ? '<label class="check-line"><input type="checkbox" name="removeReceipt">移除当前附件名称</label>' : ""}<label>业务说明<textarea name="note" maxlength="500" required placeholder="说明费用用途">${esc(existing?.note || "")}</textarea></label><div id="form-review" class="review-box"></div><div class="actions"><button type="button" id="draft">保存草稿</button><button type="submit" class="primary">提交报销 →</button></div></form>`,
   );
   const formEl = document.querySelector("#expense-form");
   const collect = () => {
@@ -473,6 +509,7 @@ function form(existing) {
       date: existing?.date || new Date().toLocaleDateString("sv-SE"),
       status: "待主管审批",
       history: existing?.history || [],
+      ...(ocrEvidence ? { ocr: ocrEvidence } : {}),
     };
   };
   const preview = () => {
@@ -483,6 +520,30 @@ function form(existing) {
   };
   formEl.addEventListener("input", preview);
   preview();
+  mountOcr(formEl, {
+    onApply: ({ invoice, amount }) => {
+      ocrEvidence = {
+        engine: "Tesseract.js",
+        confirmed: true,
+        at: new Date().toISOString(),
+        fields: [
+          ...(invoice ? ["invoice"] : []),
+          ...(amount ? ["amount"] : []),
+        ],
+      };
+      formEl.dataset.dirty = "true";
+    },
+    onSample: () => {
+      preview();
+      formEl.dataset.dirty = "true";
+    },
+  });
+  formEl.elements.receipt.addEventListener("change", () => {
+    ocrEvidence = null;
+  });
+  formEl.addEventListener("input", () => {
+    formEl.dataset.dirty = "true";
+  });
   const persist = (draft) => {
     const x = collect();
     if (
@@ -511,7 +572,11 @@ function form(existing) {
     ];
     if (existing) items[items.findIndex((i) => i.id === x.id)] = x;
     else items.unshift(x);
-    record(draft ? "保存草稿" : "提交报销", x.id, x.name);
+    record(
+      draft ? "保存草稿" : "提交报销",
+      x.id,
+      x.name + (x.ocr ? " · 曾使用OCR辅助并人工核对" : ""),
+    );
     save();
     render();
     toast(
@@ -591,6 +656,13 @@ function downloadFile(content, name, type) {
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 function bindMore() {
+  document
+    .querySelector("#print-case")
+    ?.addEventListener("click", () => window.print());
+  document.querySelector("#case-to-guide")?.addEventListener("click", () => {
+    page = "演示指南";
+    render();
+  });
   document.querySelector("#policy-form")?.addEventListener("submit", (e) => {
     e.preventDefault();
     if (role !== "财务") return;
@@ -691,7 +763,7 @@ function guideView() {
       "体验如何减少返工",
       "员工",
       "报销管理",
-      "先保存草稿，补充金额与业务说明后提交。发现错误可在主管审批前撤回；查看流转记录并重新提交。",
+      "可先载入虚构样票体验 OCR，核对后填入；保存草稿并补充用途后提交。发现错误可在主管审批前撤回再修改。",
       "设计理由：区分草稿、撤回和退回，既降低输入成本，也保持审批状态清晰。",
     ],
     [
@@ -728,7 +800,7 @@ function guideView() {
     )
     .join(
       "",
-    )}</div><div class="review-box"><h3>如实介绍 AI 的作用</h3>可以表述为：“我负责定位、范围和业务流程，借助 AI 完成原型开发与场景验证。”产品内预审目前为确定性规则，没有大模型、OCR、真实财务数据或转账能力。首次体验建议使用已有样例；如需重置，可先在数据管理中导出备份。</div></section>`;
+    )}</div><div class="review-box"><h3>如实介绍 AI 的作用</h3>可以表述为：“我负责定位、范围和业务流程，借助 AI 完成原型开发与场景验证。”产品内预审目前为确定性规则，图片 OCR 已可在浏览器运行；预审没有调用大模型，也没有真实财务数据或转账能力。首次体验建议使用已有样例；如需重置，可先在数据管理中导出备份。</div></section>`;
 }
 function bindExpenses() {
   document.querySelectorAll("[data-invoice-filter]").forEach(

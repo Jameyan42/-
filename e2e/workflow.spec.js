@@ -10,13 +10,11 @@ test("正常报销完成审批付款，刷新仍保留", async ({ page }) => {
   await page.locator("[name=name]").fill("完整流程验证");
   await page.locator("[name=amount]").fill("200");
   await page.locator("[name=invoice]").fill("E2E001");
-  await page
-    .locator("[name=receipt]")
-    .setInputFiles({
-      name: "演示票据.pdf",
-      mimeType: "application/pdf",
-      buffer: Buffer.from("demo"),
-    });
+  await page.locator("[name=receipt]").setInputFiles({
+    name: "演示票据.pdf",
+    mimeType: "application/pdf",
+    buffer: Buffer.from("demo"),
+  });
   await page.locator("[name=note]").fill("虚构业务用途");
   await page.locator("[type=submit]").click();
   await page.locator("#role").selectOption("主管");
@@ -111,25 +109,21 @@ test("备份导出恢复，错误文件拒绝且不影响数据", async ({ page 
   const { readFile } = await import("node:fs/promises");
   const saved = JSON.parse(await readFile(path, "utf8"));
   expect(saved.items).toHaveLength(5);
-  await page
-    .locator("#restore")
-    .setInputFiles({
-      name: "invalid.json",
-      mimeType: "application/json",
-      buffer: Buffer.from('{"version":900}'),
-    });
+  await page.locator("#restore").setInputFiles({
+    name: "invalid.json",
+    mimeType: "application/json",
+    buffer: Buffer.from('{"version":900}'),
+  });
   await expect(page.locator(".toast")).toContainText("导入失败");
   await navigate(page, "报销管理");
   await expect(page.locator("tbody tr")).toHaveCount(5);
   await navigate(page, "数据管理");
   page.once("dialog", (d) => d.accept());
-  await page
-    .locator("#restore")
-    .setInputFiles({
-      name: "backup.json",
-      mimeType: "application/json",
-      buffer: Buffer.from(JSON.stringify(saved)),
-    });
+  await page.locator("#restore").setInputFiles({
+    name: "backup.json",
+    mimeType: "application/json",
+    buffer: Buffer.from(JSON.stringify(saved)),
+  });
   await expect(page.locator(".toast")).toContainText("备份已恢复");
   await navigate(page, "操作记录");
   await expect(page.locator("tbody")).toContainText("导入备份");

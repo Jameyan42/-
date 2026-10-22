@@ -30,7 +30,7 @@ def main():
     git('fetch', 'origin', 'refs/heads/gh-pages')
     parent = git('rev-parse', 'FETCH_HEAD')
     existing = set(git('ls-tree', '-r', '--name-only', parent).splitlines())
-    if existing != {'.nojekyll', 'index.html'}:
+    if not {'.nojekyll','index.html'}.issubset(existing) or any(name not in {'.nojekyll','index.html'} and not name.startswith(('ocr/','samples/')) for name in existing):
         raise SystemExit('Unexpected files in gh-pages; inspect before replacing the site')
     fd, index = tempfile.mkstemp(prefix='qingbao-pages-index-', dir='/tmp')
     os.close(fd)
@@ -40,7 +40,15 @@ def main():
         git('read-tree', '--empty', env=env)
         blob = git('hash-object', '-w', str(artifact))
         empty = git('hash-object', '-w', '--stdin', input=b'')
-        for name, obj in [('index.html', blob), ('.nojekyll', empty)]:
+        assets=[('index.html',blob),('.nojekyll',empty)]
+        for folder in ['ocr','samples']:
+            source=ROOT/'dist'/folder
+            if not source.is_dir():
+                raise SystemExit('Missing static assets; run npm run export:demo')
+            for path in sorted(source.rglob('*')):
+                if path.is_file():
+                    assets.append((folder+'/'+path.relative_to(source).as_posix(),git('hash-object','-w',str(path))))
+        for name, obj in assets:
             git('update-index', '--add', '--cacheinfo', f'100644,{obj},{name}', env=env)
         tree = git('write-tree', env=env)
         if tree == git('rev-parse', parent + '^{tree}'):

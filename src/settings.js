@@ -74,6 +74,19 @@ export function validateBackup(data) {
       validatePayment(x.payment);
       if (x.status !== "已付款") throw new Error("付款信息只能关联已付款单据");
     }
+    if (
+      x.ocr !== undefined &&
+      (!x.ocr ||
+        x.ocr.engine !== "Tesseract.js" ||
+        x.ocr.confirmed !== true ||
+        !text(x.ocr.at, 40) ||
+        Number.isNaN(Date.parse(x.ocr.at)) ||
+        !Array.isArray(x.ocr.fields) ||
+        !x.ocr.fields.length ||
+        x.ocr.fields.length > 2 ||
+        x.ocr.fields.some((f) => !["invoice", "amount"].includes(f)))
+    )
+      throw new Error("OCR 核对记录格式无效");
     ids.add(x.id);
   }
   if (

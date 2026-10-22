@@ -1,48 +1,46 @@
-# 轻报 · 智能费控产品原型
+# 轻报 · 费控产品经理作品
 
-面向产品经理作品集的中文响应式网页，使用虚构数据展示员工报销、规则预审、主管审批、财务审核和付款登记。
+在线体验：https://jameyan42.github.io/-/
 
-## 本地运行
+面向 200 人成长型企业的中文响应式网页原型。支持员工报销、主管审批、财务审核、付款登记、规则预审、预算预警、发票关联台账、草稿与撤回、操作记录和备份恢复。使用虚构数据，尚无真实客户、业务运营指标或生产级身份系统。
 
-需要 Node.js 20.19+ 或 22.12+。
+## 本轮：真实浏览器 OCR
+
+员工 → 新建报销 → 选择 PNG/JPG/WebP → 识别图片 → 核对候选号码和金额 → 勾选确认并填入。也可点击“载入虚构样票”。
+
+引擎为 Tesseract.js，模型与 Worker 由同一站点提供，无外部 OCR API、无密钥、无图片上传。首次按设备加载约 10 MB 数据；浏览器只保存字段、附件名称与核对来源，不保存原图或识别原文。OCR 不等于验真；候选提取可能失败，必须人工核对。PDF 暂不识别，仍可手工报销。
+
+## 运行与验证
+
+需要 Node.js 20.19+ 或 22.12+。生成单文件演示需要 Python 3。
 
 ```sh
 npm ci
 npm run dev
-```
-
-```sh
 npm test
 npm run build
-npm run preview
 ```
 
-开发服务器默认端口 5173，预览默认端口 4173。数据保存在浏览器 localStorage，可通过底部按钮重置。角色切换用于展示不同处理阶段，不是身份认证。新建报销请先切换员工。
+predev/prebuild 自动从 lockfile 安装的 npm 包准备本地 OCR 资源，不依赖外部 CDN。
 
-附件仅记录名称、预审是透明规则、付款仅更新状态。未接入真实 AI 或外部财务服务，无后端与多人协作，不适用于生产财务数据。
+浏览器场景：
 
-产品范围、验收标准、演示路径与验证计划见 [产品需求与面试演示](docs/产品需求与面试演示.md)。
+```sh
+npx playwright install chromium
+npm run test:e2e
+```
 
-## 无需安装的演示方式
+当前云环境已安装 Chromium：`QINGBAO_BROWSER_PATH=/usr/bin/chromium npm run test:e2e`。测试使用公开虚构样票，并真正运行 OCR 引擎，不把写死文本当作识别结果。
 
-打开 `deliverables/轻报演示.html`，可直接在现代桌面浏览器中运行；下载后需保留 `.html` 后缀。使用虚构资料即可。此文件不联网，不需要 Node.js。单文件更新方式：`npm run build` 后运行 `python3 scripts/export_demo.py`。
+## 发布与作品材料
 
-预算管理支持按月查看部门额度、在途占用、已付款和余额；财务可以调整各月份共用的额度，超额为软预警。
+先执行 `npm run export:demo`，提交源码后运行 `python3 scripts/publish_pages.py --publish` 更新已有 gh-pages。main 的工作流只验证构建，网站由 gh-pages 更新发布。单文件的基础报销功能可直接打开；OCR 需要 HTTP/HTTPS 网页与配套资源，请使用在线版或开发服务。
 
-## 更多已完成模块
+- [项目待办与授权边界](docs/项目待办.md)
+- [产品需求与面试演示](docs/产品需求与面试演示.md)
+- [产品经理面试案例](docs/产品经理面试案例.md)
+- [OCR 设计与验证](docs/OCR设计与验证.md)
+- [打开与发布](docs/打开与发布.md)
+- 网页“项目案例”可打印或保存 PDF。
 
-- 财务可配置单笔上限、附件检查和发票查重，变更需填写原因。
-- 支持保存不完整草稿，草稿不占预算，继续填写后可正式提交。
-- 关键操作记录、JSON 全量备份及格式校验后恢复。
-- 已准备 GitHub Pages 工作流，实际发布仍需仓库所有者启用并运行。
-
-打开与发布步骤见 [打开与发布](docs/打开与发布.md)。
-浏览器场景测试：`npx playwright install chromium` 后执行 `npm run test:e2e`。当前云环境可使用 `QINGBAO_BROWSER_PATH=/usr/bin/chromium npm run test:e2e`。
-
-## 在线演示与本轮更新
-
-在线地址：https://jameyan42.github.io/-/
-
-新增发票关联台账、主管审批前的员工撤回、结构化付款登记和交互式演示指南。旧浏览器数据与旧备份继续可用；不要通过清理站点数据刷新版本。
-
-当前站点使用 gh-pages 分支发布。main 工作流负责构建验证，更新网站执行 `npm run export:demo` 后运行 `python3 scripts/publish_pages.py --publish`。详情见 [打开与发布](docs/打开与发布.md)。
+付款只登记记录，不连接银行。角色切换是演示机制，日志不防篡改；请勿用于真实财务数据。
