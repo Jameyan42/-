@@ -1,0 +1,13 @@
+Qingbao browser OCR dependencies
+tesseract.js 7.0.0 — Apache-2.0
+https://github.com/naptha/tesseract.js.git
+
+tesseract.js-core 7.0.0 — Apache-2.0
+https://github.com/naptha/tesseract.js-core.git
+
+@tesseract.js-data/chi_sim 1.0.0 — MIT
+https://github.com/naptha/tessdata.git
+
+@tesseract.js-data/eng 1.0.0 — MIT
+https://github.com/naptha/tessdata.git
+Assets copied from npm packages verified by package-lock.json integrity. Original projects retain their copyrights. Language npm package metadata reports MIT; upstream tessdata language files carry Apache-2.0 (see tessdata-Apache-2.0.txt). Worker dependency notices are preserved in worker-LICENSE.txt.
