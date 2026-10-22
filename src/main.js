@@ -1,3 +1,4 @@
+import { researchView, researchCsv } from "./research.js";
 import { caseStudyView } from "./case-study.js";
 import { ocrPanel, mountOcr } from "./ocr-ui.js";
 import "./style.css";
@@ -180,6 +181,7 @@ function render() {
     ["数据管理", "⇅"],
     ["演示指南", "▷"],
     ["项目案例", "◈"],
+    ["体验测试", "◎"],
     ["产品说明", "◇"],
   ]
     .map(
@@ -192,25 +194,27 @@ function render() {
 <div class="shell"><header><div>工作空间 <span>/</span> ${page}</div><div class="header-right"><span class="demo-tag">产品原型</span><label>体验角色 <select id="role">${["员工", "主管", "财务"].map((r) => `<option ${r === role ? "selected" : ""}>${r}</option>`).join("")}</select></label><div class="avatar">${role === "员工" ? "林" : role === "主管" ? "许" : "周"}</div></div></header>
 <main><div class="page-heading"><div><div class="eyebrow">让每一笔费用，都清晰有序</div><h1>${page === "工作台" ? "工作台" : page}</h1><p>${role === "员工" ? "林晓，你好。提交费用、追踪进度，让报销更轻松。" : role === "主管" ? "许经理，你好。这里是团队费用与审批的最新动态。" : "周会计，你好。集中处理财务审核与付款登记。"}</p></div><button class="primary" id="create">＋ 新建报销</button></div>
 ${
-  page === "项目案例"
-    ? caseStudyView()
-    : page === "产品说明"
-      ? about()
-      : page === "费用洞察"
-        ? insights()
-        : page === "预算管理"
-          ? budgetView()
-          : page === "规则配置"
-            ? policyView()
-            : page === "操作记录"
-              ? auditView()
-              : page === "数据管理"
-                ? dataView()
-                : page === "发票台账"
-                  ? invoiceView()
-                  : page === "演示指南"
-                    ? guideView()
-                    : `
+  page === "体验测试"
+    ? researchView(role)
+    : page === "项目案例"
+      ? caseStudyView()
+      : page === "产品说明"
+        ? about()
+        : page === "费用洞察"
+          ? insights()
+          : page === "预算管理"
+            ? budgetView()
+            : page === "规则配置"
+              ? policyView()
+              : page === "操作记录"
+                ? auditView()
+                : page === "数据管理"
+                  ? dataView()
+                  : page === "发票台账"
+                    ? invoiceView()
+                    : page === "演示指南"
+                      ? guideView()
+                      : `
 ${
   page === "工作台"
     ? `<section class="stats">${[
@@ -255,14 +259,14 @@ ${
     : ""
 }
 <section class="panel"><div class="panel-title"><div><h3>${page === "审批中心" ? "我的审批待办" : "报销记录"}</h3><span>跟踪每一笔费用的处理进度</span></div><button class="quiet" id="export">↓ 导出 CSV</button></div><div class="toolbar"><div class="tabs">${["全部", "草稿", "待主管审批", "待财务审核", "待付款", "已付款", "已退回", "已撤回"].map((s) => `<button data-filter="${s}" class="${filter === s ? "chosen" : ""}">${s === "待主管审批" ? "待审批" : s === "待财务审核" ? "待审核" : s}</button>`).join("")}</div><input id="search" aria-label="搜索报销" placeholder="⌕ 搜索名称、单号或姓名" value="${esc(query)}"></div><div class="table-wrap"><table><thead><tr><th>报销事项 / 单号</th><th>申请人</th><th>费用类型</th><th class="amount">报销金额</th><th>状态</th><th>预审结果</th><th>操作</th></tr></thead><tbody>${
-                        visible()
-                          .map(
-                            (x) =>
-                              `<tr><td><strong>${esc(x.name)}</strong><small>${esc(x.id)} · ${x.date}</small></td><td><div class="person"><span>${esc(x.employee[0])}</span><div>${esc(x.employee)}<small>${esc(x.department)}</small></div></div></td><td>${esc(x.type)}</td><td class="amount"><strong>${money(x.amount)}</strong></td><td><span class="badge s${["待主管审批", "待财务审核", "待付款", "已付款", "已退回", "已撤回"].indexOf(x.status)}">${x.status}</span></td><td><span class="${flags(x).length ? "risk" : "safe"}">${flags(x).length ? "⚑ " + flags(x).length + " 项待核查" : "✓ 未发现风险"}</span></td><td><button class="link" data-detail="${esc(x.id)}">查看 →</button></td></tr>`,
-                          )
-                          .join("") ||
-                        '<tr><td colspan="7" class="empty">暂无符合条件的报销记录</td></tr>'
-                      }</tbody></table></div><div class="table-footer">共 ${visible().length} 条记录<span>所有金额均为人民币 CNY</span></div></section><div class="footnote">ⓘ 演示使用虚构人员与票据；预审为规则计算，未接入大模型、发票验真或银行付款。</div>`
+                          visible()
+                            .map(
+                              (x) =>
+                                `<tr><td><strong>${esc(x.name)}</strong><small>${esc(x.id)} · ${x.date}</small></td><td><div class="person"><span>${esc(x.employee[0])}</span><div>${esc(x.employee)}<small>${esc(x.department)}</small></div></div></td><td>${esc(x.type)}</td><td class="amount"><strong>${money(x.amount)}</strong></td><td><span class="badge s${["待主管审批", "待财务审核", "待付款", "已付款", "已退回", "已撤回"].indexOf(x.status)}">${x.status}</span></td><td><span class="${flags(x).length ? "risk" : "safe"}">${flags(x).length ? "⚑ " + flags(x).length + " 项待核查" : "✓ 未发现风险"}</span></td><td><button class="link" data-detail="${esc(x.id)}">查看 →</button></td></tr>`,
+                            )
+                            .join("") ||
+                          '<tr><td colspan="7" class="empty">暂无符合条件的报销记录</td></tr>'
+                        }</tbody></table></div><div class="table-footer">共 ${visible().length} 条记录<span>所有金额均为人民币 CNY</span></div></section><div class="footnote">ⓘ 演示使用虚构人员与票据；预审为规则计算，未接入大模型、发票验真或银行付款。</div>`
 }</main><footer>轻报 QINGBAO <span>让费用管理回归简单</span><button id="reset">重置演示数据</button></footer></div><div id="overlay"></div>`;
   bind();
 }
@@ -521,6 +525,9 @@ function form(existing) {
   formEl.addEventListener("input", preview);
   preview();
   mountOcr(formEl, {
+    onInvalidate: () => {
+      ocrEvidence = null;
+    },
     onApply: ({ invoice, amount }) => {
       ocrEvidence = {
         engine: "Tesseract.js",
@@ -656,6 +663,15 @@ function downloadFile(content, name, type) {
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 function bindMore() {
+  document
+    .querySelector("#research-export")
+    ?.addEventListener("click", () =>
+      downloadFile(
+        researchCsv(),
+        "轻报-可用性测试空白记录.csv",
+        "text/csv;charset=utf-8",
+      ),
+    );
   document
     .querySelector("#print-case")
     ?.addEventListener("click", () => window.print());

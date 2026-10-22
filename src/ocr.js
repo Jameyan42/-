@@ -1,34 +1,45 @@
 import { createWorker } from "tesseract.js";
+import { renderInvoiceImage, defaultImageSettings } from "./image-tools.js";
 export function extractInvoiceFields(text) {
   const normalized = String(text || "").normalize("NFKC");
-  const label = normalized.match(
-    /(?:发\s*票\s*号\s*码|Invoice\s*(?:No\.?|Number))\s*[:：#]?\s*([\d \t]{8,40})/i,
-  );
-  const digits = label?.[1].replace(/\D/g, "") || "";
-  const invoice = digits.length >= 8 && digits.length <= 20 ? digits : "";
+  const numbers = [
+    ...normalized.matchAll(
+      /(?:发\s*票\s*号\s*码|Invoice\s*(?:No\.?|Number))\s*[:：#]?\s*([\d \t]{8,40})/gi,
+    ),
+  ]
+    .map((m) => m[1].replace(/\D/g, ""))
+    .filter((n) => n.length >= 8 && n.length <= 20);
+  const unique = [...new Set(numbers)];
+  const invoice = unique.length === 1 ? unique[0] : "";
   const lines = normalized.split(/[\r\n]+/);
-  let amount = "";
+  const totalLabel =
+    /(?:价\s*税\s*合\s*计|合\s*计\s*金\s*额|总\s*金\s*额|\bTOTAL\b)/i;
+  const totals = [];
   for (let i = 0; i < lines.length; i++) {
-    if (
-      !/(?:价\s*税\s*合\s*计|合\s*计\s*金\s*额|总\s*金\s*额|\bTOTAL\b)/i.test(
-        lines[i],
-      )
-    )
+    if (!totalLabel.test(lines[i])) continue;
+    const own = lines[i].split(totalLabel).slice(1).join("");
+    const matches = [...own.matchAll(/(?:[¥￥]\s*)?(\d[\d,]*\.\d{2})(?!\d)/g)];
+    if (matches.length > 1) {
+      totals.push(null);
       continue;
-    const part = lines[i] + " " + (lines[i + 1] || "");
-    const after = part.replace(
-      /^.*?(?:价\s*税\s*合\s*计|合\s*计\s*金\s*额|总\s*金\s*额|\bTOTAL\b)/i,
-      "",
-    );
-    const matches = [
-      ...after.matchAll(/(?:[¥￥]\s*)?(\d[\d,]*\.\d{2})(?!\d)/g),
-    ];
-    if (matches.length === 1) {
-      const n = Number(matches[0][1].replaceAll(",", ""));
-      if (n > 0 && n <= 1000000) amount = n.toFixed(2);
     }
-    break;
+    if (matches.length === 1) {
+      totals.push(Number(matches[0][1].replaceAll(",", "")));
+      continue;
+    }
+    const next = lines[i + 1]?.trim() || "";
+    const m = next.match(
+      /^(?:[（(]?小写[）)]?\s*[:：]?\s*)?[¥￥]?\s*(\d[\d,]*\.\d{2})\s*$/,
+    );
+    if (m) totals.push(Number(m[1].replaceAll(",", "")));
   }
+  const valid = totals.filter(
+    (n) => Number.isFinite(n) && n > 0 && n <= 1000000,
+  );
+  const amount =
+    totals.length && valid.length === totals.length && new Set(valid).size === 1
+      ? valid[0].toFixed(2)
+      : "";
   return { invoice, amount };
 }
 export function checkOcrFile(file) {
@@ -39,8 +50,13 @@ export function checkOcrFile(file) {
     throw new Error("图片不能超过 6 MB，请先压缩后重试");
   if (!file.size) throw new Error("图片为空，请重新选择");
 }
-export function startRecognition(file, onProgress = () => {}) {
+export function startRecognition(
+  file,
+  onProgress = () => {},
+  settings = defaultImageSettings(),
+) {
   let worker,
+    canvas,
     cancelled = false,
     rejectCancel,
     timer;
@@ -51,6 +67,10 @@ export function startRecognition(file, onProgress = () => {}) {
     if (cancelled) return;
     cancelled = true;
     clearTimeout(timer);
+    if (canvas) {
+      canvas.width = 1;
+      canvas.height = 1;
+    }
     if (worker) void worker.terminate();
     rejectCancel(new Error(message));
   };
@@ -58,17 +78,9 @@ export function startRecognition(file, onProgress = () => {}) {
     checkOcrFile(file);
     if (location.protocol === "file:")
       throw new Error("本地单文件无法加载 OCR 引擎，请打开在线版，或手工填写");
-    const bitmap = await createImageBitmap(file);
+    canvas = await renderInvoiceImage(file, settings);
     try {
-      if (bitmap.width * bitmap.height > 16000000)
-        throw new Error("图片尺寸过大，请缩小到 1600 万像素以内");
-      const scale = Math.min(1, 2200 / Math.max(bitmap.width, bitmap.height));
-      const canvas = document.createElement("canvas");
-      canvas.width = Math.round(bitmap.width * scale);
-      canvas.height = Math.round(bitmap.height * scale);
-      canvas
-        .getContext("2d")
-        .drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+      if (cancelled) throw new Error("已取消识别");
       const base = new URL("./ocr/", document.baseURI).href;
       worker = await createWorker(["chi_sim", "eng"], 1, {
         workerPath: base + "worker.min.js",
@@ -79,7 +91,8 @@ export function startRecognition(file, onProgress = () => {}) {
         logger: (m) => {
           if (!cancelled) onProgress(m);
         },
-        errorHandler: () => {},
+        errorHandler: () =>
+          cancel("识别引擎加载失败，请检查网络并重试，或手工填写"),
       });
       if (cancelled) {
         await worker.terminate();
@@ -92,7 +105,8 @@ export function startRecognition(file, onProgress = () => {}) {
         ...extractInvoiceFields(result.data.text),
       };
     } finally {
-      bitmap.close();
+      canvas.width = 1;
+      canvas.height = 1;
       if (worker) await worker.terminate();
     }
   })();
