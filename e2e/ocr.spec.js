@@ -176,3 +176,35 @@ test("语言资源加载失败立即回退，手工字段保留且允许重试",
   await expect(page.locator("#ocr-start")).toBeEnabled();
   await expect(page.locator("[name=amount]")).toHaveValue("66");
 });
+test("横倒的实际图片可通过左转恢复后识别", async ({ page }) => {
+  test.setTimeout(120000);
+  await openForm(page);
+  const encoded = await page.evaluate(async () => {
+    const blob = await (await fetch("./samples/demo-invoice.png")).blob(),
+      image = await createImageBitmap(blob),
+      canvas = document.createElement("canvas");
+    canvas.width = image.height;
+    canvas.height = image.width;
+    const ctx = canvas.getContext("2d");
+    ctx.translate(canvas.width / 2, canvas.height / 2);
+    ctx.rotate(Math.PI / 2);
+    ctx.drawImage(image, -image.width / 2, -image.height / 2);
+    image.close();
+    return canvas.toDataURL("image/png").split(",")[1];
+  });
+  await page
+    .locator("[name=receipt]")
+    .setInputFiles({
+      name: "横倒的虚构样票.png",
+      mimeType: "image/png",
+      buffer: Buffer.from(encoded, "base64"),
+    });
+  await expect(page.locator("#ocr-editor")).toBeVisible();
+  await page.locator("#image-left").click();
+  await page.locator("#ocr-start").click();
+  await expect(page.locator("#ocr-invoice")).toHaveValue(
+    "12345678901234567890",
+    { timeout: 90000 },
+  );
+  await expect(page.locator("#ocr-amount")).toHaveValue("268.50");
+});
