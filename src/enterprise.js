@@ -1,3 +1,4 @@
+import { validateInvoices } from "./invoice-data.js";
 import {
   evaluatePrecheck,
   assertPrecheck,
@@ -251,6 +252,7 @@ export function validateEnterprise(state) {
       p.supplierSnapshot.creditCode !== c.supplierSnapshot.creditCode
     )
       fail("支付单主体与已复核合同不一致");
+    if (p.invoices !== undefined) validateInvoices(p.invoices);
     validateSnapshot(p.approval, p.status, "expense");
     for (const h of p.history)
       if (h.precheck !== undefined)
@@ -428,6 +430,9 @@ export function submitCorporate(state, input, actor, org, flows, id = "") {
   const p = {
     id: old?.id || uid("DG"),
     name: input.name?.trim(),
+    ...(input.invoices !== undefined
+      ? { invoices: structuredClone(validateInvoices(input.invoices)) }
+      : {}),
     contractId: c.id,
     contractVersion: c.version,
     supplierId: s.id,

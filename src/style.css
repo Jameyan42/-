@@ -1865,7 +1865,7 @@ header .demo-tag::after {
   margin-top: 12px;
 }
 header .demo-tag::after {
-  content: " · v0.21";
+  content: " · v0.22";
 }
 header .header-right {
   gap: 13px;
@@ -2780,5 +2780,39 @@ header .header-right label {
   .precheck-rule {
     grid-template-columns: 1fr;
     gap: 12px;
+  }
+}
+
+.invoice-data-card {
+  border: 1px solid #dbe3ef;
+  border-radius: 10px;
+  padding: 16px;
+  margin: 16px 0;
+  overflow-wrap: anywhere;
+  background: white;
+}
+.invoice-data-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px 20px;
+}
+.invoice-data-grid b,
+.invoice-data-grid small {
+  display: block;
+  margin-top: 7px;
+}
+.invoice-data-card small {
+  color: #66758b;
+  line-height: 1.8;
+}
+.invoice-data-editor input[type="file"] {
+  width: 100%;
+}
+.invoice-structured-ledger {
+  margin-top: 24px;
+}
+@media (max-width: 520px) {
+  .invoice-data-grid {
+    grid-template-columns: 1fr;
   }
 }

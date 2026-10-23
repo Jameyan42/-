@@ -39,6 +39,7 @@ export function batchPayment(
   actor,
   { prefix, date, method, confirmed, note = "" },
   policy,
+  context = {},
 ) {
   if (
     !Array.isArray(ids) ||
@@ -63,7 +64,7 @@ export function batchPayment(
       if (d.ledgerReview.reviewedBy !== n?.actorId)
         throw Error("所选单据总账复核记录不一致");
     }
-    const flags = review(d, items, policy);
+    const flags = review(d, items, policy, context);
     if (flags.length) throw Error("所选单据仍有预审风险，请先逐笔核对处理");
     assertUniqueReference(refs[i], items);
     updates.set(
@@ -76,7 +77,7 @@ export function batchPayment(
         { reference: refs[i], date, method, confirmed },
         actor,
         null,
-        { items, policy },
+        { ...context, items, policy },
       ),
     );
   });

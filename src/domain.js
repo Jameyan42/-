@@ -8,8 +8,8 @@ import { advanceApproval } from "./approval.js";
 import { defaultPolicy } from "./settings.js";
 import { validatePayment } from "./expenses.js";
 export const stages = ["待主管审批", "待财务审核", "待付款", "已付款"];
-export function review(item, all = [], policy = defaultPolicy) {
-  return evaluatePrecheck("expense", item, { items: all }, policy)
+export function review(item, all = [], policy = defaultPolicy, context = {}) {
+  return evaluatePrecheck("expense", item, { ...context, items: all }, policy)
     .findings.filter((f) => f.effect === "block")
     .map((f) => f.message);
 }

@@ -1,3 +1,11 @@
+import { structuredInvoiceRows, structuredInvoiceCsv } from "./invoice-data.js";
+import {
+  invoiceEditor,
+  mountInvoiceEditor,
+  invoiceDetails,
+  bindInvoiceDetails,
+  structuredInvoiceView,
+} from "./invoice-data-ui.js";
 import { evaluatePrecheck } from "./precheck.js";
 import {
   precheckPanel,
@@ -12,6 +20,7 @@ import {
   persistEnterprise,
   enterpriseKey,
   enterprisePages,
+  visibleCorporate,
 } from "./enterprise.js";
 import { enterpriseView, mountEnterprise } from "./enterprise-ui.js";
 import {
@@ -513,7 +522,12 @@ function save() {
   localStorage.setItem("qingbao-v1", JSON.stringify(items));
 }
 function expensePrecheck(x) {
-  return evaluatePrecheck("expense", x, { items }, policy);
+  return evaluatePrecheck(
+    "expense",
+    x,
+    { items, enterprise, enterpriseHealthy },
+    policy,
+  );
 }
 function requirePolicyForApproval(status) {
   if (!policyHealthy && ["待财务审核", "待总账复核", "待付款"].includes(status))
@@ -522,7 +536,7 @@ function requirePolicyForApproval(status) {
     );
 }
 function flags(x) {
-  return review(x, items, policy);
+  return review(x, items, policy, { enterprise, enterpriseHealthy });
 }
 function toast(s) {
   document.querySelector(".toast")?.remove();
@@ -601,6 +615,7 @@ ${
         configuration.flows,
         policy,
         policyHealthy,
+        items,
       )
     : page === "消息中心"
       ? messagesView(
@@ -742,7 +757,7 @@ ${
   document.querySelector("aside").scrollTop = navigationScroll;
 }
 function about() {
-  return `<section class="panel prose"><h2>用 AI 辅助构建，让产品思考可见</h2><p>轻报面向 200 人成长型企业的费控演示作品，覆盖员工差旅与对公支付两条业务线。产品假设和自动化测试不代表真实用户研究或生产效果。</p><h3>员工费用闭环</h3><p>费用申请与出差行程 → 多项费用明细及酒店水单等附件 → 报销提交 → 具名审批 → 财务审核 → 总账复核 → 模拟付款。管理员先发布财务分工模板，新单按版本生成审批快照；旧单保留原路径。</p><h3>对公支付闭环</h3><p>管理员维护供应商和虚构收款账户 → 员工提交合同 → 本地规则初筛 → 财务或管理员阅读全文并复核 → 员工按本人已复核合同发起对公支付单 → 部门业务节点、财务、总账、指定付款人员逐级办理。合同在途与已付共同占用额度，退回或撤回释放；供应商变更不改写已提交单据收款快照。</p><h3>报销与对公规则预审</h3><p>可配置10条补充规则、阈值及提醒/拦截，展示触发依据、关联单号和核对建议。当前规则在财务、总账和付款时重新检查，主管仍可转交财务；每次处理保留规则参数与结果，历史不随当前配置改写。它不是AI、发票验真或自动审批。</p><h3>合同审查范围</h3><p>支持粘贴正文与UTF-8 TXT导入，对主体、付款、验收、发票、违约及争议条款做透明规则初筛，显示片段与人工核对建议。不是大模型或法律意见；真实 AI 尚未连接，PDF/DOCX正文提取尚未提供。</p><h3>存储与使用范围</h3><p>数据与报销附件原文件保存在本浏览器，可下载备份后迁移。浏览器OCR不上传图片，发票识别不等于验真。角色选择是演示机制，没有生产鉴权、后端并发或跨设备实时同步。只使用虚构资料，模拟付款不执行转账。</p><h3>当前模块边界</h3><p>对公任务在对公支付单办理，尚未统一到原审批中心、消息中心和报销付款工作台；对公合同额度与原部门报销预算分别统计。对公履约附件与发票验真、真实银行支付、总账凭证、真实 AI 待后续接入。</p></section>`;
+  return `<section class="panel prose"><h2>用 AI 辅助构建，让产品思考可见</h2><p>轻报面向 200 人成长型企业的费控演示作品，覆盖员工差旅与对公支付两条业务线。产品假设和自动化测试不代表真实用户研究或生产效果。</p><h3>员工费用闭环</h3><p>费用申请与出差行程 → 多项费用明细及酒店水单等附件 → 报销提交 → 具名审批 → 财务审核 → 总账复核 → 模拟付款。管理员先发布财务分工模板，新单按版本生成审批快照；旧单保留原路径。</p><h3>对公支付闭环</h3><p>管理员维护供应商和虚构收款账户 → 员工提交合同 → 本地规则初筛 → 财务或管理员阅读全文并复核 → 员工按本人已复核合同发起对公支付单 → 部门业务节点、财务、总账、指定付款人员逐级办理。合同在途与已付共同占用额度，退回或撤回释放；供应商变更不改写已提交单据收款快照。</p><h3>报销与对公规则预审</h3><p>可配置14条补充规则、阈值及提醒/拦截，展示触发依据、关联单号和核对建议。当前规则在财务、总账和付款时重新检查，主管仍可转交财务；每次处理保留规则参数与结果，历史不随当前配置改写。它不是AI、发票验真或自动审批。</p><h3>票面结构化与自动比对</h3><p>报销和对公支持每单最多5张票面数据，浏览器OCR提取候选后人工修正并确认，记录购销方、税号、号码、日期及金额税额。财务统一抬头基准，系统比对购买方、多票合计、金额税额和跨单重复；票面金额不自动改写申请金额。采集区不留原件，报销附件可另存；图片读取不代表官方验真。</p><h3>合同审查范围</h3><p>支持粘贴正文与UTF-8 TXT导入，对主体、付款、验收、发票、违约及争议条款做透明规则初筛，显示片段与人工核对建议。不是大模型或法律意见；真实 AI 尚未连接，PDF/DOCX正文提取尚未提供。</p><h3>存储与使用范围</h3><p>数据与报销附件原文件保存在本浏览器，可下载备份后迁移。浏览器OCR不上传图片，发票识别不等于验真。角色选择是演示机制，没有生产鉴权、后端并发或跨设备实时同步。只使用虚构资料，模拟付款不执行转账。</p><h3>当前模块边界</h3><p>对公任务在对公支付单办理，尚未统一到原审批中心、消息中心和报销付款工作台；对公合同额度与原部门报销预算分别统计。对公履约附件与发票验真、真实银行支付、总账凭证、真实 AI 待后续接入。</p></section>`;
 }
 function insights() {
   const groups = {};
@@ -767,8 +782,9 @@ function canLeaveOrgEditor() {
     confirm("节点修改尚未保存，是否放弃修改并切换？")
   );
 }
+let enterpriseController;
 function bind() {
-  mountEnterprise({
+  enterpriseController = mountEnterprise({
     page,
     getState: () => enterprise,
     actor: currentActor(),
@@ -1137,9 +1153,10 @@ function detail(id) {
   const precheck = expensePrecheck(x);
   const can = canHandleExpense(x);
   modal(
-    `<div class="modal-title"><div><small>${esc(x.id)}</small><h2>${esc(x.name)}</h2></div><button data-close aria-label="关闭">✕</button></div><div class="detail-amount">${money(x.amount)} <span class="badge">${x.status}</span></div><div class="detail-grid"><p>申请人<b>${esc(x.employee)} · ${esc(x.department)}</b></p><p>费用类型<b>${esc(x.type)}</b></p><p>发票号码<b>${esc(x.invoice || "未填写")}</b></p><p>原票据附件名称（旧入口）<b>${esc(x.receipt || "未提供")}</b></p></div><p>${esc(x.note)}</p>${precheckPanel(precheck, { healthy: policyHealthy })}${precheckHistory(x.history)}${x.payment ? `<div class="review-box payment-summary"><h3>付款登记信息</h3><p>方式：${esc(x.payment.method)} · 日期：${esc(x.payment.date)}</p><p>参考号：${esc(x.payment.reference)}</p><small>仅作模拟登记，未连接银行或执行转账。</small></div>` : x.status === "已付款" ? '<p class="footnote">历史演示记录未提供付款参考号。</p>' : ""}${x.ocr ? '<p class="footnote">曾使用浏览器 OCR 辅助并由员工核对，识别不代表发票真实或字段准确。</p>' : ""}${x.requestId ? `<div class="review-box"><h3>关联费用申请</h3><p>${esc(requests.find((r) => r.id === x.requestId)?.name || x.requestId)}</p><small>提交时占用申请额度，付款后转为实际支出；未核销余额仍预留。</small></div>` : ""}${attachmentDetails(x.attachments)}${travelSummary(x.travel)}${x.ledgerReview ? `<div class="review-box ledger-summary"><h3>总账复核记录</h3><p>科目：${esc(x.ledgerReview.account)} · 核算归属：${esc(x.ledgerReview.costCenter)}</p><small>复核时间：${esc(new Date(x.ledgerReview.at).toLocaleString("zh-CN"))}；仅模拟记录，未生成会计凭证。</small></div>` : ""}${approvalTimeline(x)}<h3>流转记录</h3><div class="timeline">${x.history.map((h) => `<p>${esc(h.text)}<small>${esc(h.operation ? new Date(h.operation.at).toLocaleString("zh-CN") : h.time)}${h.operation ? " · " + esc(h.operation.actorName) + " · " + (h.operation.flowVersion ? "v" + h.operation.flowVersion : "历史固定流程") : ""}</small></p>`).join("")}</div>${role === "员工" && x.employee === currentEmployee() && x.status === "待主管审批" && (x.approval?.cursor || 0) === 0 ? '<div class="review-box"><label>撤回原因<textarea id="withdraw-reason" maxlength="200" placeholder="如金额填写有误，需要修改"></textarea></label><button id="withdraw">撤回并修改</button><p>仅主管审批前可撤回，之后需由审核人退回。</p></div>' : ""}${can ? `${x.status === "待付款" ? paymentFields() : x.status === "待总账复核" ? '<div class="review-box"><h3>总账复核信息</h3><label>总账科目<input id="ledger-account" maxlength="100" placeholder="如 6602 管理费用（仅演示）"></label><label>核算归属<input id="ledger-costcenter" maxlength="100" placeholder="如 法报中心 / 示例项目"></label><small>只记录复核信息，不生成会计凭证或自动记账。</small></div>' : ""}<label>处理备注<textarea id="reason" placeholder="退回时必须填写原因"></textarea></label><div class="actions"><button id="reject">退回修改</button><button class="primary" id="approve">${x.status === "待付款" ? "登记付款" : "审核通过"}</button></div>` : role === "员工" && x.employee === currentEmployee() && ["已退回", "草稿", "已撤回"].includes(x.status) ? `<button class="primary" id="edit">${x.status === "草稿" ? "继续填写草稿" : "修改并重新提交"}</button>` : '<p class="footnote">切换到审批路径中指定的角色和具体人员后处理。</p>'}`,
+    `<div class="modal-title"><div><small>${esc(x.id)}</small><h2>${esc(x.name)}</h2></div><button data-close aria-label="关闭">✕</button></div><div class="detail-amount">${money(x.amount)} <span class="badge">${x.status}</span></div><div class="detail-grid"><p>申请人<b>${esc(x.employee)} · ${esc(x.department)}</b></p><p>费用类型<b>${esc(x.type)}</b></p><p>发票号码<b>${esc(x.invoice || "未填写")}</b></p><p>原票据附件名称（旧入口）<b>${esc(x.receipt || "未提供")}</b></p></div><p>${esc(x.note)}</p>${precheckPanel(precheck, { healthy: policyHealthy })}${precheckHistory(x.history)}${x.payment ? `<div class="review-box payment-summary"><h3>付款登记信息</h3><p>方式：${esc(x.payment.method)} · 日期：${esc(x.payment.date)}</p><p>参考号：${esc(x.payment.reference)}</p><small>仅作模拟登记，未连接银行或执行转账。</small></div>` : x.status === "已付款" ? '<p class="footnote">历史演示记录未提供付款参考号。</p>' : ""}${x.ocr ? '<p class="footnote">曾使用浏览器 OCR 辅助并由员工核对，识别不代表发票真实或字段准确。</p>' : ""}${x.requestId ? `<div class="review-box"><h3>关联费用申请</h3><p>${esc(requests.find((r) => r.id === x.requestId)?.name || x.requestId)}</p><small>提交时占用申请额度，付款后转为实际支出；未核销余额仍预留。</small></div>` : ""}${invoiceDetails(x.invoices, policy)}${attachmentDetails(x.attachments)}${travelSummary(x.travel)}${x.ledgerReview ? `<div class="review-box ledger-summary"><h3>总账复核记录</h3><p>科目：${esc(x.ledgerReview.account)} · 核算归属：${esc(x.ledgerReview.costCenter)}</p><small>复核时间：${esc(new Date(x.ledgerReview.at).toLocaleString("zh-CN"))}；仅模拟记录，未生成会计凭证。</small></div>` : ""}${approvalTimeline(x)}<h3>流转记录</h3><div class="timeline">${x.history.map((h) => `<p>${esc(h.text)}<small>${esc(h.operation ? new Date(h.operation.at).toLocaleString("zh-CN") : h.time)}${h.operation ? " · " + esc(h.operation.actorName) + " · " + (h.operation.flowVersion ? "v" + h.operation.flowVersion : "历史固定流程") : ""}</small></p>`).join("")}</div>${role === "员工" && x.employee === currentEmployee() && x.status === "待主管审批" && (x.approval?.cursor || 0) === 0 ? '<div class="review-box"><label>撤回原因<textarea id="withdraw-reason" maxlength="200" placeholder="如金额填写有误，需要修改"></textarea></label><button id="withdraw">撤回并修改</button><p>仅主管审批前可撤回，之后需由审核人退回。</p></div>' : ""}${can ? `${x.status === "待付款" ? paymentFields() : x.status === "待总账复核" ? '<div class="review-box"><h3>总账复核信息</h3><label>总账科目<input id="ledger-account" maxlength="100" placeholder="如 6602 管理费用（仅演示）"></label><label>核算归属<input id="ledger-costcenter" maxlength="100" placeholder="如 法报中心 / 示例项目"></label><small>只记录复核信息，不生成会计凭证或自动记账。</small></div>' : ""}<label>处理备注<textarea id="reason" placeholder="退回时必须填写原因"></textarea></label><div class="actions"><button id="reject">退回修改</button><button class="primary" id="approve">${x.status === "待付款" ? "登记付款" : "审核通过"}</button></div>` : role === "员工" && x.employee === currentEmployee() && ["已退回", "草稿", "已撤回"].includes(x.status) ? `<button class="primary" id="edit">${x.status === "草稿" ? "继续填写草稿" : "修改并重新提交"}</button>` : '<p class="footnote">切换到审批路径中指定的角色和具体人员后处理。</p>'}`,
   );
   bindAttachmentDetails(document.querySelector("#overlay"), x.attachments);
+  bindInvoiceDetails(document.querySelector("#overlay"), x.invoices);
   if (can) {
     document.querySelector("#reject").onclick = () => act("reject");
     document.querySelector("#approve").onclick = () => act("approve");
@@ -1183,7 +1200,7 @@ function act(action) {
             costCenter: document.querySelector("#ledger-costcenter").value,
           }
         : null,
-      { items, policy },
+      { items, policy, enterprise, enterpriseHealthy },
     );
     if (nextDoc.status === "已付款") {
       if (!enterpriseHealthy)
@@ -1230,7 +1247,7 @@ function form(existing) {
     return;
   }
   modal(
-    `<div class="modal-title"><h2>${existing ? "编辑报销" : "新建报销"}</h2><button data-close aria-label="关闭">✕</button></div><p class="muted">申请人：${esc(currentEmployee())} · ${esc(currentDepartment())}</p><form id="expense-form"><label>报销事项<input name="name" maxlength="60" required value="${esc(existing?.name || "")}" placeholder="例如：上海客户拜访差旅"></label><div class="form-grid"><label>费用类型<select name="type">${["差旅交通", "业务招待", "办公采购", "其他费用"].map((t) => `<option ${existing?.type === t ? "selected" : ""}>${t}</option>`).join("")}</select></label><label>金额（元）<input name="amount" type="number" min="0.01" max="1000000" step="0.01" required value="${existing?.amount || ""}"></label></div><label>发票号码<input name="invoice" maxlength="40" value="${esc(existing?.invoice || "")}" placeholder="用于重复报销检测"></label><label>发票OCR / 原票据名称<input name="receipt" type="file" accept=".pdf,.png,.jpg,.jpeg,.webp"><small>图片可在浏览器中识别，不上传原图；此旧入口仅记录文件名；要保留原文件，请使用下方“报销附件”。${existing?.receipt ? "当前：" + esc(existing.receipt) : ""}</small></label>${attachmentEditor()}${requestOptions(requests, items, existing, new Date().toLocaleDateString("sv-SE"), currentEmployee())}${travelForm("expense", existing?.travel)}${ocrPanel()}${existing?.receipt ? '<label class="check-line"><input type="checkbox" name="removeReceipt">移除当前附件名称</label>' : ""}<label>业务说明<textarea name="note" maxlength="500" required placeholder="说明费用用途">${esc(existing?.note || "")}</textarea></label><div id="form-review" class="review-box"></div><div class="actions"><button type="button" id="draft">保存草稿</button><button type="submit" class="primary">提交报销 →</button></div></form>`,
+    `<div class="modal-title"><h2>${existing ? "编辑报销" : "新建报销"}</h2><button data-close aria-label="关闭">✕</button></div><p class="muted">申请人：${esc(currentEmployee())} · ${esc(currentDepartment())}</p><form id="expense-form"><label>报销事项<input name="name" maxlength="60" required value="${esc(existing?.name || "")}" placeholder="例如：上海客户拜访差旅"></label><div class="form-grid"><label>费用类型<select name="type">${["差旅交通", "业务招待", "办公采购", "其他费用"].map((t) => `<option ${existing?.type === t ? "selected" : ""}>${t}</option>`).join("")}</select></label><label>金额（元）<input name="amount" type="number" min="0.01" max="1000000" step="0.01" required value="${existing?.amount || ""}"></label></div><label>发票号码<input name="invoice" maxlength="40" value="${esc(existing?.invoice || "")}" placeholder="用于重复报销检测"></label><label>发票OCR / 原票据名称<input name="receipt" type="file" accept=".pdf,.png,.jpg,.jpeg,.webp"><small>图片可在浏览器中识别，不上传原图；此旧入口仅记录文件名；要保留原文件，请使用下方“报销附件”。${existing?.receipt ? "当前：" + esc(existing.receipt) : ""}</small></label>${attachmentEditor()}${requestOptions(requests, items, existing, new Date().toLocaleDateString("sv-SE"), currentEmployee())}${travelForm("expense", existing?.travel)}${ocrPanel()}${invoiceEditor()}${existing?.receipt ? '<label class="check-line"><input type="checkbox" name="removeReceipt">移除当前附件名称</label>' : ""}<label>业务说明<textarea name="note" maxlength="500" required placeholder="说明费用用途">${esc(existing?.note || "")}</textarea></label><div id="form-review" class="review-box"></div><div class="actions"><button type="button" id="draft">保存草稿</button><button type="submit" class="primary">提交报销 →</button></div></form>`,
   );
   const formEl = document.querySelector("#expense-form");
   const collect = () => {
@@ -1254,6 +1271,7 @@ function form(existing) {
       ...(d.get("requestId") ? { requestId: d.get("requestId") } : {}),
       ...(ocrEvidence ? { ocr: ocrEvidence } : {}),
       attachments: attachmentFiles.read(),
+      invoices: invoiceCapture.read(),
       ...(travelEditor.read() ? { travel: travelEditor.read() } : {}),
     };
   };
@@ -1270,6 +1288,15 @@ function form(existing) {
     () => preview(),
   );
   const travelEditor = mountTravelForm(formEl, () => preview());
+  const invoiceCapture = mountInvoiceEditor(
+    formEl,
+    existing?.invoices,
+    policy,
+    {
+      getAmount: () => formEl.elements.amount.value,
+      onChange: () => preview(),
+    },
+  );
   formEl.elements.requestId.addEventListener("change", () => {
     const r = requests.find((r) => r.id === formEl.elements.requestId.value);
     if (r) {
@@ -1285,7 +1312,7 @@ function form(existing) {
     onInvalidate: () => {
       ocrEvidence = null;
     },
-    onApply: ({ invoice, amount }) => {
+    onApply: ({ invoice, amount, structured }) => {
       ocrEvidence = {
         engine: "Tesseract.js",
         confirmed: true,
@@ -1295,6 +1322,15 @@ function form(existing) {
           ...(amount ? ["amount"] : []),
         ],
       };
+      if (structured?.number && structured.amount)
+        try {
+          invoiceCapture.addFromOcr(
+            structured,
+            formEl.elements.receipt.files[0]?.name || "快速OCR",
+          );
+        } catch (e) {
+          toast("旧字段已填入；结构化采集未完成：" + e.message);
+        }
       formEl.dataset.dirty = "true";
     },
     onSample: () => {
@@ -1310,6 +1346,10 @@ function form(existing) {
   });
   const persist = (draft) => {
     if (attachmentFiles.isBusy()) return toast("附件正在读取，请稍后保存");
+    if (invoiceCapture.isBusy())
+      return toast("票面正在识别，请等待或取消后保存");
+    if (invoiceCapture.isPending())
+      return toast("票面候选尚未加入清单，请确认加入或清空候选后保存");
     const x = collect();
     if (
       !draft &&
@@ -1480,6 +1520,14 @@ function bindMore() {
         requireReceipt: d.has("requireReceipt"),
         checkDuplicate: d.has("checkDuplicate"),
         precheck: collectPrecheck(e.target, policy),
+        invoiceBuyer: {
+          name: d.get("invoiceBuyerName").trim(),
+          taxId: d
+            .get("invoiceBuyerTaxId")
+            .trim()
+            .toUpperCase()
+            .replace(/\s/g, ""),
+        },
       });
       if (!d.get("reason").trim()) return toast("请填写变更原因");
       try {
@@ -1666,9 +1714,29 @@ function matchingInvoices() {
         .includes(invoiceQuery),
   );
 }
+function currentStructuredInvoices() {
+  const q = invoiceQuery.trim().toLocaleLowerCase();
+  return structuredInvoiceRows(items, enterprise.payments).filter(
+    ({ kind, doc, record, duplicate }) =>
+      (kind === "expense"
+        ? role !== "员工" || ownsExpense(doc, currentActor(), configuration.org)
+        : visibleCorporate(doc, currentActor())) &&
+      (invoiceFilter !== "重复号码" || duplicate) &&
+      (!q ||
+        [
+          doc.id,
+          doc.name,
+          doc.employee,
+          ...Object.values(record).filter((v) => typeof v === "string"),
+        ]
+          .join(" ")
+          .toLocaleLowerCase()
+          .includes(q)),
+  );
+}
 function invoiceView() {
   const rows = matchingInvoices();
-  return `<section class="panel"><div class="panel-title"><div><h3>发票与报销，一处追踪</h3><span>票据与材料索引 · 原文件请到报销详情预览或下载，不验证真伪</span></div><button id="invoice-export">↓ 导出台账</button></div><div class="toolbar"><div class="tabs">${["全部", "重复号码"].map((t) => `<button data-invoice-filter="${t}" class="${invoiceFilter === t ? "chosen" : ""}">${t}</button>`).join("")}</div><input id="invoice-search" aria-label="搜索发票台账" value="${esc(invoiceQuery)}" placeholder="搜索号码、附件、姓名或事项"></div><div class="table-wrap"><table><thead><tr><th>发票号码 / 附件名称</th><th>关联报销</th><th>申请人</th><th class="amount">关联报销金额</th><th>报销状态</th><th>号码检查</th><th>操作</th></tr></thead><tbody>${rows.map((x) => `<tr><td><strong>${esc(x.invoice || "未填写号码")}</strong><small>${esc([x.receipt, ...(x.attachments || []).map((f) => f.name)].filter(Boolean).join(" / ") || "未提供附件")}</small></td><td><strong>${esc(x.name)}</strong><small>${esc(x.id)}</small></td><td>${esc(x.employee)}</td><td class="amount">${money(x.amount)}</td><td><span class="badge">${x.status}</span>${x.approval && ["待主管审批", "待财务审核", "待总账复核", "待付款"].includes(x.status) ? `<small>待 ${esc((x.status === "待付款" ? x.approval.paymentActor || x.approval.nodes.at(-1) : x.approval.nodes[x.approval.cursor] || x.approval.nodes.at(-1)).actorName)} 处理</small>` : ""}</td><td><span class="${x.duplicate ? "risk" : "safe"}">${x.duplicate ? "⚑ 疑似重复" : !x.invoice ? "未填写号码" : ["已退回", "已撤回"].includes(x.status) ? "不参与查重" : "✓ 未发现重复"}</span></td><td><button class="link" data-detail="${esc(x.id)}">查看报销 →</button></td></tr>`).join("") || '<tr><td colspan="7" class="empty">没有符合条件的关联票据</td></tr>'}</tbody></table></div><div class="table-footer">共 ${rows.length} 条关联记录<span>金额为报销金额，并非独立票面金额</span></div><p class="footnote prose">同一号码的有效报销将同时标记。草稿不展示；退回、撤回单保留索引，但不占用号码。预审规则关闭查重后，此台账仍展示号码重复情况，供人工核对。</p></section>`;
+  return `<section class="panel"><div class="panel-title"><div><h3>发票与报销，一处追踪</h3><span>票据与材料索引 · 原文件请到报销详情预览或下载，不验证真伪</span></div><button id="invoice-export">↓ 导出台账</button></div><div class="toolbar"><div class="tabs">${["全部", "重复号码"].map((t) => `<button data-invoice-filter="${t}" class="${invoiceFilter === t ? "chosen" : ""}">${t}</button>`).join("")}</div><input id="invoice-search" aria-label="搜索发票台账" value="${esc(invoiceQuery)}" placeholder="搜索号码、附件、姓名或事项"></div><div class="table-wrap"><table><thead><tr><th>发票号码 / 附件名称</th><th>关联报销</th><th>申请人</th><th class="amount">关联报销金额</th><th>报销状态</th><th>号码检查</th><th>操作</th></tr></thead><tbody>${rows.map((x) => `<tr><td><strong>${esc(x.invoice || "未填写号码")}</strong><small>${esc([x.receipt, ...(x.attachments || []).map((f) => f.name)].filter(Boolean).join(" / ") || "未提供附件")}</small></td><td><strong>${esc(x.name)}</strong><small>${esc(x.id)}</small></td><td>${esc(x.employee)}</td><td class="amount">${money(x.amount)}</td><td><span class="badge">${x.status}</span>${x.approval && ["待主管审批", "待财务审核", "待总账复核", "待付款"].includes(x.status) ? `<small>待 ${esc((x.status === "待付款" ? x.approval.paymentActor || x.approval.nodes.at(-1) : x.approval.nodes[x.approval.cursor] || x.approval.nodes.at(-1)).actorName)} 处理</small>` : ""}</td><td><span class="${x.duplicate ? "risk" : "safe"}">${x.duplicate ? "⚑ 疑似重复" : !x.invoice ? "未填写号码" : ["已退回", "已撤回"].includes(x.status) ? "不参与查重" : "✓ 未发现重复"}</span></td><td><button class="link" data-detail="${esc(x.id)}">查看报销 →</button></td></tr>`).join("") || '<tr><td colspan="7" class="empty">没有符合条件的关联票据</td></tr>'}</tbody></table></div><div class="table-footer">共 ${rows.length} 条关联记录<span>金额为报销金额，并非独立票面金额</span></div><p class="footnote prose">同一号码的有效报销将同时标记。草稿不展示；退回、撤回单保留索引，但不占用号码。预审规则关闭查重后，此台账仍展示号码重复情况，供人工核对。</p></section>${structuredInvoiceView(currentStructuredInvoices())}`;
 }
 function guideView() {
   return `<section class="panel prose"><div class="section-intro"><span class="section-mark">▷</span><div><h2>按场景，讲清产品设计与闭环</h2><p>按场景操作，展示问题、方案与取舍。所有样例均为虚构数据。</p></div></div><div class="guide-grid">${[
@@ -1678,7 +1746,7 @@ function guideView() {
       "体验如何减少返工",
       "员工",
       "报销管理",
-      "可先载入虚构样票体验 OCR，核对后填入；在报销附件区上传酒店水单、行程单等材料，保存草稿并补充用途后提交；审核人可预览图片或下载原文件。发现错误可在主管审批前撤回再修改；到报销进度查看当前待处理人，退回后在“待我完善”核对原因并重提。差旅场景可先申请行程，再关联住宿/餐补等明细自动合计，到差旅标准查看超标口径；申请进度可查看当前审批人、额度占用和本人关联报销。",
+      "可先用旧快速OCR核对单票后填入；也可在结构化发票采集载入新虚构样票，人工确认购销方、日期和金额后加入多票清单，票面合计与申请金额分别显示。财务在规则配置统一抬头与税号基准，详情提示差异，发票台账可导出票面字段；采集区不留原件。在报销附件区上传酒店水单、行程单等材料，保存草稿并补充用途后提交；审核人可预览图片或下载原文件。发现错误可在主管审批前撤回再修改；到报销进度查看当前待处理人，退回后在“待我完善”核对原因并重提。差旅场景可先申请行程，再关联住宿/餐补等明细自动合计，到差旅标准查看超标口径；申请进度可查看当前审批人、额度占用和本人关联报销。",
       "设计理由：区分草稿、撤回和退回，既降低输入成本，也保持审批状态清晰。",
     ],
     [
@@ -1754,6 +1822,28 @@ function guideView() {
     )}</div><div class="review-box"><h3>如实介绍 AI 的作用</h3>可以表述为：“我负责定位、范围和业务流程，借助 AI 完成原型开发与场景验证。”产品内预审目前为确定性规则，图片 OCR 已可在浏览器运行；预审没有调用大模型，也没有真实财务数据或转账能力。首次体验建议使用已有样例；如需重置，可先在数据管理中导出备份。</div></section>`;
 }
 function bindExpenses() {
+  document
+    .querySelector("#structured-invoice-export")
+    ?.addEventListener("click", () =>
+      downloadFile(
+        structuredInvoiceCsv(currentStructuredInvoices()),
+        "轻报-票面结构化台账.csv",
+        "text/csv;charset=utf-8",
+      ),
+    );
+  document.querySelectorAll("[data-structured-open]").forEach(
+    (b) =>
+      (b.onclick = () => {
+        if (b.dataset.structuredKind === "expense")
+          detail(b.dataset.structuredOpen);
+        else {
+          const id = b.dataset.structuredOpen;
+          page = "对公支付单";
+          render();
+          enterpriseController?.openPayment(id);
+        }
+      }),
+  );
   document.querySelectorAll("[data-invoice-filter]").forEach(
     (b) =>
       (b.onclick = () => {
@@ -2566,6 +2656,7 @@ function openPaymentBatch() {
           note: data.get("note"),
         },
         policy,
+        { enterprise, enterpriseHealthy },
       );
       persistExpenseItems(localStorage, next);
       items = next;

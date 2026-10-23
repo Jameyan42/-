@@ -1,3 +1,4 @@
+import { extractInvoiceDetails } from "./invoice-extract.js";
 import { createWorker } from "tesseract.js";
 import { renderInvoiceImage, defaultImageSettings } from "./image-tools.js";
 export function extractInvoiceFields(text) {
@@ -18,6 +19,10 @@ export function extractInvoiceFields(text) {
   for (let i = 0; i < lines.length; i++) {
     if (!totalLabel.test(lines[i])) continue;
     const own = lines[i].split(totalLabel).slice(1).join("");
+    if (/[−-]\s*[¥￥]?\s*\d|[¥￥]\s*[−-]\s*\d/.test(own)) {
+      totals.push(null);
+      continue;
+    }
     const matches = [...own.matchAll(/(?:[¥￥]\s*)?(\d[\d,]*\.\d{2})(?!\d)/g)];
     if (matches.length > 1) {
       totals.push(null);
@@ -37,9 +42,15 @@ export function extractInvoiceFields(text) {
     (n) => Number.isFinite(n) && n > 0 && n <= 1000000,
   );
   const amount =
-    totals.length && valid.length === totals.length && new Set(valid).size === 1
-      ? valid[0].toFixed(2)
-      : "";
+    /(?:币种|Currency)\s*[:：]?\s*(?:USD|EUR|HKD|美元|欧元|港币)|[$€£]/i.test(
+      normalized,
+    )
+      ? ""
+      : totals.length &&
+          valid.length === totals.length &&
+          new Set(valid).size === 1
+        ? valid[0].toFixed(2)
+        : "";
   return { invoice, amount };
 }
 export function checkOcrFile(file) {
@@ -99,10 +110,12 @@ export function startRecognition(
         throw new Error("已取消识别");
       }
       const result = await worker.recognize(canvas);
+      const fields = extractInvoiceFields(result.data.text);
       return {
+        structured: extractInvoiceDetails(result.data.text, fields),
         text: result.data.text,
         confidence: result.data.confidence,
-        ...extractInvoiceFields(result.data.text),
+        ...fields,
       };
     } finally {
       canvas.width = 1;

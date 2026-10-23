@@ -1,3 +1,4 @@
+import { validateInvoices } from "./invoice-data.js";
 export const attachmentKinds = [
   "发票",
   "酒店水单",
@@ -119,6 +120,8 @@ export function addAttachments(current, added) {
 export function serializeExpenseItems(next) {
   for (const x of next)
     if (x.attachments !== undefined) validateAttachments(x.attachments);
+  for (const x of next)
+    if (x.invoices !== undefined) validateInvoices(x.invoices);
   const json = JSON.stringify(next);
   if (json.length > MAX_ITEMS_CHARS && next.some((x) => x.attachments?.length))
     throw Error("浏览器附件容量不足，请减少本次附件或先下载备份；原报销未改动");

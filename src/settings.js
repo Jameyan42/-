@@ -1,3 +1,4 @@
+import { validateInvoices, validateInvoiceBuyer } from "./invoice-data.js";
 import { validatePrecheck, validatePrecheckReport } from "./precheck.js";
 import { validateEnterprise } from "./enterprise.js";
 import { assertUniqueReference } from "./payment-batch.js";
@@ -28,8 +29,13 @@ export function validatePolicy(value) {
     typeof value.checkDuplicate !== "boolean"
   )
     throw new Error("规则配置无效");
+  if (value.invoiceBuyer !== undefined)
+    validateInvoiceBuyer(value.invoiceBuyer);
   if (value.precheck !== undefined) validatePrecheck(value.precheck);
   return {
+    ...(value.invoiceBuyer !== undefined
+      ? { invoiceBuyer: structuredClone(value.invoiceBuyer) }
+      : {}),
     ...(value.precheck !== undefined
       ? { precheck: structuredClone(value.precheck) }
       : {}),
@@ -95,6 +101,7 @@ export function validateBackup(data) {
         assertTravelSubmission(x.travel, x.amount, x.type);
     }
     if (x.attachments !== undefined) validateAttachments(x.attachments);
+    if (x.invoices !== undefined) validateInvoices(x.invoices);
     validateOperationHistory(x.history, "expense");
     for (const h of x.history)
       if (h.precheck !== undefined)

@@ -161,7 +161,23 @@ export function mountOcr(
       : missing.length
         ? `识别完成，未能确定${missing.join("和")}。可调整图片重试，或在候选区手工补充。`
         : "识别完成，请对照预览核对后再应用。";
-    result.innerHTML = `<div class="ocr-candidates"><h3>待核对的候选字段</h3><div class="form-grid"><label>发票号码候选<input id="ocr-invoice" value="${escape(data.invoice)}" maxlength="40" placeholder="未提取到，可手工补充"></label><label>价税合计候选（元）<input id="ocr-amount" value="${escape(data.amount)}" type="number" min="0.01" max="1000000" step="0.01" placeholder="未提取到"></label></div><small>文本置信度 ${Math.round(data.confidence || 0)} / 100（参考值，不代表字段准确率）。空字段不覆盖表单；未提取到不等于无效发票。</small><details><summary>查看识别原文</summary><pre>${escape(data.text || "未识别到文字")}</pre></details><label class="check-line"><input type="checkbox" id="ocr-confirm">我已对照图片核对，确认替换表单中的非空候选字段</label><button type="button" id="ocr-apply">确认并填入报销单</button></div>`;
+    result.innerHTML = `<div class="ocr-candidates"><h3>待核对的候选字段</h3><div class="form-grid"><label>发票号码候选<input id="ocr-invoice" value="${escape(data.invoice)}" maxlength="40" placeholder="未提取到，可手工补充"></label><label>价税合计候选（元）<input id="ocr-amount" value="${escape(data.amount)}" type="number" min="0.01" max="1000000" step="0.01" placeholder="未提取到"></label></div><div class="form-grid">${[
+      ["buyerName", "购买方名称"],
+      ["buyerTaxId", "购买方税号"],
+      ["sellerName", "销售方名称"],
+      ["sellerTaxId", "销售方税号"],
+      ["date", "开票日期"],
+      ["code", "发票代码"],
+      ["netAmount", "不含税金额"],
+      ["taxAmount", "税额"],
+    ]
+      .map(
+        ([key, label]) =>
+          `<label>${label}候选<input id="ocr-${key}" value="${escape(data.structured?.[key] || "")}" maxlength="100" placeholder="未可靠提取，可手工补充"></label>`,
+      )
+      .join(
+        "",
+      )}</div><small>文本置信度 ${Math.round(data.confidence || 0)} / 100（参考值，不代表字段准确率）。空字段不覆盖表单；未提取到不等于无效发票。</small><details><summary>查看识别原文</summary><pre>${escape(data.text || "未识别到文字")}</pre></details><label class="check-line"><input type="checkbox" id="ocr-confirm">我已对照图片核对，确认替换表单中的非空候选字段</label><button type="button" id="ocr-apply">确认并填入报销单</button></div>`;
     result.querySelector("#ocr-apply").onclick = () => {
       const invoice = result.querySelector("#ocr-invoice").value.trim(),
         amount = result.querySelector("#ocr-amount").value;
@@ -184,7 +200,19 @@ export function mountOcr(
       }
       if (invoice) form.elements.invoice.value = invoice;
       if (amount) form.elements.amount.value = Number(amount).toFixed(2);
-      onApply({ invoice: !!invoice, amount: !!amount });
+      const structured = { ...data.structured, number: invoice, amount };
+      for (const key of [
+        "buyerName",
+        "buyerTaxId",
+        "sellerName",
+        "sellerTaxId",
+        "date",
+        "code",
+        "netAmount",
+        "taxAmount",
+      ])
+        structured[key] = result.querySelector("#ocr-" + key).value.trim();
+      onApply({ invoice: !!invoice, amount: !!amount, structured });
       form.dispatchEvent(new Event("input", { bubbles: true }));
       status.textContent = "已填入核对后的字段，仍需填写用途并手工提交";
       result.innerHTML = "";

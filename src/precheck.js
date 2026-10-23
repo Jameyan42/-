@@ -1,3 +1,8 @@
+import {
+  invoiceEvidence,
+  effectiveInvoiceBuyer,
+  validateInvoiceBuyer,
+} from "./invoice-data.js";
 import { assertTravelSubmission } from "./travel.js";
 // Fixed rule catalog, no eval, external model, invoice verification or arbitrary user code.
 export const ruleCatalog = [
@@ -71,6 +76,32 @@ export const ruleCatalog = [
     max: 100,
   },
 ];
+ruleCatalog.push(
+  {
+    id: "invoice-buyer",
+    kind: "both",
+    label: "票面抬头/税号与财务基准不一致",
+    description: "按已确认票面字段与财务统一基准核对；缺字段不视作一致。",
+  },
+  {
+    id: "invoice-total",
+    kind: "both",
+    label: "多票合计与申请金额不同",
+    description: "按分比较；分期或拆分可能合法，默认提醒人工核对。",
+  },
+  {
+    id: "invoice-duplicate",
+    kind: "both",
+    label: "结构化票据号码重复",
+    description: "检查本单多票及其他有效报销/对公单；不是发票真伪校验。",
+  },
+  {
+    id: "invoice-arithmetic",
+    kind: "both",
+    label: "票面金额与税额勾稽不符",
+    description: "不含税金额及税额均已采集时，检查两者之和是否等于价税合计。",
+  },
+);
 export const basePolicy = {
   limit: 3000,
   requireReceipt: true,
@@ -96,7 +127,7 @@ export function validatePrecheck(value) {
     value.version < 1 ||
     value.version > 1000000 ||
     !Array.isArray(value.rules) ||
-    value.rules.length !== ruleCatalog.length
+    ![10, ruleCatalog.length].includes(value.rules.length)
   )
     throw Error("预审规则配置格式或版本无效");
   const ids = new Set();
@@ -119,12 +150,25 @@ export function validatePrecheck(value) {
       throw Error("预审规则ID、开关、处理方式或阈值无效");
     ids.add(r.id);
   }
+  if (
+    value.rules.length === 10 &&
+    value.rules.some((r) => r.id.startsWith("invoice-"))
+  )
+    throw Error("旧预审规则目录不完整");
   return value;
 }
 export function effectivePrecheck(policy = {}) {
-  return policy.precheck === undefined
-    ? defaultPrecheck()
-    : validatePrecheck(policy.precheck);
+  if (policy.precheck === undefined) return defaultPrecheck();
+  const old = validatePrecheck(policy.precheck);
+  return {
+    ...old,
+    rules: [
+      ...old.rules,
+      ...defaultPrecheck().rules.filter(
+        (r) => !old.rules.some((x) => x.id === r.id),
+      ),
+    ],
+  };
 }
 export function nextPrecheck(policy, rules) {
   return validatePrecheck({
@@ -168,7 +212,11 @@ export function evaluatePrecheck(
     kind,
     docId: doc.id,
     at,
-    policy: { ...legacy, precheck: structuredClone(config) },
+    policy: {
+      ...legacy,
+      invoiceBuyer: structuredClone(effectiveInvoiceBuyer(policy)),
+      precheck: structuredClone(config),
+    },
     document: { amount: doc.amount, date: doc.date || "" },
     findings: [],
   };
@@ -192,6 +240,46 @@ export function evaluatePrecheck(
       .slice(0, 3)
       .map((x) => x.id)
       .join("、") + (rows.length > 3 ? `等${rows.length}笔` : "");
+  if (doc.invoices?.records?.length) {
+    const buyer = effectiveInvoiceBuyer(policy),
+      ev = invoiceEvidence(kind, doc, context, buyer);
+    optional(
+      "invoice-buyer",
+      ev.buyer.length > 0,
+      "票面抬头或税号与财务基准不一致",
+      `基准 ${buyer.name}${buyer.taxId ? " / " + buyer.taxId : "（未设税号）"}；${ev.buyer.slice(0, 3).join("；")}`,
+      "对照原件核实购买方及纳税人识别号；识别不清应修正字段，不自动视作通过。",
+    );
+    optional(
+      "invoice-total",
+      Math.round(ev.total * 100) !== Math.round(doc.amount * 100),
+      "票面合计与申请金额不同",
+      `已确认票面合计 ${ev.total} 元；申请 ${doc.amount} 元`,
+      "核对是否漏票、部分报销、分期支付或金额填写错误。票面金额不自动覆盖申请金额。",
+    );
+    optional(
+      "invoice-duplicate",
+      ev.duplicates.length > 0,
+      "结构化发票号码存在重复线索",
+      ev.duplicates.slice(0, 3).join("；"),
+      "核对同单或跨单票据是否重复使用；本浏览器匹配不等于税务验真或重复银行付款。",
+    );
+    optional(
+      "invoice-arithmetic",
+      ev.arithmetic.length > 0,
+      "不含税金额加税额与价税合计不符",
+      ev.arithmetic.slice(0, 3).join("；"),
+      "对照票面复核三项金额及OCR小数点；未采集的金额不按零推断。",
+    );
+    if (context.enterpriseHealthy === false)
+      add(
+        "invoice-context",
+        "block",
+        "对公票据上下文无法读取，不能完整查重",
+        "当前仅有部分报销数据可读",
+        "恢复企业业务数据后再审核，不将部分查重结果视作完整。",
+      );
+  }
   if (kind === "expense") {
     const items = context.items || [];
     if (doc.travel)
@@ -240,7 +328,8 @@ export function evaluatePrecheck(
       );
     optional(
       "expense-invoice",
-      !String(doc.invoice || "").trim(),
+      !String(doc.invoice || "").trim() &&
+        !doc.invoices?.records?.some((r) => r.number),
       "未填写发票号码",
       "号码字段为空，无法完成号码查重",
       "核对是否需要发票，补录号码或说明特殊情形。",
@@ -408,6 +497,7 @@ export function validatePrecheckReport(r, kind, docId) {
     "corporate-context",
     "corporate-contract",
     "corporate-balance",
+    "invoice-context",
   ]);
   if (
     !r ||
@@ -434,6 +524,8 @@ export function validatePrecheckReport(r, kind, docId) {
   )
     throw Error("预审结果快照格式无效");
   validatePrecheck(r.policy.precheck);
+  if (r.policy.invoiceBuyer !== undefined)
+    validateInvoiceBuyer(r.policy.invoiceBuyer);
   const ids = new Set();
   for (const f of r.findings) {
     if (
@@ -444,7 +536,9 @@ export function validatePrecheckReport(r, kind, docId) {
       f.severity !== (f.effect === "block" ? "高" : "中") ||
       ![f.message, f.evidence, f.suggestion].every((v) => text(v, 500)) ||
       (kind === "expense" && f.id.startsWith("corporate-")) ||
-      (kind === "corporate" && !f.id.startsWith("corporate-"))
+      (kind === "corporate" &&
+        !f.id.startsWith("corporate-") &&
+        !f.id.startsWith("invoice-"))
     )
       throw Error("预审风险条目格式无效");
     ids.add(f.id);
