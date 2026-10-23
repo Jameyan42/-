@@ -91,7 +91,7 @@ def main():
     counts = Counter(r['stage'] for r in history)
     make_sheet(wb, '阶段总览', '轻报｜功能迭代记录',
         '依据 Git 提交与阶段验收回溯；日期为功能源码提交日，不是每项功能的独立完成时间。',
-        f"更新：{data['updated']}  |  已交付 {len(stages)} 个阶段、{len(history)} 项内容  |  当前功能版本 v0.8  |  后续计划不计入已完成",
+        f"更新：{data['updated']}  |  已交付 {len(stages)} 个阶段、{len(history)} 项内容  |  当前功能版本 {stages[-1]["version"]}  |  后续计划不计入已完成",
         ['阶段顺序','版本/阶段','提交日期','本阶段主题','新增项数','状态','验证记录','源码证据'],
         [12,16,15,30,12,14,56,46],
         [[int(s['order']),s['version'],date.fromisoformat(s['date']),s['title'],counts[s['version']],'已完成',s['verification'],f"{BASE}/commit/{s['commit']}"] for s in stages], 'StageOverview', 74)
@@ -103,8 +103,8 @@ def main():
         [[r['sequence'],r['stage'],date.fromisoformat(r['date']),r['module'],r['feature'],r['status'],r['value'],r['entry'],r['demo'],r['verification'],r['limits'],
           f"{BASE}/" + (f"blob/{r['commit']}/README.md" if r['evidence']=='README.md' else f"blob/main/{r['evidence']}")] for r in history], 'FeatureHistory', 88)
     make_sheet(wb, '下一步计划', '轻报｜下一步计划',
-        '以下是建议及待办，尚未交付。下一阶段建议优先开发统一审批待办，本次仅整理记录表。',
-        '建议顺序：统一审批入口 → 进度信息完善 → 真实可用性反馈；复杂审批能力等待需求验证。',
+        '以下是建议及待办，尚未交付。已完成项已移入历史新增明细，不继续混在计划中。',
+        '建议顺序：我的已处理记录 → 真实可用性反馈；复杂审批能力等待需求验证。',
         ['顺序','优先级','计划内容','状态','要解决的问题','建议范围','完成验收标准','依赖与说明'],
         [10,12,28,19,40,48,54,46],
         [[r[k] for k in ['order','priority','name','status','problem','scope','acceptance','dependency']] for r in data['roadmap']], 'Roadmap', 100)
@@ -119,8 +119,8 @@ def main():
         ['后续维护规则','每个完整阶段结束，先更新 JSON 源记录，再重新导出本 Excel；新增记录追加序号，不将计划提前标为已完成。'],
         ['可持续维护来源','docs/iterations/feature-history.json；导出命令：python3 scripts/export_feature_history.py（依赖 openpyxl 3.1+）。'],
         ['与需求文档区别','Excel 追踪“何时新增了什么”；需求及设计文档解释业务规则；阶段验收记录测试证据，三者同时维护。'],
-        ['本次记录表交付','新增历史回溯、阶段总览、后续计划及维护说明；仅整理文档和 Excel，本次没有开发统一审批待办。'],
-        ['在线演示入口','https://jameyan42.github.io/-/?v=0.8-final'],
+        ['本轮更新','v0.9 完成统一审批待办、任务进度、筛选排序与导出，历史记录追加并更新后续计划；上轮 Excel 文档交付已补记。'],
+        ['在线演示入口','https://jameyan42.github.io/-/?v=0.9'],
     ]
     make_sheet(wb, '使用与维护', '轻报｜使用与维护说明',
         '用于作品进度回顾、面试准备和后续连续迭代；不编造真实用户、访谈或业务提升数字。',
