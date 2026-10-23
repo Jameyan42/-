@@ -1860,7 +1860,7 @@ header .demo-tag::after {
   margin-top: 12px;
 }
 header .demo-tag::after {
-  content: " · v0.17";
+  content: " · v0.18";
 }
 header .header-right {
   gap: 13px;
@@ -2569,4 +2569,30 @@ header .header-right label {
 .attachment-editor select {
   padding: 8px;
   max-width: 100%;
+}
+
+.payment-selection {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  flex-wrap: wrap;
+  padding: 16px 24px;
+  background: #f7f9ff;
+}
+.payment-selection small {
+  width: 100%;
+}
+.batch-preview {
+  list-style: none;
+  padding: 0;
+}
+.batch-preview li {
+  padding: 10px;
+  border: 1px solid #dfe6f3;
+  border-radius: 8px;
+  margin: 8px 0;
+  overflow-wrap: anywhere;
+}
+.batch-preview small {
+  display: block;
 }

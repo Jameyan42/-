@@ -1,4 +1,10 @@
 import {
+  assertUniqueReference,
+  batchReferences,
+  batchPayment,
+  paymentCsv,
+} from "./payment-batch.js";
+import {
   attachmentEditor,
   mountAttachmentEditor,
   attachmentDetails,
@@ -30,7 +36,7 @@ import { locateOrganization, parseChartKey } from "./org-search.js";
 import { processedRows, processedCsv } from "./operations.js";
 import { processedView } from "./processed-ui.js";
 import { orgChartView } from "./org-chart.js";
-import { paymentView } from "./payment-ui.js";
+import { paymentRows, paymentView } from "./payment-ui.js";
 import { canHandleDocument, inboxRows, inboxCsv } from "./inbox.js";
 import { inboxView } from "./inbox-ui.js";
 import {
@@ -249,6 +255,7 @@ const orgChartState = {
   searchType: "all",
   focusKey: null,
 };
+let paymentSelected = new Set();
 let paymentFilter = "待付款",
   paymentQuery = "";
 function currentActor() {
@@ -381,6 +388,7 @@ function resetInboxFilters() {
   processedFrom = "";
   processedTo = "";
   processedPreset = "all";
+  paymentSelected.clear();
   paymentFilter = "待付款";
   paymentQuery = "";
 }
@@ -500,7 +508,13 @@ ${
             page: progressPage,
           })
         : page === "付款工作台"
-          ? paymentView(items, currentActor(), paymentFilter, paymentQuery)
+          ? paymentView(
+              items,
+              currentActor(),
+              paymentFilter,
+              paymentQuery,
+              paymentSelected,
+            )
           : page === "审批中心"
             ? approvalCenterView()
             : page === "组织架构"
@@ -901,7 +915,7 @@ function detail(id) {
 function act(action) {
   try {
     const i = items.findIndex((x) => x.id === selected.id);
-    items[i] = transition(
+    const nextDoc = transition(
       { ...items[i], flags: flags(items[i]) },
       action,
       role,
@@ -922,23 +936,33 @@ function act(action) {
           }
         : null,
     );
-    record(
-      action === "reject"
-        ? "退回报销"
-        : items[i].status === "已付款"
-          ? "登记付款"
-          : "审核通过",
-      items[i].id,
-      items[i].payment
-        ? `付款参考号 ${items[i].payment.reference}；${document.querySelector("#reason").value}`
-        : document.querySelector("#reason").value,
-    );
-    save();
+    if (nextDoc.status === "已付款")
+      assertUniqueReference(nextDoc.payment.reference, items, nextDoc.id);
+    const nextItems = items.map((d, index) => (index === i ? nextDoc : d));
+    persistExpenseItems(localStorage, nextItems);
+    items = nextItems;
+    let auditWarning = "";
+    try {
+      record(
+        action === "reject"
+          ? "退回报销"
+          : items[i].status === "已付款"
+            ? "登记付款"
+            : "审核通过",
+        items[i].id,
+        items[i].payment
+          ? `付款参考号 ${items[i].payment.reference}；${document.querySelector("#reason").value}`
+          : document.querySelector("#reason").value,
+      );
+    } catch {
+      auditWarning = "；操作日志写入失败，请及时备份";
+    }
+    paymentSelected.clear();
     render();
     toast(
-      action === "reject"
+      (action === "reject"
         ? "已退回，员工可修改后重新提交"
-        : "处理成功，报销已进入下一阶段",
+        : "处理成功，报销已进入下一阶段") + auditWarning,
     );
   } catch (e) {
     toast(e.message);
@@ -1320,7 +1344,7 @@ function bindMore() {
   });
 }
 function paymentFields() {
-  return `<div class="review-box"><h3>登记线下付款</h3><div class="form-grid"><label>付款日期<input type="date" id="payment-date" value="${new Date().toLocaleDateString("sv-SE")}"></label><label>付款方式<select id="payment-method"><option>银行转账</option><option>其他线下付款</option></select></label></div><label>付款参考号<input id="payment-reference" maxlength="60" placeholder="例如 DEMO-202610-001（仅演示）"></label><label class="check-line"><input id="payment-confirm" type="checkbox">确认仅登记模拟记录，不会实际转账</label></div>`;
+  return `<div class="review-box"><h3>登记线下付款</h3><div class="form-grid"><label>付款日期<input type="date" id="payment-date" value="${new Date().toLocaleDateString("sv-SE")}"></label><label>付款方式<select id="payment-method"><option>银行转账</option><option>其他线下付款</option></select></label></div><label>付款参考号<input id="payment-reference" maxlength="60" placeholder="例如 DEMO-202610-001（仅演示）"></label><label class="check-line"><input id="payment-confirm" type="checkbox">确认仅登记模拟记录，不会实际转账</label><small>新登记参考号会与已有已付款记录核对（忽略首尾空格和字母大小写）；旧重复记录不自动修改。</small></div>`;
 }
 function matchingInvoices() {
   return invoiceRows(items, role === "员工" ? currentEmployee() : null).filter(
@@ -1403,7 +1427,7 @@ function guideView() {
       "展示完整财务岗位分工",
       "管理员",
       "审批流程",
-      "载入财务分工模板，填写原因发布；叶禾提交 200 元报销，沈岚审批、周宁审核、高璇填写科目及核算归属复核，最后杜川在付款工作台登记模拟付款。旧组织可先添加 CFO 示例组织。",
+      "载入财务分工模板，填写原因发布；叶禾提交 200 元报销，沈岚审批、周宁审核、高璇填写科目及核算归属复核，最后杜川在付款工作台登记模拟付款；多笔可勾选后核对独立参考号并批量模拟登记，再导出筛选清单。旧组织可先添加 CFO 示例组织。",
       "设计理由：部门业务审批、财务票据审核、总账复核和付款是不同职责；发布不改变旧单据路径。",
     ],
   ]
@@ -2163,16 +2187,140 @@ function bindInbox() {
   });
 }
 
+function openPaymentBatch() {
+  const ids = paymentRows(items, currentActor(), paymentFilter, paymentQuery)
+    .filter(
+      (d) =>
+        paymentSelected.has(d.id) &&
+        d.status === "待付款" &&
+        canHandleDocument(d, "expense", currentActor()),
+    )
+    .map((d) => d.id);
+  if (!ids.length || ids.length > 20) return toast("请勾选1～20笔待付款单据");
+  const prefix =
+    "DEMO-" +
+    new Date().toLocaleDateString("sv-SE").replaceAll("-", "") +
+    "-" +
+    crypto.randomUUID().slice(0, 6).toUpperCase();
+  modal(
+    `<div class="modal-title"><h2>批量模拟付款登记</h2><button data-close aria-label="关闭">✕</button></div><p>已选 ${ids.length} 笔，合计 ${money(items.filter((d) => ids.includes(d.id)).reduce((n, d) => n + d.amount, 0))}。这里只登记模拟记录，不转账、不确认到账。每笔生成独立参考号，请逐笔核对。</p><form id="batch-payment-form"><label>模拟批次前缀<input name="prefix" maxlength="48" required value="${prefix}"></label><div class="form-grid"><label>登记日期<input name="date" type="date" required value="${new Date().toLocaleDateString("sv-SE")}"></label><label>付款方式<select name="method"><option>银行转账</option><option>其他线下付款</option></select></label></div><div id="batch-preview" aria-live="polite"></div><label>批量备注<textarea name="note" maxlength="400"></textarea></label><label class="check-line"><input name="confirmed" type="checkbox" required>已逐笔核对金额和参考号，确认仅登记模拟付款，不会真实转账</label><button type="submit" class="primary">确认登记这 ${ids.length} 笔</button></form>`,
+  );
+  const form = document.querySelector("#batch-payment-form");
+  const preview = () => {
+    try {
+      const refs = batchReferences(form.elements.prefix.value, ids.length);
+      document.querySelector("#batch-preview").innerHTML =
+        '<ul class="batch-preview">' +
+        ids
+          .map((id, i) => {
+            const d = items.find((d) => d.id === id);
+            return `<li><b>${esc(d.name)}</b> · ${money(d.amount)}<small>${esc(id)} → ${esc(refs[i])}</small></li>`;
+          })
+          .join("") +
+        "</ul>";
+    } catch (e) {
+      document.querySelector("#batch-preview").textContent = e.message;
+    }
+  };
+  preview();
+  form.addEventListener("input", () => {
+    form.dataset.dirty = "true";
+    preview();
+  });
+  form.onsubmit = (e) => {
+    e.preventDefault();
+    try {
+      const data = new FormData(form);
+      const next = batchPayment(
+        items,
+        ids,
+        currentActor(),
+        {
+          prefix: data.get("prefix"),
+          date: data.get("date"),
+          method: data.get("method"),
+          confirmed: data.get("confirmed") === "on",
+          note: data.get("note"),
+        },
+        policy,
+      );
+      persistExpenseItems(localStorage, next);
+      items = next;
+      let warning = "";
+      try {
+        record("批量模拟付款", `${ids.length}笔`, data.get("prefix"));
+      } catch {
+        warning = "；操作日志写入失败，请及时备份";
+      }
+      paymentSelected.clear();
+      render();
+      toast(`已登记 ${ids.length} 笔模拟付款，每笔处理记录已保留` + warning);
+    } catch (err) {
+      toast(err.message);
+    }
+  };
+}
 function bindPayments() {
+  document.querySelectorAll("[data-payment-select]").forEach(
+    (input) =>
+      (input.onchange = () => {
+        if (input.checked) {
+          if (paymentSelected.size >= 20) {
+            input.checked = false;
+            return toast("每批最多20笔");
+          }
+          paymentSelected.add(input.dataset.paymentSelect);
+        } else paymentSelected.delete(input.dataset.paymentSelect);
+        render();
+      }),
+  );
+  document
+    .querySelector("#payment-select-all")
+    ?.addEventListener("click", () => {
+      const eligible = paymentRows(
+        items,
+        currentActor(),
+        paymentFilter,
+        paymentQuery,
+      ).filter(
+        (d) =>
+          d.status === "待付款" &&
+          canHandleDocument(d, "expense", currentActor()),
+      );
+      if (eligible.length > 20) return toast("请缩小搜索范围至20笔以内");
+      paymentSelected = new Set(eligible.map((d) => d.id));
+      render();
+    });
+  document
+    .querySelector("#payment-select-clear")
+    ?.addEventListener("click", () => {
+      paymentSelected.clear();
+      render();
+    });
+  document
+    .querySelector("#payment-batch")
+    ?.addEventListener("click", openPaymentBatch);
+  document.querySelector("#payment-export")?.addEventListener("click", () => {
+    downloadFile(
+      paymentCsv(
+        paymentRows(items, currentActor(), paymentFilter, paymentQuery),
+        { filter: paymentFilter, query: paymentQuery },
+      ),
+      "轻报-付款清单.csv",
+      "text/csv;charset=utf-8",
+    );
+  });
   document.querySelectorAll("[data-payment-filter]").forEach(
     (b) =>
       (b.onclick = () => {
         paymentFilter = b.dataset.paymentFilter;
+        paymentSelected.clear();
         render();
       }),
   );
   document.querySelector("#payment-search")?.addEventListener("input", (e) => {
     paymentQuery = e.target.value;
+    paymentSelected.clear();
     const pos = e.target.selectionStart;
     render();
     const input = document.querySelector("#payment-search");
