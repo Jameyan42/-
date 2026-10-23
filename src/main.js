@@ -1,3 +1,14 @@
+import {
+  attachmentEditor,
+  mountAttachmentEditor,
+  attachmentDetails,
+  bindAttachmentDetails,
+} from "./attachments-ui.js";
+import {
+  persistExpenseItems,
+  serializeExpenseItems,
+  writeStorageBatch,
+} from "./attachments.js";
 import { requestProgressRows, requestProgressCsv } from "./request-progress.js";
 import { requestProgressView } from "./request-progress-ui.js";
 import {
@@ -865,8 +876,9 @@ function detail(id) {
   const f = flags(x);
   const can = canHandleExpense(x);
   modal(
-    `<div class="modal-title"><div><small>${esc(x.id)}</small><h2>${esc(x.name)}</h2></div><button data-close aria-label="关闭">✕</button></div><div class="detail-amount">${money(x.amount)} <span class="badge">${x.status}</span></div><div class="detail-grid"><p>申请人<b>${esc(x.employee)} · ${esc(x.department)}</b></p><p>费用类型<b>${esc(x.type)}</b></p><p>发票号码<b>${esc(x.invoice || "未填写")}</b></p><p>附件（仅记录名称）<b>${esc(x.receipt || "未提供")}</b></p></div><p>${esc(x.note)}</p><div class="review-box"><h3>✧ 预审说明 · 规则计算</h3>${f.length ? f.map((s) => `<p class="risk">⚑ ${s}</p>`).join("") : '<p class="safe">✓ 未发现超标、缺失附件或重复号码风险</p>'}<small>未进行票据真伪验证；提示不替代人工审核。</small></div>${x.payment ? `<div class="review-box payment-summary"><h3>付款登记信息</h3><p>方式：${esc(x.payment.method)} · 日期：${esc(x.payment.date)}</p><p>参考号：${esc(x.payment.reference)}</p><small>仅作模拟登记，未连接银行或执行转账。</small></div>` : x.status === "已付款" ? '<p class="footnote">历史演示记录未提供付款参考号。</p>' : ""}${x.ocr ? '<p class="footnote">曾使用浏览器 OCR 辅助并由员工核对，识别不代表发票真实或字段准确。</p>' : ""}${x.requestId ? `<div class="review-box"><h3>关联费用申请</h3><p>${esc(requests.find((r) => r.id === x.requestId)?.name || x.requestId)}</p><small>提交时占用申请额度，付款后转为实际支出；未核销余额仍预留。</small></div>` : ""}${travelSummary(x.travel)}${x.ledgerReview ? `<div class="review-box ledger-summary"><h3>总账复核记录</h3><p>科目：${esc(x.ledgerReview.account)} · 核算归属：${esc(x.ledgerReview.costCenter)}</p><small>复核时间：${esc(new Date(x.ledgerReview.at).toLocaleString("zh-CN"))}；仅模拟记录，未生成会计凭证。</small></div>` : ""}${approvalTimeline(x)}<h3>流转记录</h3><div class="timeline">${x.history.map((h) => `<p>${esc(h.text)}<small>${esc(h.operation ? new Date(h.operation.at).toLocaleString("zh-CN") : h.time)}${h.operation ? " · " + esc(h.operation.actorName) + " · " + (h.operation.flowVersion ? "v" + h.operation.flowVersion : "历史固定流程") : ""}</small></p>`).join("")}</div>${role === "员工" && x.employee === currentEmployee() && x.status === "待主管审批" && (x.approval?.cursor || 0) === 0 ? '<div class="review-box"><label>撤回原因<textarea id="withdraw-reason" maxlength="200" placeholder="如金额填写有误，需要修改"></textarea></label><button id="withdraw">撤回并修改</button><p>仅主管审批前可撤回，之后需由审核人退回。</p></div>' : ""}${can ? `${x.status === "待付款" ? paymentFields() : x.status === "待总账复核" ? '<div class="review-box"><h3>总账复核信息</h3><label>总账科目<input id="ledger-account" maxlength="100" placeholder="如 6602 管理费用（仅演示）"></label><label>核算归属<input id="ledger-costcenter" maxlength="100" placeholder="如 法报中心 / 示例项目"></label><small>只记录复核信息，不生成会计凭证或自动记账。</small></div>' : ""}<label>处理备注<textarea id="reason" placeholder="退回时必须填写原因"></textarea></label><div class="actions"><button id="reject">退回修改</button><button class="primary" id="approve">${x.status === "待付款" ? "登记付款" : "审核通过"}</button></div>` : role === "员工" && x.employee === currentEmployee() && ["已退回", "草稿", "已撤回"].includes(x.status) ? `<button class="primary" id="edit">${x.status === "草稿" ? "继续填写草稿" : "修改并重新提交"}</button>` : '<p class="footnote">切换到审批路径中指定的角色和具体人员后处理。</p>'}`,
+    `<div class="modal-title"><div><small>${esc(x.id)}</small><h2>${esc(x.name)}</h2></div><button data-close aria-label="关闭">✕</button></div><div class="detail-amount">${money(x.amount)} <span class="badge">${x.status}</span></div><div class="detail-grid"><p>申请人<b>${esc(x.employee)} · ${esc(x.department)}</b></p><p>费用类型<b>${esc(x.type)}</b></p><p>发票号码<b>${esc(x.invoice || "未填写")}</b></p><p>原票据附件名称（旧入口）<b>${esc(x.receipt || "未提供")}</b></p></div><p>${esc(x.note)}</p><div class="review-box"><h3>✧ 预审说明 · 规则计算</h3>${f.length ? f.map((s) => `<p class="risk">⚑ ${s}</p>`).join("") : '<p class="safe">✓ 未发现超标、缺失附件或重复号码风险</p>'}<small>未进行票据真伪验证；提示不替代人工审核。</small></div>${x.payment ? `<div class="review-box payment-summary"><h3>付款登记信息</h3><p>方式：${esc(x.payment.method)} · 日期：${esc(x.payment.date)}</p><p>参考号：${esc(x.payment.reference)}</p><small>仅作模拟登记，未连接银行或执行转账。</small></div>` : x.status === "已付款" ? '<p class="footnote">历史演示记录未提供付款参考号。</p>' : ""}${x.ocr ? '<p class="footnote">曾使用浏览器 OCR 辅助并由员工核对，识别不代表发票真实或字段准确。</p>' : ""}${x.requestId ? `<div class="review-box"><h3>关联费用申请</h3><p>${esc(requests.find((r) => r.id === x.requestId)?.name || x.requestId)}</p><small>提交时占用申请额度，付款后转为实际支出；未核销余额仍预留。</small></div>` : ""}${attachmentDetails(x.attachments)}${travelSummary(x.travel)}${x.ledgerReview ? `<div class="review-box ledger-summary"><h3>总账复核记录</h3><p>科目：${esc(x.ledgerReview.account)} · 核算归属：${esc(x.ledgerReview.costCenter)}</p><small>复核时间：${esc(new Date(x.ledgerReview.at).toLocaleString("zh-CN"))}；仅模拟记录，未生成会计凭证。</small></div>` : ""}${approvalTimeline(x)}<h3>流转记录</h3><div class="timeline">${x.history.map((h) => `<p>${esc(h.text)}<small>${esc(h.operation ? new Date(h.operation.at).toLocaleString("zh-CN") : h.time)}${h.operation ? " · " + esc(h.operation.actorName) + " · " + (h.operation.flowVersion ? "v" + h.operation.flowVersion : "历史固定流程") : ""}</small></p>`).join("")}</div>${role === "员工" && x.employee === currentEmployee() && x.status === "待主管审批" && (x.approval?.cursor || 0) === 0 ? '<div class="review-box"><label>撤回原因<textarea id="withdraw-reason" maxlength="200" placeholder="如金额填写有误，需要修改"></textarea></label><button id="withdraw">撤回并修改</button><p>仅主管审批前可撤回，之后需由审核人退回。</p></div>' : ""}${can ? `${x.status === "待付款" ? paymentFields() : x.status === "待总账复核" ? '<div class="review-box"><h3>总账复核信息</h3><label>总账科目<input id="ledger-account" maxlength="100" placeholder="如 6602 管理费用（仅演示）"></label><label>核算归属<input id="ledger-costcenter" maxlength="100" placeholder="如 法报中心 / 示例项目"></label><small>只记录复核信息，不生成会计凭证或自动记账。</small></div>' : ""}<label>处理备注<textarea id="reason" placeholder="退回时必须填写原因"></textarea></label><div class="actions"><button id="reject">退回修改</button><button class="primary" id="approve">${x.status === "待付款" ? "登记付款" : "审核通过"}</button></div>` : role === "员工" && x.employee === currentEmployee() && ["已退回", "草稿", "已撤回"].includes(x.status) ? `<button class="primary" id="edit">${x.status === "草稿" ? "继续填写草稿" : "修改并重新提交"}</button>` : '<p class="footnote">切换到审批路径中指定的角色和具体人员后处理。</p>'}`,
   );
+  bindAttachmentDetails(document.querySelector("#overlay"), x.attachments);
   if (can) {
     document.querySelector("#reject").onclick = () => act("reject");
     document.querySelector("#approve").onclick = () => act("approve");
@@ -939,7 +951,7 @@ function form(existing) {
     return;
   }
   modal(
-    `<div class="modal-title"><h2>${existing ? "编辑报销" : "新建报销"}</h2><button data-close aria-label="关闭">✕</button></div><p class="muted">申请人：${esc(currentEmployee())} · ${esc(currentDepartment())}</p><form id="expense-form"><label>报销事项<input name="name" maxlength="60" required value="${esc(existing?.name || "")}" placeholder="例如：上海客户拜访差旅"></label><div class="form-grid"><label>费用类型<select name="type">${["差旅交通", "业务招待", "办公采购", "其他费用"].map((t) => `<option ${existing?.type === t ? "selected" : ""}>${t}</option>`).join("")}</select></label><label>金额（元）<input name="amount" type="number" min="0.01" max="1000000" step="0.01" required value="${existing?.amount || ""}"></label></div><label>发票号码<input name="invoice" maxlength="40" value="${esc(existing?.invoice || "")}" placeholder="用于重复报销检测"></label><label>票据附件<input name="receipt" type="file" accept=".pdf,.png,.jpg,.jpeg,.webp"><small>图片可在浏览器中识别，不上传原图；保存时仅记录文件名。${existing?.receipt ? "当前：" + esc(existing.receipt) : ""}</small></label>${requestOptions(requests, items, existing, new Date().toLocaleDateString("sv-SE"), currentEmployee())}${travelForm("expense", existing?.travel)}${ocrPanel()}${existing?.receipt ? '<label class="check-line"><input type="checkbox" name="removeReceipt">移除当前附件名称</label>' : ""}<label>业务说明<textarea name="note" maxlength="500" required placeholder="说明费用用途">${esc(existing?.note || "")}</textarea></label><div id="form-review" class="review-box"></div><div class="actions"><button type="button" id="draft">保存草稿</button><button type="submit" class="primary">提交报销 →</button></div></form>`,
+    `<div class="modal-title"><h2>${existing ? "编辑报销" : "新建报销"}</h2><button data-close aria-label="关闭">✕</button></div><p class="muted">申请人：${esc(currentEmployee())} · ${esc(currentDepartment())}</p><form id="expense-form"><label>报销事项<input name="name" maxlength="60" required value="${esc(existing?.name || "")}" placeholder="例如：上海客户拜访差旅"></label><div class="form-grid"><label>费用类型<select name="type">${["差旅交通", "业务招待", "办公采购", "其他费用"].map((t) => `<option ${existing?.type === t ? "selected" : ""}>${t}</option>`).join("")}</select></label><label>金额（元）<input name="amount" type="number" min="0.01" max="1000000" step="0.01" required value="${existing?.amount || ""}"></label></div><label>发票号码<input name="invoice" maxlength="40" value="${esc(existing?.invoice || "")}" placeholder="用于重复报销检测"></label><label>发票OCR / 原票据名称<input name="receipt" type="file" accept=".pdf,.png,.jpg,.jpeg,.webp"><small>图片可在浏览器中识别，不上传原图；此旧入口仅记录文件名；要保留原文件，请使用下方“报销附件”。${existing?.receipt ? "当前：" + esc(existing.receipt) : ""}</small></label>${attachmentEditor()}${requestOptions(requests, items, existing, new Date().toLocaleDateString("sv-SE"), currentEmployee())}${travelForm("expense", existing?.travel)}${ocrPanel()}${existing?.receipt ? '<label class="check-line"><input type="checkbox" name="removeReceipt">移除当前附件名称</label>' : ""}<label>业务说明<textarea name="note" maxlength="500" required placeholder="说明费用用途">${esc(existing?.note || "")}</textarea></label><div id="form-review" class="review-box"></div><div class="actions"><button type="button" id="draft">保存草稿</button><button type="submit" class="primary">提交报销 →</button></div></form>`,
   );
   const formEl = document.querySelector("#expense-form");
   const collect = () => {
@@ -962,6 +974,7 @@ function form(existing) {
       history: existing?.history || [],
       ...(d.get("requestId") ? { requestId: d.get("requestId") } : {}),
       ...(ocrEvidence ? { ocr: ocrEvidence } : {}),
+      attachments: attachmentFiles.read(),
       ...(travelEditor.read() ? { travel: travelEditor.read() } : {}),
     };
   };
@@ -972,6 +985,11 @@ function form(existing) {
     document.querySelector("#form-review").innerHTML =
       `<h3>提交前预审 · 规则计算</h3>${f.length ? f.map((t) => `<p class="risk">⚑ ${esc(t)}</p>`).join("") : '<p class="safe">✓ 当前未触发规则预警</p>'}<small>单笔额度 ${money(policy.limit)}；仅检查已填写的信息，提交仍需完整填写必填项。风险单可提交说明情况，财务审核前须解决。</small>`;
   };
+  const attachmentFiles = mountAttachmentEditor(
+    formEl,
+    existing?.attachments,
+    () => preview(),
+  );
   const travelEditor = mountTravelForm(formEl, () => preview());
   formEl.elements.requestId.addEventListener("change", () => {
     const r = requests.find((r) => r.id === formEl.elements.requestId.value);
@@ -1012,6 +1030,7 @@ function form(existing) {
     formEl.dataset.dirty = "true";
   });
   const persist = (draft) => {
+    if (attachmentFiles.isBusy()) return toast("附件正在读取，请稍后保存");
     const x = collect();
     if (
       !draft &&
@@ -1056,19 +1075,31 @@ function form(existing) {
         time: new Date().toLocaleString("zh-CN"),
       },
     ];
-    if (existing) items[items.findIndex((i) => i.id === x.id)] = x;
-    else items.unshift(x);
-    record(
-      draft ? "保存草稿" : "提交报销",
-      x.id,
-      x.name + (x.ocr ? " · 曾使用OCR辅助并人工核对" : ""),
-    );
-    save();
+    const nextItems = existing
+      ? items.map((i) => (i.id === x.id ? x : i))
+      : [x, ...items];
+    try {
+      persistExpenseItems(localStorage, nextItems);
+    } catch (e) {
+      return toast(e.message);
+    }
+    items = nextItems;
+    let auditWarning = "";
+    try {
+      record(
+        draft ? "保存草稿" : "提交报销",
+        x.id,
+        x.name + (x.ocr ? " · 曾使用OCR辅助并人工核对" : ""),
+      );
+    } catch {
+      auditWarning = "；操作记录写入失败，请及时备份";
+    }
+
     render();
     toast(
-      draft
+      (draft
         ? "草稿已保存，可在草稿标签继续填写"
-        : "报销已提交，预审结果可在详情查看",
+        : "报销已提交，预审结果可在详情查看") + auditWarning,
     );
   };
   document.querySelector("#draft").onclick = () => persist(true);
@@ -1128,7 +1159,7 @@ function auditView() {
   return `<section class="panel"><div class="panel-title"><div><h3>操作记录</h3><span>记录本浏览器中的关键业务动作 · 最新在前 · 最多 1000 条</span></div><span class="badge">${audit.length} 条</span></div><div class="table-wrap"><table><thead><tr><th>时间</th><th>角色</th><th>动作</th><th>对象</th><th>说明</th></tr></thead><tbody>${audit.map((x) => `<tr><td>${esc(x.time)}</td><td>${esc(x.actor)}</td><td>${esc(x.action)}</td><td>${esc(x.target)}</td><td class="wrap-cell">${esc(x.note || "—")}</td></tr>`).join("") || '<tr><td colspan="5" class="empty">暂无记录，创建报销或调整规则后会显示在这里</td></tr>'}</tbody></table></div>${legacy.length ? `<div class="prose"><h3>早期预算调整记录</h3>${legacy.map((x) => `<p>${esc(x.time)} · ${esc(x.department)} · ${money(x.limit)} · ${esc(x.reason)}</p>`).join("")}</div>` : ""}<div class="footnote prose">演示记录保存在浏览器，可随备份迁移；不具备服务端防篡改审计能力。早期报销记录请查看各单据的流转记录。</div></section>`;
 }
 function dataView() {
-  return `<section class="panel prose"><div class="section-intro"><span class="section-mark">⇅</span><div><h2>让演示数据，随作品一起迁移</h2><p>无需真实财务资料。备份用于更换浏览器、设备或演示前留档。</p></div></div><div class="data-cards"><article><h3>导出完整备份</h3><p>包含报销、费用申请、组织架构、已发布审批流程、规则、部门预算及操作记录，JSON 格式。角色为演示身份，导出不代表真实数据权限。</p><button id="backup" class="primary">下载数据备份</button></article><article><h3>导入已有备份</h3><p>校验格式后替换当前数据。建议先导出；浏览器会要求你确认覆盖。</p><label>选择轻报 JSON 备份<input id="restore" type="file" accept=".json,application/json"></label></article></div><div class="review-box"><h3>使用范围</h3>所有记录仅在当前浏览器中存储，清理浏览器数据会丢失。不同设备不会同步。本原型不是生产财务系统，请使用虚构票据。</div><h3>面试演示路线</h3><div class="demo-steps"><div><b>01</b><h3>完成一笔报销</h3><p>员工创建 → 主管通过 → 财务审核 → 付款登记。</p></div><div><b>02</b><h3>处理一笔异常</h3><p>发现重复票据 → 退回 → 员工修正 → 重提审批。</p></div><div><b>03</b><h3>解释产品决策</h3><p>调整预算查看预警，配置规则观察变化，在操作记录追踪动作。</p></div></div></section>`;
+  return `<section class="panel prose"><div class="section-intro"><span class="section-mark">⇅</span><div><h2>让演示数据，随作品一起迁移</h2><p>无需真实财务资料。备份用于更换浏览器、设备或演示前留档。</p></div></div><div class="data-cards"><article><h3>导出完整备份</h3><p>包含报销、附件原文件、费用申请、组织架构、已发布审批流程、规则、部门预算及操作记录，JSON 格式。附件仅在本浏览器与备份中保留。角色为演示身份，导出不代表真实数据权限。</p><button id="backup" class="primary">下载数据备份</button></article><article><h3>导入已有备份</h3><p>校验格式后替换当前数据。建议先导出；浏览器会要求你确认覆盖。</p><label>选择轻报 JSON 备份<input id="restore" type="file" accept=".json,application/json"></label></article></div><div class="review-box"><h3>使用范围</h3>所有记录仅在当前浏览器中存储，清理浏览器数据会丢失。不同设备不会同步。本原型不是生产财务系统，请使用虚构票据。</div><h3>面试演示路线</h3><div class="demo-steps"><div><b>01</b><h3>完成一笔报销</h3><p>员工创建 → 主管通过 → 财务审核 → 付款登记。</p></div><div><b>02</b><h3>处理一笔异常</h3><p>发现重复票据 → 退回 → 员工修正 → 重提审批。</p></div><div><b>03</b><h3>解释产品决策</h3><p>调整预算查看预警，配置规则观察变化，在操作记录追踪动作。</p></div></div></section>`;
 }
 function downloadFile(content, name, type) {
   const blob = new Blob([content], { type });
@@ -1199,11 +1230,10 @@ function bindMore() {
       policy,
       audit,
     };
-    downloadFile(
-      JSON.stringify(backup, null, 2),
-      "轻报-数据备份.json",
-      "application/json",
-    );
+    const backupJson = JSON.stringify(backup, null, 2);
+    if (new Blob([backupJson]).size > 5 * 1024 * 1024)
+      return toast("完整备份超过5 MB，请减少本次附件规模；当前数据仍保留");
+    downloadFile(backupJson, "轻报-数据备份.json", "application/json");
     toast("已生成备份，请在浏览器下载列表查看");
   });
   document.querySelector("#restore")?.addEventListener("change", async (e) => {
@@ -1245,29 +1275,40 @@ function bindMore() {
         input.value = "";
         return;
       }
-      localStorage.setItem(
-        "qingbao-configuration-v1",
-        JSON.stringify(nextConfiguration),
-      );
+      const nextBudgets = { ...data.budgets };
+      for (const d of nextConfiguration.org.departments)
+        if (d.parentId !== null && nextBudgets[d.name] === undefined)
+          nextBudgets[d.name] = 0;
+      const nextDraft = structuredClone(nextConfiguration.flows);
+      const nextAudit = [
+        {
+          actor: `${currentEmployee()}（${role}）`,
+          action: "导入备份",
+          target: "演示空间",
+          note: `导入 ${data.items.length} 笔报销`,
+          time: new Date().toLocaleString("zh-CN"),
+        },
+        ...data.audit,
+      ].slice(0, 1000);
+      writeStorageBatch(localStorage, [
+        ["qingbao-v1", serializeExpenseItems(data.items)],
+        ["qingbao-configuration-v1", JSON.stringify(nextConfiguration)],
+        ["qingbao-requests-v1", JSON.stringify(nextRequests)],
+        ["qingbao-budgets", JSON.stringify(nextBudgets)],
+        ["qingbao-policy", JSON.stringify(data.policy)],
+        ["qingbao-flow-draft-v1", JSON.stringify(nextDraft)],
+        ["qingbao-audit", JSON.stringify(nextAudit)],
+        ["qingbao-budget-audit", null],
+      ]);
       configuration = nextConfiguration;
       configHealthy = true;
       requests = nextRequests;
       requestStoreHealthy = true;
-      saveRequests();
       items = data.items;
-      budgets = { ...data.budgets };
-      for (const d of configuration.org.departments)
-        if (d.parentId !== null && budgets[d.name] === undefined)
-          budgets[d.name] = 0;
-      flowDraft = structuredClone(configuration.flows);
-      localStorage.setItem("qingbao-flow-draft-v1", JSON.stringify(flowDraft));
+      budgets = nextBudgets;
+      flowDraft = nextDraft;
       policy = data.policy;
-      audit = data.audit;
-      save();
-      localStorage.setItem("qingbao-budgets", JSON.stringify(budgets));
-      localStorage.setItem("qingbao-policy", JSON.stringify(policy));
-      localStorage.removeItem("qingbao-budget-audit");
-      record("导入备份", "演示空间", `导入 ${items.length} 笔报销`);
+      audit = nextAudit;
       filter = "全部";
       query = "";
       render();
@@ -1285,14 +1326,20 @@ function matchingInvoices() {
   return invoiceRows(items, role === "员工" ? currentEmployee() : null).filter(
     (x) =>
       (invoiceFilter === "全部" || x.duplicate) &&
-      [x.invoice, x.receipt, x.employee, x.name]
+      [
+        x.invoice,
+        x.receipt,
+        ...(x.attachments || []).map((f) => f.name),
+        x.employee,
+        x.name,
+      ]
         .join(" ")
         .includes(invoiceQuery),
   );
 }
 function invoiceView() {
   const rows = matchingInvoices();
-  return `<section class="panel"><div class="panel-title"><div><h3>发票与报销，一处追踪</h3><span>关联报销票据索引 · 不存储原文件、不验证发票真伪</span></div><button id="invoice-export">↓ 导出台账</button></div><div class="toolbar"><div class="tabs">${["全部", "重复号码"].map((t) => `<button data-invoice-filter="${t}" class="${invoiceFilter === t ? "chosen" : ""}">${t}</button>`).join("")}</div><input id="invoice-search" aria-label="搜索发票台账" value="${esc(invoiceQuery)}" placeholder="搜索号码、附件、姓名或事项"></div><div class="table-wrap"><table><thead><tr><th>发票号码 / 附件名称</th><th>关联报销</th><th>申请人</th><th class="amount">关联报销金额</th><th>报销状态</th><th>号码检查</th><th>操作</th></tr></thead><tbody>${rows.map((x) => `<tr><td><strong>${esc(x.invoice || "未填写号码")}</strong><small>${esc(x.receipt || "未提供附件")}</small></td><td><strong>${esc(x.name)}</strong><small>${esc(x.id)}</small></td><td>${esc(x.employee)}</td><td class="amount">${money(x.amount)}</td><td><span class="badge">${x.status}</span>${x.approval && ["待主管审批", "待财务审核", "待总账复核", "待付款"].includes(x.status) ? `<small>待 ${esc((x.status === "待付款" ? x.approval.paymentActor || x.approval.nodes.at(-1) : x.approval.nodes[x.approval.cursor] || x.approval.nodes.at(-1)).actorName)} 处理</small>` : ""}</td><td><span class="${x.duplicate ? "risk" : "safe"}">${x.duplicate ? "⚑ 疑似重复" : !x.invoice ? "未填写号码" : ["已退回", "已撤回"].includes(x.status) ? "不参与查重" : "✓ 未发现重复"}</span></td><td><button class="link" data-detail="${esc(x.id)}">查看报销 →</button></td></tr>`).join("") || '<tr><td colspan="7" class="empty">没有符合条件的关联票据</td></tr>'}</tbody></table></div><div class="table-footer">共 ${rows.length} 条关联记录<span>金额为报销金额，并非独立票面金额</span></div><p class="footnote prose">同一号码的有效报销将同时标记。草稿不展示；退回、撤回单保留索引，但不占用号码。预审规则关闭查重后，此台账仍展示号码重复情况，供人工核对。</p></section>`;
+  return `<section class="panel"><div class="panel-title"><div><h3>发票与报销，一处追踪</h3><span>票据与材料索引 · 原文件请到报销详情预览或下载，不验证真伪</span></div><button id="invoice-export">↓ 导出台账</button></div><div class="toolbar"><div class="tabs">${["全部", "重复号码"].map((t) => `<button data-invoice-filter="${t}" class="${invoiceFilter === t ? "chosen" : ""}">${t}</button>`).join("")}</div><input id="invoice-search" aria-label="搜索发票台账" value="${esc(invoiceQuery)}" placeholder="搜索号码、附件、姓名或事项"></div><div class="table-wrap"><table><thead><tr><th>发票号码 / 附件名称</th><th>关联报销</th><th>申请人</th><th class="amount">关联报销金额</th><th>报销状态</th><th>号码检查</th><th>操作</th></tr></thead><tbody>${rows.map((x) => `<tr><td><strong>${esc(x.invoice || "未填写号码")}</strong><small>${esc([x.receipt, ...(x.attachments || []).map((f) => f.name)].filter(Boolean).join(" / ") || "未提供附件")}</small></td><td><strong>${esc(x.name)}</strong><small>${esc(x.id)}</small></td><td>${esc(x.employee)}</td><td class="amount">${money(x.amount)}</td><td><span class="badge">${x.status}</span>${x.approval && ["待主管审批", "待财务审核", "待总账复核", "待付款"].includes(x.status) ? `<small>待 ${esc((x.status === "待付款" ? x.approval.paymentActor || x.approval.nodes.at(-1) : x.approval.nodes[x.approval.cursor] || x.approval.nodes.at(-1)).actorName)} 处理</small>` : ""}</td><td><span class="${x.duplicate ? "risk" : "safe"}">${x.duplicate ? "⚑ 疑似重复" : !x.invoice ? "未填写号码" : ["已退回", "已撤回"].includes(x.status) ? "不参与查重" : "✓ 未发现重复"}</span></td><td><button class="link" data-detail="${esc(x.id)}">查看报销 →</button></td></tr>`).join("") || '<tr><td colspan="7" class="empty">没有符合条件的关联票据</td></tr>'}</tbody></table></div><div class="table-footer">共 ${rows.length} 条关联记录<span>金额为报销金额，并非独立票面金额</span></div><p class="footnote prose">同一号码的有效报销将同时标记。草稿不展示；退回、撤回单保留索引，但不占用号码。预审规则关闭查重后，此台账仍展示号码重复情况，供人工核对。</p></section>`;
 }
 function guideView() {
   return `<section class="panel prose"><div class="section-intro"><span class="section-mark">▷</span><div><h2>按场景，讲清产品设计与闭环</h2><p>按场景操作，展示问题、方案与取舍。所有样例均为虚构数据。</p></div></div><div class="guide-grid">${[
@@ -1302,7 +1349,7 @@ function guideView() {
       "体验如何减少返工",
       "员工",
       "报销管理",
-      "可先载入虚构样票体验 OCR，核对后填入；保存草稿并补充用途后提交。发现错误可在主管审批前撤回再修改；到报销进度查看当前待处理人，退回后在“待我完善”核对原因并重提。差旅场景可先申请行程，再关联住宿/餐补等明细自动合计，到差旅标准查看超标口径；申请进度可查看当前审批人、额度占用和本人关联报销。",
+      "可先载入虚构样票体验 OCR，核对后填入；在报销附件区上传酒店水单、行程单等材料，保存草稿并补充用途后提交；审核人可预览图片或下载原文件。发现错误可在主管审批前撤回再修改；到报销进度查看当前待处理人，退回后在“待我完善”核对原因并重提。差旅场景可先申请行程，再关联住宿/餐补等明细自动合计，到差旅标准查看超标口径；申请进度可查看当前审批人、额度占用和本人关联报销。",
       "设计理由：区分草稿、撤回和退回，既降低输入成本，也保持审批状态清晰。",
     ],
     [
@@ -1404,7 +1451,9 @@ function bindExpenses() {
       ],
       ...matchingInvoices().map((x) => [
         x.invoice,
-        x.receipt,
+        [x.receipt, ...(x.attachments || []).map((f) => f.name)]
+          .filter(Boolean)
+          .join(" / "),
         x.id,
         x.name,
         x.employee,

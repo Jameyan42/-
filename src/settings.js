@@ -1,3 +1,4 @@
+import { validateAttachments } from "./attachments.js";
 import { validateTravel, assertTravelSubmission } from "./travel.js";
 import { validateOperationHistory } from "./operations.js";
 import { defaultOrg, assertOrgChange } from "./organization.js";
@@ -85,6 +86,7 @@ export function validateBackup(data) {
       if (x.status !== "草稿")
         assertTravelSubmission(x.travel, x.amount, x.type);
     }
+    if (x.attachments !== undefined) validateAttachments(x.attachments);
     validateOperationHistory(x.history, "expense");
     if (
       x.status !== "草稿" &&

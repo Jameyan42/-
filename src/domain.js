@@ -18,7 +18,11 @@ export function review(item, all = [], policy = defaultPolicy) {
     flags.push(
       `超过单笔 ${policy.limit.toLocaleString("zh-CN")} 元标准，需说明业务必要性`,
     );
-  if (policy.requireReceipt && !item.receipt)
+  if (
+    policy.requireReceipt &&
+    !item.receipt &&
+    !item.attachments?.some((f) => f.kind === "发票")
+  )
     flags.push("缺少票据附件，财务审核前需补充");
   if (
     policy.checkDuplicate &&

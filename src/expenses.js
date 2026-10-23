@@ -28,7 +28,7 @@ export function invoiceRows(items, employee = null) {
   const visible = items.filter(
     (x) =>
       (!employee || x.employee === employee) &&
-      (x.invoice || x.receipt) &&
+      (x.invoice || x.receipt || x.attachments?.length) &&
       x.status !== "草稿",
   );
   return visible.map((x) => ({
