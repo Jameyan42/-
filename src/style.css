@@ -1860,7 +1860,7 @@ header .demo-tag::after {
   margin-top: 12px;
 }
 header .demo-tag::after {
-  content: " · v0.12";
+  content: " · v0.13";
 }
 header .header-right {
   gap: 13px;
@@ -2324,5 +2324,55 @@ header .header-right label {
   }
   .org-search-results {
     grid-template-columns: 1fr;
+  }
+}
+
+.processed-date-range {
+  margin: 0 24px 18px;
+  padding: 14px 16px;
+  border: 1px solid #dfe7f4;
+  background: #f9fbff;
+  border-radius: 10px;
+}
+.processed-date-inputs {
+  display: flex;
+  align-items: end;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+.processed-date-inputs label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  color: #7c8da7;
+  font-size: 11px;
+}
+.processed-date-inputs input {
+  border: 1px solid #dce4f2;
+  border-radius: 7px;
+  padding: 9px;
+  color: #4c5e7c;
+  background: white;
+  min-width: 0;
+}
+.processed-date-range p {
+  font-size: 10px;
+  line-height: 1.8;
+  margin: 8px 0 0;
+  color: #8190aa;
+}
+.processed-date-range .risk {
+  color: #bd6a5e;
+}
+@media (max-width: 750px) {
+  .processed-date-range {
+    margin: 0 14px 14px;
+  }
+  .processed-date-inputs label {
+    width: 100%;
+  }
+  .processed-date-inputs .tabs {
+    flex-wrap: wrap;
+    overflow: visible;
   }
 }

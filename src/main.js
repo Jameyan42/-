@@ -1,3 +1,8 @@
+import {
+  validateDateRange,
+  datePreset,
+  processingTimeZone,
+} from "./processing-dates.js";
 import { locateOrganization, parseChartKey } from "./org-search.js";
 import { processedRows, processedCsv } from "./operations.js";
 import { processedView } from "./processed-ui.js";
@@ -262,7 +267,31 @@ let inboxKind = "all",
   inboxOrder = "oldest";
 let inboxMode = "pending",
   processedResult = "all",
-  processedPage = 0;
+  processedPage = 0,
+  processedFrom = "",
+  processedTo = "",
+  processedPreset = "all";
+function processedRangeError() {
+  try {
+    validateDateRange(processedFrom, processedTo);
+    return "";
+  } catch (e) {
+    return e.message;
+  }
+}
+function processedOptions() {
+  return {
+    kind: inboxKind,
+    query: inboxQuery,
+    result: processedResult,
+    order: inboxOrder,
+    from: processedFrom,
+    to: processedTo,
+  };
+}
+function filteredProcessed() {
+  return processedRangeError() ? [] : currentProcessed(processedOptions());
+}
 function currentProcessed(options = {}) {
   return processedRows(items, requests, currentActor(), options);
 }
@@ -273,12 +302,7 @@ function approvalCenterView() {
     (inboxMode === "processed"
       ? processedView(
           currentProcessed(),
-          currentProcessed({
-            kind: inboxKind,
-            query: inboxQuery,
-            result: processedResult,
-            order: inboxOrder,
-          }),
+          filteredProcessed(),
           currentActor(),
           inboxKind,
           inboxQuery,
@@ -286,6 +310,13 @@ function approvalCenterView() {
           inboxOrder,
           requestStoreHealthy,
           processedPage,
+          {
+            from: processedFrom,
+            to: processedTo,
+            preset: processedPreset,
+            error: processedRangeError(),
+            timeZone: processingTimeZone(),
+          },
         )
       : inboxView(
           currentInbox(),
@@ -310,6 +341,9 @@ function resetInboxFilters() {
   inboxQuery = "";
   processedResult = "all";
   processedPage = 0;
+  processedFrom = "";
+  processedTo = "";
+  processedPreset = "all";
   paymentFilter = "待付款";
   paymentQuery = "";
 }
@@ -1118,7 +1152,7 @@ function guideView() {
       "完成从审批到付款的闭环",
       "主管",
       "审批中心",
-      "审批中心集中处理报销、申请和付款，完成后切到“我已处理”回看本人结果与当时摘要。财务审核后仍需登记付款；切其他人员验证历史记录归属。",
+      "审批中心集中处理报销、申请和付款，完成后切到“我已处理”回看本人结果与当时摘要，可用今天、近7天或起止日期筛选，导出全部匹配记录。财务审核后仍需登记付款；切其他人员验证历史记录归属。",
       "设计理由：审批通过和实际付款是不同事件，不能用一个“完成”状态代替。",
     ],
     [
@@ -1817,6 +1851,26 @@ function bindConfiguration() {
 }
 
 function bindInbox() {
+  document.querySelectorAll("[data-date-preset]").forEach(
+    (b) =>
+      (b.onclick = () => {
+        const range = datePreset(b.dataset.datePreset);
+        processedFrom = range.from;
+        processedTo = range.to;
+        processedPreset = b.dataset.datePreset;
+        processedPage = 0;
+        render();
+      }),
+  );
+  for (const id of ["processed-from", "processed-to"])
+    document.querySelector("#" + id)?.addEventListener("change", (e) => {
+      if (id === "processed-from") processedFrom = e.target.value;
+      else processedTo = e.target.value;
+      processedPreset = processedFrom || processedTo ? "custom" : "all";
+      processedPage = 0;
+      render();
+    });
+
   document.querySelectorAll("[data-processed-page]").forEach(
     (b) =>
       (b.onclick = () => {
@@ -1843,15 +1897,12 @@ function bindInbox() {
   document.querySelector("#processed-export")?.addEventListener("click", () => {
     if (!requestStoreHealthy)
       return toast("申请存储异常，不能导出完整处理记录；请先恢复有效备份");
+    if (processedRangeError()) return toast(processedRangeError());
     downloadFile(
-      processedCsv(
-        currentProcessed({
-          kind: inboxKind,
-          query: inboxQuery,
-          result: processedResult,
-          order: inboxOrder,
-        }),
-      ),
+      processedCsv(currentProcessed(processedOptions()), {
+        from: processedFrom,
+        to: processedTo,
+      }),
       "轻报-我的处理记录.csv",
       "text/csv;charset=utf-8",
     );

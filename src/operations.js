@@ -1,3 +1,9 @@
+import {
+  validateDateRange,
+  withinDateRange,
+  processingDate,
+  processingTimeZone,
+} from "./processing-dates.js";
 import { validatePayment } from "./expenses.js";
 const roles = ["主管", "管理员", "财务", "总账", "付款"];
 const text = (s, n) => typeof s === "string" && !!s.trim() && s.length <= n;
@@ -151,8 +157,16 @@ export function processedRows(
   items,
   requests,
   actor,
-  { kind = "all", query = "", result = "all", order = "newest" } = {},
+  {
+    kind = "all",
+    query = "",
+    result = "all",
+    order = "newest",
+    from = "",
+    to = "",
+  } = {},
 ) {
+  const range = validateDateRange(from, to);
   if (!actor?.id || actor.active === false) return [];
   const term = query.trim().toLocaleLowerCase();
   return [
@@ -173,6 +187,7 @@ export function processedRows(
     )
     .filter(
       (r) =>
+        withinDateRange(r.operation.at, range) &&
         (kind === "all" || kind === r.kind) &&
         (result === "all" || result === r.operation.action) &&
         (!term ||
@@ -198,7 +213,9 @@ export function processedRows(
         b.index - a.index,
     );
 }
-export function processedCsv(rows) {
+export function processedCsv(rows, range = { from: "", to: "" }) {
+  validateDateRange(range.from, range.to);
+  const timeZone = processingTimeZone();
   const cell = (x) =>
     '"' +
     String(x ?? "")
@@ -228,6 +245,10 @@ export function processedCsv(rows) {
         "总账科目",
         "核算归属",
         "付款参考号",
+        "本地处理日期",
+        "筛选开始日期",
+        "筛选结束日期",
+        "日期筛选时区",
       ],
       ...rows.map(({ doc, kind, operation: o }) => [
         kind === "expense" ? "报销" : "费用申请",
@@ -249,6 +270,10 @@ export function processedCsv(rows) {
         o.accounting?.account,
         o.accounting?.costCenter,
         o.payment?.reference,
+        processingDate(o.at),
+        range.from || "不限",
+        range.to || "不限",
+        timeZone,
       ]),
     ]
       .map((r) => r.map(cell).join(","))
