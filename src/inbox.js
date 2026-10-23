@@ -9,11 +9,11 @@ export function canHandleDocument(doc, kind, actor) {
     return false;
   if (doc.approval) {
     if (kind === "expense" && doc.status === "待付款") {
-      const finance = doc.approval.nodes.at(-1);
+      const finance = doc.approval.paymentActor || doc.approval.nodes.at(-1);
       return (
-        finance?.stage === "finance" &&
+        ["finance", "payment"].includes(finance?.stage) &&
         doc.approval.cursor === doc.approval.nodes.length &&
-        actor.role === "财务" &&
+        actor.role === finance.role &&
         finance.actorId === actor.id
       );
     }
@@ -48,7 +48,8 @@ export function inboxRows(
         ...row,
         submittedAt,
         actorName: a
-          ? (payment ? a.nodes.at(-1) : a.nodes[a.cursor])?.actorName
+          ? (payment ? a.paymentActor || a.nodes.at(-1) : a.nodes[a.cursor])
+              ?.actorName
           : null,
         stage: payment
           ? "付款登记"

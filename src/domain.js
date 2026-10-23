@@ -31,20 +31,26 @@ export function transition(
   note = "",
   payment = null,
   actor = null,
+  ledgerReview = null,
 ) {
   if (!["approve", "reject"].includes(action)) throw new Error("未知操作");
   if (item.approval && item.status !== "待付款")
-    return advanceApproval(item, action, actor || {}, note);
+    return advanceApproval(item, action, actor || {}, note, ledgerReview);
   if (
     item.approval &&
     (!actor ||
-      item.approval.nodes.at(-1).actorId !== actor.id ||
-      item.approval.nodes.at(-1).role !== actor.role)
+      (item.approval.paymentActor || item.approval.nodes.at(-1)).actorId !==
+        actor.id ||
+      (item.approval.paymentActor || item.approval.nodes.at(-1)).role !==
+        actor.role)
   )
     throw Error("仅快照中的财务人员可登记付款或退回");
   const allowed =
     (role === "主管" && item.status === stages[0]) ||
-    (role === "财务" && [stages[1], stages[2]].includes(item.status));
+    (role === "财务" && [stages[1], stages[2]].includes(item.status)) ||
+    (role === "付款" &&
+      item.approval?.schema === 2 &&
+      item.status === "待付款");
   if (!allowed) throw new Error("当前角色不能处理这笔报销");
   if (action === "reject" && !note.trim()) throw new Error("请填写退回原因");
   if (

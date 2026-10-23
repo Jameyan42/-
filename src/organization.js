@@ -1,4 +1,4 @@
-export const roles = ["员工", "主管", "财务", "管理员"];
+export const roles = ["员工", "主管", "财务", "总账", "付款", "管理员"];
 export function defaultOrg() {
   return {
     departments: [
@@ -136,6 +136,8 @@ export function validateOrg(org) {
       names.has(p.name) ||
       !ds.has(p.departmentId) ||
       !roles.includes(p.role) ||
+      (p.title !== undefined &&
+        (typeof p.title !== "string" || p.title.length > 40)) ||
       typeof p.active !== "boolean" ||
       !(p.managerId === null || text(p.managerId))
     )
@@ -221,8 +223,11 @@ export function assertOrgChange(previous, next, documents = []) {
       continue;
     const pending =
       doc.status === "待付款"
-        ? doc.approval.nodes.slice(-1)
+        ? doc.approval.paymentActor
+          ? []
+          : doc.approval.nodes.slice(-1)
         : doc.approval.nodes.slice(doc.approval.cursor);
+    if (doc.approval.paymentActor) pending.push(doc.approval.paymentActor);
     for (const node of pending) {
       const p = next.people.find((p) => p.id === node.actorId);
       if (!p?.active || p.role !== node.role)
@@ -230,4 +235,86 @@ export function assertOrgChange(previous, next, documents = []) {
     }
   }
   return next;
+}
+
+// Add a fictitious CFO example without replacing existing departments, names or reporting lines.
+export function addFinanceOrganization(previous) {
+  const org = structuredClone(previous);
+  const root = org.departments.find((d) => d.parentId === null);
+  const addPerson = (p) => {
+    if (org.people.some((x) => x.id === p.id || x.name === p.name))
+      throw Error("示例人员已存在或名称冲突，请在现有节点编辑");
+    org.people.push({ ...p, active: true });
+  };
+  addPerson({
+    id: "cfo-lu",
+    name: "陆衡",
+    title: "CFO",
+    role: "主管",
+    departmentId: root.id,
+    managerId: null,
+  });
+  for (const [id, name, headId, headName, employeeId, employeeName] of [
+    [
+      "reporting",
+      "法报中心",
+      "head-reporting",
+      "沈岚",
+      "staff-reporting",
+      "叶禾",
+    ],
+    [
+      "analysis",
+      "预算分析部",
+      "head-analysis",
+      "程睿",
+      "staff-analysis",
+      "夏宁",
+    ],
+    ["treasury", "资金部", "head-treasury", "韩敏", "staff-treasury", "苏晨"],
+    ["tax-risk", "税务与风控部", "head-tax", "方澈", "staff-tax", "乔伊"],
+  ]) {
+    if (org.departments.some((d) => d.id === id || d.name === name))
+      throw Error("示例部门已存在或名称冲突，请在现有部门编辑");
+    org.departments.push({ id, name, parentId: root.id, headId });
+    addPerson({
+      id: headId,
+      name: headName,
+      title: "部门总",
+      role: "主管",
+      departmentId: id,
+      managerId: "cfo-lu",
+    });
+    addPerson({
+      id: employeeId,
+      name: employeeName,
+      title: "专员",
+      role: "员工",
+      departmentId: id,
+      managerId: headId,
+    });
+  }
+  addPerson({
+    id: "ledger-gao",
+    name: "高璇",
+    title: "总账会计",
+    role: "总账",
+    departmentId: "reporting",
+    managerId: "head-reporting",
+  });
+  addPerson({
+    id: "payer-du",
+    name: "杜川",
+    title: "出纳",
+    role: "付款",
+    departmentId: "treasury",
+    managerId: "head-treasury",
+  });
+  return validateOrg(org);
+}
+export function enterpriseOrg() {
+  const org = addFinanceOrganization(defaultOrg());
+  org.people.find((p) => p.id === "admin-gu").managerId = "cfo-lu";
+  org.departments.find((d) => d.parentId === null).headId = "cfo-lu";
+  return validateOrg(org);
 }

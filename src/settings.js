@@ -1,5 +1,9 @@
 import { defaultOrg, assertOrgChange } from "./organization.js";
-import { validateFlows, validateSnapshot } from "./approval.js";
+import {
+  validateFlows,
+  validateSnapshot,
+  validateLedgerReview,
+} from "./approval.js";
 import { validateRequestSet } from "./requests.js";
 import { validatePayment } from "./expenses.js";
 export const defaultPolicy = {
@@ -42,6 +46,7 @@ export function validateBackup(data) {
     "草稿",
     "待主管审批",
     "待财务审核",
+    "待总账复核",
     "待付款",
     "已付款",
     "已退回",
@@ -100,6 +105,25 @@ export function validateBackup(data) {
       if (x.status === "已付款" && !x.payment)
         throw Error("快照单据付款信息缺失");
     }
+    if (x.ledgerReview !== undefined) {
+      validateLedgerReview(x.ledgerReview);
+      const a = x.approval,
+        index = a?.nodes.findIndex((n) => n.stage === "ledger");
+      if (
+        !a ||
+        a.schema !== 2 ||
+        index < 0 ||
+        a.cursor <= index ||
+        x.ledgerReview.reviewedBy !== a.nodes[index].actorId
+      )
+        throw Error("总账记录与审批快照不一致");
+    }
+    if (
+      x.approval?.schema === 2 &&
+      ["待付款", "已付款"].includes(x.status) &&
+      !x.ledgerReview
+    )
+      throw Error("总账复核记录缺失");
     ids.add(x.id);
   }
   if (

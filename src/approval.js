@@ -14,6 +14,17 @@ export function defaultFlows() {
     financeId: "finance-zhou",
   };
 }
+export function financeDivisionFlows(previous, org) {
+  const next = structuredClone(previous);
+  next.ledgerId =
+    org.people.find((p) => p.active && p.role === "总账")?.id || "";
+  next.payerId =
+    org.people.find((p) => p.active && p.role === "付款")?.id || "";
+  next.expense.low = [{ selector: "departmentHead" }];
+  next.expense.high = [{ selector: "departmentHead" }];
+  validateFlows(next, org);
+  return next;
+}
 const types = ["全部", "差旅交通", "业务招待", "办公采购", "其他费用"];
 export function validateFlows(flows, org) {
   validateOrg(org);
@@ -26,6 +37,19 @@ export function validateFlows(flows, org) {
     throw Error("流程版本无效");
   const f = org.people.find((p) => p.id === flows.financeId);
   if (!f?.active || f.role !== "财务") throw Error("请选择在岗财务审核人");
+  if (flows.ledgerId !== undefined || flows.payerId !== undefined) {
+    const ledger = org.people.find((p) => p.id === flows.ledgerId),
+      payer = org.people.find((p) => p.id === flows.payerId);
+    if (
+      !ledger?.active ||
+      ledger.role !== "总账" ||
+      !payer?.active ||
+      payer.role !== "付款"
+    )
+      throw Error("完整财务分工必须配置在岗总账和付款人员");
+    if (new Set([f.id, ledger.id, payer.id]).size !== 3)
+      throw Error("财务、总账和付款须由不同人员承担");
+  }
   for (const kind of ["expense", "request"]) {
     const rule = flows[kind];
     if (
@@ -122,8 +146,29 @@ export function compileApproval(doc, kind, org, flows) {
       stage: "finance",
     });
   }
+  const extended = kind === "expense" && flows.ledgerId !== undefined;
+  let paymentActor;
+  if (extended) {
+    const ledger = org.people.find((p) => p.id === flows.ledgerId),
+      payer = org.people.find((p) => p.id === flows.payerId);
+    nodes.push({
+      actorId: ledger.id,
+      actorName: ledger.name,
+      role: "总账",
+      label: "总账复核",
+      stage: "ledger",
+    });
+    paymentActor = {
+      actorId: payer.id,
+      actorName: payer.name,
+      role: "付款",
+      label: "付款登记",
+      stage: "payment",
+    };
+  }
   return {
-    schema: 1,
+    schema: extended ? 2 : 1,
+    ...(paymentActor ? { paymentActor } : {}),
     version: flows.version,
     kind,
     branch,
@@ -137,11 +182,13 @@ export function compileApproval(doc, kind, org, flows) {
 export function approvalStatus(snapshot) {
   const node = snapshot.nodes[snapshot.cursor];
   return node
-    ? node.stage === "finance"
-      ? "待财务审核"
-      : snapshot.kind === "expense"
-        ? "待主管审批"
-        : "待审批"
+    ? node.stage === "ledger"
+      ? "待总账复核"
+      : node.stage === "finance"
+        ? "待财务审核"
+        : snapshot.kind === "expense"
+          ? "待主管审批"
+          : "待审批"
     : snapshot.kind === "expense"
       ? "待付款"
       : "已批准";
@@ -156,7 +203,13 @@ export function canApprove(doc, actor) {
     a.nodes[a.cursor].role === actor.role
   );
 }
-export function advanceApproval(doc, action, actor, note = "") {
+export function advanceApproval(
+  doc,
+  action,
+  actor,
+  note = "",
+  ledgerReview = null,
+) {
   if (!["approve", "reject"].includes(action) || !canApprove(doc, actor))
     throw Error("当前身份不是本节点指定审批人");
   if (action === "reject" && !note.trim()) throw Error("请填写退回/驳回原因");
@@ -169,6 +222,16 @@ export function advanceApproval(doc, action, actor, note = "") {
     (doc.flags || []).length
   )
     throw Error("存在未解决的预审风险，请退回员工修正");
+  let accounting;
+  if (action === "approve" && node.stage === "ledger") {
+    if ((doc.flags || []).length)
+      throw Error("存在未解决的预审风险，请退回员工修正");
+    accounting = validateLedgerReview({
+      ...ledgerReview,
+      reviewedBy: actor.id,
+      at: new Date().toISOString(),
+    });
+  }
   if (action === "approve") approval.cursor++;
   const status =
     action === "reject"
@@ -180,6 +243,7 @@ export function advanceApproval(doc, action, actor, note = "") {
     ...doc,
     approval,
     status,
+    ...(accounting ? { ledgerReview: accounting } : {}),
     history: [
       ...doc.history,
       {
@@ -192,7 +256,7 @@ export function advanceApproval(doc, action, actor, note = "") {
 export function validateSnapshot(a, status, kind) {
   if (
     !a ||
-    a.schema !== 1 ||
+    ![1, 2].includes(a.schema) ||
     a.kind !== kind ||
     !Number.isInteger(a.version) ||
     a.version < 1 ||
@@ -206,7 +270,7 @@ export function validateSnapshot(a, status, kind) {
     Number.isNaN(Date.parse(a.submittedAt)) ||
     !Array.isArray(a.nodes) ||
     !a.nodes.length ||
-    a.nodes.length > 5 ||
+    a.nodes.length > (a.schema === 2 ? 6 : 5) ||
     !Number.isInteger(a.cursor) ||
     a.cursor < 0 ||
     a.cursor > a.nodes.length
@@ -224,23 +288,56 @@ export function validateSnapshot(a, status, kind) {
       n.actorName.length > 30 ||
       typeof n.label !== "string" ||
       n.label.length > 40 ||
-      !["主管", "管理员", "财务"].includes(n.role) ||
-      !["business", "finance"].includes(n.stage) ||
+      !["主管", "管理员", "财务", "总账"].includes(n.role) ||
+      !["business", "finance", "ledger"].includes(n.stage) ||
       ids.has(n.actorId) ||
       n.actorId === a.applicantId ||
-      (n.stage === "business" && n.role === "财务") ||
-      (n.stage === "finance" && n.role !== "财务")
+      (n.stage === "business" && !["主管", "管理员"].includes(n.role)) ||
+      (n.stage === "finance" && n.role !== "财务") ||
+      (n.stage === "ledger" && n.role !== "总账")
     )
       throw Error("审批快照节点无效");
     ids.add(n.actorId);
   }
-  const financial = a.nodes.filter((n) => n.stage === "finance");
-  if (
-    (kind === "expense" &&
-      (financial.length !== 1 || a.nodes.at(-1).stage !== "finance")) ||
-    (kind === "request" && financial.length)
+  const financial = a.nodes.filter((n) => n.stage === "finance"),
+    ledgers = a.nodes.filter((n) => n.stage === "ledger");
+  const extended = a.schema === 2;
+  if (kind === "expense") {
+    if (
+      financial.length !== 1 ||
+      (extended
+        ? ledgers.length !== 1 ||
+          a.nodes.at(-1).stage !== "ledger" ||
+          a.nodes.at(-2)?.stage !== "finance"
+        : ledgers.length || a.nodes.at(-1).stage !== "finance")
+    )
+      throw Error("审批快照财务节点不完整");
+  } else if (
+    extended ||
+    financial.length ||
+    ledgers.length ||
+    a.paymentActor !== undefined
   )
-    throw Error("审批快照财务节点不完整");
+    throw Error("费用申请不允许财务尾节点");
+  if (extended) {
+    const p = a.paymentActor;
+    if (
+      !p ||
+      typeof p.actorId !== "string" ||
+      !p.actorId ||
+      p.actorId.length > 60 ||
+      typeof p.actorName !== "string" ||
+      !p.actorName ||
+      p.actorName.length > 30 ||
+      p.role !== "付款" ||
+      p.stage !== "payment" ||
+      p.label !== "付款登记" ||
+      ids.has(p.actorId) ||
+      p.actorId === a.applicantId
+    )
+      throw Error("审批快照付款责任人无效");
+  } else if (a.paymentActor !== undefined)
+    throw Error("旧快照不能包含新付款节点");
   const terminal =
     kind === "expense" ? ["已退回", "已撤回"] : ["已驳回", "已关闭"];
   if (
@@ -255,4 +352,27 @@ export function validateSnapshot(a, status, kind) {
     throw Error("单据状态与审批快照不一致");
   if (status === "草稿") throw Error("草稿不能包含运行中的审批快照");
   return a;
+}
+
+export function validateLedgerReview(value) {
+  if (
+    !value ||
+    typeof value.account !== "string" ||
+    !value.account.trim() ||
+    value.account.length > 100 ||
+    typeof value.costCenter !== "string" ||
+    !value.costCenter.trim() ||
+    value.costCenter.length > 100 ||
+    typeof value.reviewedBy !== "string" ||
+    !value.reviewedBy ||
+    typeof value.at !== "string" ||
+    Number.isNaN(Date.parse(value.at))
+  )
+    throw Error("请填写总账科目与核算归属（各1～100字）");
+  return {
+    account: value.account.trim(),
+    costCenter: value.costCenter.trim(),
+    reviewedBy: value.reviewedBy,
+    at: value.at,
+  };
 }

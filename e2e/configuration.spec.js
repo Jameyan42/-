@@ -138,6 +138,7 @@ test("新增部门主管负责人及员工，预算默认为零且新身份可�
   await p.goto("/");
   await p.locator("#role").selectOption("管理员");
   await nav(p, "组织架构");
+  await p.locator("[data-org-mode=departments]").click();
   await p.locator("#add-department").click();
   await p.locator("#department-form [name=name]").fill("市场部");
   await p.locator("#department-form button[type=submit]").click();
