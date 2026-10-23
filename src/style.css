@@ -1865,7 +1865,7 @@ header .demo-tag::after {
   margin-top: 12px;
 }
 header .demo-tag::after {
-  content: " · v0.19";
+  content: " · v0.20";
 }
 header .header-right {
   gap: 13px;
@@ -2613,4 +2613,117 @@ header .header-right label {
   padding: 10px;
   border: 1px solid #dfe6f3;
   border-radius: 6px;
+}
+
+/* Enterprise supplier → contract → corporate payment workspace. */
+.enterprise-panel .panel-title {
+  align-items: flex-start;
+  gap: 20px;
+}
+.enterprise-panel .panel-title p {
+  max-width: 720px;
+  line-height: 1.8;
+}
+.enterprise-panel .toolbar {
+  flex-wrap: wrap;
+}
+.enterprise-panel .toolbar label {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.enterprise-metrics {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+  margin: 22px 0;
+}
+.enterprise-metrics article {
+  border: 1px solid var(--line, #e3e9ef);
+  border-radius: 12px;
+  padding: 20px;
+  background: #f7fafb;
+}
+.enterprise-metrics span {
+  display: block;
+  font-size: 13px;
+  color: #667787;
+  margin-bottom: 12px;
+}
+.enterprise-metrics b {
+  font-size: 23px;
+  color: #087f8c;
+  overflow-wrap: anywhere;
+}
+.enterprise-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 16px 0;
+}
+.contract-finding {
+  border-top: 1px solid #dce5e9;
+  padding: 16px 0;
+}
+.contract-finding blockquote {
+  margin: 12px 0;
+  padding-left: 12px;
+  border-left: 3px solid #d0a45d;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.contract-text {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font-family: inherit;
+  font-size: 13px;
+  line-height: 1.9;
+  background: #f6f8fa;
+  padding: 16px;
+  border-radius: 10px;
+  max-height: 420px;
+  overflow-y: auto;
+}
+.enterprise-history p {
+  padding: 12px;
+  border-bottom: 1px solid #e5eaee;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.enterprise-history small {
+  display: block;
+  color: #667787;
+  margin: 8px 0;
+}
+.corporate-route {
+  padding-left: 24px;
+}
+.corporate-route li {
+  padding: 10px;
+  border-left: 2px solid #d9e6e8;
+}
+.corporate-route li.current {
+  background: #e8f5f2;
+  border-color: #087f8c;
+}
+.corporate-route small {
+  display: block;
+  color: #667787;
+}
+@media (max-width: 700px) {
+  .enterprise-metrics {
+    grid-template-columns: 1fr;
+  }
+  .enterprise-panel .panel-title {
+    flex-direction: column;
+  }
+  .enterprise-panel .toolbar input {
+    width: 100%;
+    min-width: 0;
+  }
+}
+
+.enterprise-close {
+  float: right;
+  margin: 0 0 12px 12px;
 }

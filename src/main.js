@@ -1,4 +1,12 @@
 import {
+  emptyEnterprise,
+  validateEnterprise,
+  persistEnterprise,
+  enterpriseKey,
+  enterprisePages,
+} from "./enterprise.js";
+import { enterpriseView, mountEnterprise } from "./enterprise-ui.js";
+import {
   emptyMessageRead,
   validateMessageRead,
   markMessagesRead,
@@ -211,6 +219,21 @@ function saveRequests(next = requests) {
   localStorage.setItem("qingbao-requests-v1", JSON.stringify(next));
   requests = next;
 }
+let enterprise = emptyEnterprise(),
+  enterpriseHealthy = true;
+try {
+  const raw = localStorage.getItem(enterpriseKey);
+  enterprise =
+    raw === null ? emptyEnterprise() : validateEnterprise(JSON.parse(raw));
+} catch {
+  enterpriseHealthy = false;
+}
+function saveEnterprise(next) {
+  if (!enterpriseHealthy) throw Error("企业业务存储异常，原始值已保留");
+  if (!configHealthy) throw Error("组织/流程存储异常，请先恢复有效备份");
+  assertOrgChange(configuration.org, configuration.org, next.payments);
+  enterprise = persistEnterprise(localStorage, next);
+}
 let configuration = { org: enterpriseOrg(), flows: defaultFlows() },
   configHealthy = true;
 try {
@@ -221,6 +244,7 @@ try {
   assertOrgChange(configuration.org, configuration.org, [
     ...items,
     ...requests,
+    ...enterprise.payments,
   ]);
 } catch {
   configuration = { org: defaultOrg(), flows: defaultFlows() };
@@ -443,6 +467,13 @@ function resetInboxFilters() {
 function saveConfiguration(next) {
   if (!configHealthy)
     throw Error("组织/流程存储无法读取，原始数据未改动，请恢复有效配置备份");
+  if (!enterpriseHealthy)
+    throw Error("企业业务存储异常，不能核对对公在途人员，原配置未改动");
+  assertOrgChange(configuration.org, next.org, [
+    ...items,
+    ...requests,
+    ...enterprise.payments,
+  ]);
   validateFlows(next.flows, next.org);
   localStorage.setItem("qingbao-configuration-v1", JSON.stringify(next));
   configuration = next;
@@ -503,6 +534,9 @@ function render() {
     ["审批中心", "✓"],
     ["消息中心", "♧"],
     ["付款工作台", "¤"],
+    ["对公支付单", "▣"],
+    ["合同审查", "§"],
+    ["供应商管理", "♙"],
     ["费用洞察", "◷"],
     ["预算管理", "▥"],
     ["发票台账", "▧"],
@@ -533,86 +567,99 @@ function render() {
     .join(
       "",
     )}</select></label><div class="avatar">${esc(currentEmployee()[0] || "人")}</div></div></header>
-<main><div class="page-heading"><div><div class="eyebrow">让每一笔费用，都清晰有序</div><h1>${page === "工作台" ? "工作台" : page}</h1><p>${esc(currentEmployee())}，你好。${role === "管理员" ? "维护虚构组织与审批配置，查看发布结果。" : role === "员工" ? "提交费用、追踪进度，让报销更轻松。" : "查看待办，按节点分工处理费用。"}</p></div><button class="primary" id="create">＋ 新建报销</button></div>
+<main><div class="page-heading"><div><div class="eyebrow">让每一笔费用，都清晰有序</div><h1>${page === "工作台" ? "工作台" : page}</h1><p>${esc(currentEmployee())}，你好。${role === "管理员" ? "维护虚构组织与审批配置，查看发布结果。" : role === "员工" ? "提交费用、追踪进度，让报销更轻松。" : "查看待办，按节点分工处理费用。"}</p></div>${enterprisePages.includes(page) ? "" : `<button class="primary" id="create">＋ 新建报销</button>`}</div>
 ${
-  page === "消息中心"
-    ? messagesView(
-        currentMessages(),
+  enterprisePages.includes(page)
+    ? enterpriseView(
+        page,
+        enterprise,
         currentActor(),
-        {
-          type: messageType,
-          unread: messageUnread,
-          query: messageQuery,
-          page: messagePage,
-        },
-        messageReadHealthy,
-        requestStoreHealthy,
+        enterpriseHealthy,
+        configuration.flows,
       )
-    : page === "申请进度"
-      ? requestProgressView(
-          requests,
-          items,
+    : page === "消息中心"
+      ? messagesView(
+          currentMessages(),
           currentActor(),
-          configuration.org,
           {
-            status: requestProgressStatus,
-            month: requestProgressMonth,
-            query: requestProgressQuery,
-            page: requestProgressPage,
+            type: messageType,
+            unread: messageUnread,
+            query: messageQuery,
+            page: messagePage,
           },
+          messageReadHealthy,
           requestStoreHealthy,
         )
-      : page === "差旅标准"
-        ? travelStandardsView()
-        : page === "报销进度"
-          ? expenseProgressView(items, currentActor(), configuration.org, {
-              group: progressGroup,
-              query: progressQuery,
-              page: progressPage,
-            })
-          : page === "付款工作台"
-            ? paymentView(
-                items,
-                currentActor(),
-                paymentFilter,
-                paymentQuery,
-                paymentSelected,
-              )
-            : page === "审批中心"
-              ? approvalCenterView()
-              : page === "组织架构"
-                ? orgChartView(configuration.org, role, orgMode, orgChartState)
-                : page === "审批流程"
-                  ? flowView(
-                      role === "管理员" ? flowDraft : configuration.flows,
-                      configuration.flows,
+      : page === "申请进度"
+        ? requestProgressView(
+            requests,
+            items,
+            currentActor(),
+            configuration.org,
+            {
+              status: requestProgressStatus,
+              month: requestProgressMonth,
+              query: requestProgressQuery,
+              page: requestProgressPage,
+            },
+            requestStoreHealthy,
+          )
+        : page === "差旅标准"
+          ? travelStandardsView()
+          : page === "报销进度"
+            ? expenseProgressView(items, currentActor(), configuration.org, {
+                group: progressGroup,
+                query: progressQuery,
+                page: progressPage,
+              })
+            : page === "付款工作台"
+              ? paymentView(
+                  items,
+                  currentActor(),
+                  paymentFilter,
+                  paymentQuery,
+                  paymentSelected,
+                )
+              : page === "审批中心"
+                ? approvalCenterView()
+                : page === "组织架构"
+                  ? orgChartView(
                       configuration.org,
                       role,
-                      flowTarget,
+                      orgMode,
+                      orgChartState,
                     )
-                  : page === "费用申请"
-                    ? requestsView(requests, items, role, currentEmployee())
-                    : page === "体验测试"
-                      ? researchView(role)
-                      : page === "项目案例"
-                        ? caseStudyView()
-                        : page === "产品说明"
-                          ? about()
-                          : page === "费用洞察"
-                            ? insights()
-                            : page === "预算管理"
-                              ? budgetView()
-                              : page === "规则配置"
-                                ? policyView()
-                                : page === "操作记录"
-                                  ? auditView()
-                                  : page === "数据管理"
-                                    ? dataView()
-                                    : page === "发票台账"
-                                      ? invoiceView()
-                                      : page === "演示指南"
-                                        ? guideView()
-                                        : `
+                  : page === "审批流程"
+                    ? flowView(
+                        role === "管理员" ? flowDraft : configuration.flows,
+                        configuration.flows,
+                        configuration.org,
+                        role,
+                        flowTarget,
+                      )
+                    : page === "费用申请"
+                      ? requestsView(requests, items, role, currentEmployee())
+                      : page === "体验测试"
+                        ? researchView(role)
+                        : page === "项目案例"
+                          ? caseStudyView()
+                          : page === "产品说明"
+                            ? about()
+                            : page === "费用洞察"
+                              ? insights()
+                              : page === "预算管理"
+                                ? budgetView()
+                                : page === "规则配置"
+                                  ? policyView()
+                                  : page === "操作记录"
+                                    ? auditView()
+                                    : page === "数据管理"
+                                      ? dataView()
+                                      : page === "发票台账"
+                                        ? invoiceView()
+                                        : page === "演示指南"
+                                          ? guideView()
+                                          : `
 ${
   page === "工作台"
     ? `${role === "员工" ? '<div class="review-box"><b>想知道报销到哪一步？</b><p>查看当前节点、待处理人及退回说明。</p><button class="link" data-page="报销进度">打开我的报销进度 →</button></div>' : ""}<section class="stats">${[
@@ -657,20 +704,20 @@ ${
     : ""
 }
 <section class="panel"><div class="panel-title"><div><h3>报销记录</h3><span>跟踪每一笔费用的处理进度</span></div><button class="quiet" id="export">↓ 导出 CSV</button></div><div class="toolbar"><div class="tabs">${["全部", "草稿", "待主管审批", "待财务审核", "待总账复核", "待付款", "已付款", "已退回", "已撤回"].map((s) => `<button data-filter="${s}" class="${filter === s ? "chosen" : ""}">${s === "待主管审批" ? "待审批" : s === "待财务审核" ? "待审核" : s}</button>`).join("")}</div><input id="search" aria-label="搜索报销" placeholder="⌕ 搜索名称、单号或姓名" value="${esc(query)}"></div><div class="table-wrap"><table><thead><tr><th>报销事项 / 单号</th><th>申请人</th><th>费用类型</th><th class="amount">报销金额</th><th>状态</th><th>预审结果</th><th>操作</th></tr></thead><tbody>${
-                                            visible()
-                                              .map(
-                                                (x) =>
-                                                  `<tr><td><strong>${esc(x.name)}</strong><small>${esc(x.id)} · ${x.date}</small></td><td><div class="person"><span>${esc(x.employee[0])}</span><div>${esc(x.employee)}<small>${esc(x.department)}</small></div></div></td><td>${esc(x.type)}</td><td class="amount"><strong>${money(x.amount)}</strong></td><td><span class="badge s${["待主管审批", "待财务审核", "待总账复核", "待付款", "已付款", "已退回", "已撤回"].indexOf(x.status)}">${x.status}</span>${x.approval && ["待主管审批", "待财务审核", "待总账复核", "待付款"].includes(x.status) ? `<small>待 ${esc((x.status === "待付款" ? x.approval.paymentActor || x.approval.nodes.at(-1) : x.approval.nodes[x.approval.cursor] || x.approval.nodes.at(-1)).actorName)} 处理</small>` : ""}</td><td><span class="${flags(x).length ? "risk" : "safe"}">${flags(x).length ? "⚑ " + flags(x).length + " 项待核查" : "✓ 未发现风险"}</span></td><td><button class="link" data-detail="${esc(x.id)}">查看 →</button></td></tr>`,
-                                              )
-                                              .join("") ||
-                                            '<tr><td colspan="7" class="empty">暂无符合条件的报销记录</td></tr>'
-                                          }</tbody></table></div><div class="table-footer">共 ${visible().length} 条记录<span>所有金额均为人民币 CNY</span></div></section><div class="footnote">ⓘ 演示使用虚构人员与票据；预审为规则计算，未接入大模型、发票验真或银行付款。</div>`
+                                              visible()
+                                                .map(
+                                                  (x) =>
+                                                    `<tr><td><strong>${esc(x.name)}</strong><small>${esc(x.id)} · ${x.date}</small></td><td><div class="person"><span>${esc(x.employee[0])}</span><div>${esc(x.employee)}<small>${esc(x.department)}</small></div></div></td><td>${esc(x.type)}</td><td class="amount"><strong>${money(x.amount)}</strong></td><td><span class="badge s${["待主管审批", "待财务审核", "待总账复核", "待付款", "已付款", "已退回", "已撤回"].indexOf(x.status)}">${x.status}</span>${x.approval && ["待主管审批", "待财务审核", "待总账复核", "待付款"].includes(x.status) ? `<small>待 ${esc((x.status === "待付款" ? x.approval.paymentActor || x.approval.nodes.at(-1) : x.approval.nodes[x.approval.cursor] || x.approval.nodes.at(-1)).actorName)} 处理</small>` : ""}</td><td><span class="${flags(x).length ? "risk" : "safe"}">${flags(x).length ? "⚑ " + flags(x).length + " 项待核查" : "✓ 未发现风险"}</span></td><td><button class="link" data-detail="${esc(x.id)}">查看 →</button></td></tr>`,
+                                                )
+                                                .join("") ||
+                                              '<tr><td colspan="7" class="empty">暂无符合条件的报销记录</td></tr>'
+                                            }</tbody></table></div><div class="table-footer">共 ${visible().length} 条记录<span>所有金额均为人民币 CNY</span></div></section><div class="footnote">ⓘ 演示使用虚构人员与票据；预审为规则计算，未接入大模型、发票验真或银行付款。</div>`
 }</main><footer>轻报 QINGBAO <span>让费用管理回归简单</span><button id="reset">重置演示数据</button></footer></div><div id="overlay"></div>`;
   bind();
   document.querySelector("aside").scrollTop = navigationScroll;
 }
 function about() {
-  return `<section class="panel prose"><h2>用 AI 辅助构建，让产品思考可见</h2><p>轻报是面向 200 人成长型企业的费控产品原型，目标是减少报销反复填写、审批进度不透明和票据重复审核的成本。</p><h3>体验一条完整业务流程</h3><p>切换到员工创建报销 → 切换主管审批 → 切换财务审核 → 财务登记付款。出现风险时退回，员工在详情中修正并重新提交。</p><h3>三个演示案例</h3><p>上海客户拜访：正常审批；产品共创工作坊：超标预警；客户出行交通：重复票据提示。风险单应退回修改后再审核。</p><h3>预算管理</h3><p>按部门与月份查看额度、已付款、在途占用和可用余额。超过额度显示预警；财务可调整部门月度额度。额度为各月共用的演示标准，调整会影响所有月份的统计，不拦截报销。</p><h3>票据与付款闭环</h3><p>发票台账按报销单关联票据名称和发票号码，可筛选重复号码；未上传或验真票据。员工可在主管审批前撤回，释放预算占用。财务登记付款需填写日期、方式和参考号，仍不执行转账。</p><h3>能力边界</h3><p>预审仅使用透明规则。图片可通过浏览器 OCR 辅助提取，核对后填入表单；附件保存时仅记录名称，不保存原图；角色切换是演示机制，不具备真实身份认证与访问隔离。所有数据保存在当前浏览器，没有后端或多人协作。付款仅改变记录状态，不执行资金转账。</p><h3>后续验证</h3><p>招募员工、主管、财务各 2 人完成任务，记录提交耗时、一次通过率及风险提示理解率；以测试结果调整设计，不将演示数据当作真实业务效果。</p></section>`;
+  return `<section class="panel prose"><h2>用 AI 辅助构建，让产品思考可见</h2><p>轻报面向 200 人成长型企业的费控演示作品，覆盖员工差旅与对公支付两条业务线。产品假设和自动化测试不代表真实用户研究或生产效果。</p><h3>员工费用闭环</h3><p>费用申请与出差行程 → 多项费用明细及酒店水单等附件 → 报销提交 → 具名审批 → 财务审核 → 总账复核 → 模拟付款。管理员先发布财务分工模板，新单按版本生成审批快照；旧单保留原路径。</p><h3>对公支付闭环</h3><p>管理员维护供应商和虚构收款账户 → 员工提交合同 → 本地规则初筛 → 财务或管理员阅读全文并复核 → 员工按本人已复核合同发起对公支付单 → 部门业务节点、财务、总账、指定付款人员逐级办理。合同在途与已付共同占用额度，退回或撤回释放；供应商变更不改写已提交单据收款快照。</p><h3>合同审查范围</h3><p>支持粘贴正文与UTF-8 TXT导入，对主体、付款、验收、发票、违约及争议条款做透明规则初筛，显示片段与人工核对建议。不是大模型或法律意见；真实 AI 尚未连接，PDF/DOCX正文提取尚未提供。</p><h3>存储与使用范围</h3><p>数据与报销附件原文件保存在本浏览器，可下载备份后迁移。浏览器OCR不上传图片，发票识别不等于验真。角色选择是演示机制，没有生产鉴权、后端并发或跨设备实时同步。只使用虚构资料，模拟付款不执行转账。</p><h3>当前模块边界</h3><p>对公任务在对公支付单办理，尚未统一到原审批中心、消息中心和报销付款工作台；对公合同额度与原部门报销预算分别统计。对公履约附件与发票验真、真实银行支付、总账凭证、真实 AI 待后续接入。</p></section>`;
 }
 function insights() {
   const groups = {};
@@ -696,6 +743,24 @@ function canLeaveOrgEditor() {
   );
 }
 function bind() {
+  mountEnterprise({
+    page,
+    getState: () => enterprise,
+    actor: currentActor(),
+    org: configuration.org,
+    flows: configuration.flows,
+    healthy: enterpriseHealthy,
+    expenseItems: () => items,
+    save: saveEnterprise,
+    modal,
+    render,
+    toast,
+    download: downloadFile,
+    go: (next) => {
+      page = next;
+      render();
+    },
+  });
   for (const [id, set] of [
     ["message-type", (v) => (messageType = v)],
     ["message-unread", (v) => (messageUnread = v)],
@@ -910,8 +975,17 @@ function bind() {
     resetInboxFilters();
     render();
   };
-  document.querySelector("#create").onclick = () => form();
+  document.querySelector("#create")?.addEventListener("click", () => form());
   document.querySelector("#reset").onclick = () => {
+    if (
+      !enterpriseHealthy ||
+      enterprise.suppliers.length ||
+      enterprise.contracts.length ||
+      enterprise.payments.length
+    )
+      return toast(
+        "企业业务已有记录或无法读取，不能重置其关联组织；请先导出完整备份，换浏览器演示新空间。原数据未改动",
+      );
     if (confirm("重置后将清除当前浏览器中的演示修改，是否继续？")) {
       configuration = { org: defaultOrg(), flows: defaultFlows() };
       configHealthy = true;
@@ -987,7 +1061,7 @@ function modal(html) {
   const close = () => {
     if (
       o.querySelector("form[data-dirty=true]") &&
-      !confirm("报销尚未保存，确定关闭并放弃本次填写吗？")
+      !confirm("本次填写尚未保存，确定关闭并放弃吗？")
     )
       return;
     o.innerHTML = "";
@@ -1079,8 +1153,14 @@ function act(action) {
           }
         : null,
     );
-    if (nextDoc.status === "已付款")
-      assertUniqueReference(nextDoc.payment.reference, items, nextDoc.id);
+    if (nextDoc.status === "已付款") {
+      if (!enterpriseHealthy)
+        throw Error("企业业务存储异常，不能核对付款参考号，未保存付款");
+      assertUniqueReference(nextDoc.payment.reference, [
+        ...items.filter((p) => p.id !== nextDoc.id),
+        ...enterprise.payments,
+      ]);
+    }
     const nextItems = items.map((d, index) => (index === i ? nextDoc : d));
     persistExpenseItems(localStorage, nextItems);
     items = nextItems;
@@ -1326,7 +1406,7 @@ function auditView() {
   return `<section class="panel"><div class="panel-title"><div><h3>操作记录</h3><span>记录本浏览器中的关键业务动作 · 最新在前 · 最多 1000 条</span></div><span class="badge">${audit.length} 条</span></div><div class="table-wrap"><table><thead><tr><th>时间</th><th>角色</th><th>动作</th><th>对象</th><th>说明</th></tr></thead><tbody>${audit.map((x) => `<tr><td>${esc(x.time)}</td><td>${esc(x.actor)}</td><td>${esc(x.action)}</td><td>${esc(x.target)}</td><td class="wrap-cell">${esc(x.note || "—")}</td></tr>`).join("") || '<tr><td colspan="5" class="empty">暂无记录，创建报销或调整规则后会显示在这里</td></tr>'}</tbody></table></div>${legacy.length ? `<div class="prose"><h3>早期预算调整记录</h3>${legacy.map((x) => `<p>${esc(x.time)} · ${esc(x.department)} · ${money(x.limit)} · ${esc(x.reason)}</p>`).join("")}</div>` : ""}<div class="footnote prose">演示记录保存在浏览器，可随备份迁移；不具备服务端防篡改审计能力。早期报销记录请查看各单据的流转记录。</div></section>`;
 }
 function dataView() {
-  return `<section class="panel prose"><div class="section-intro"><span class="section-mark">⇅</span><div><h2>让演示数据，随作品一起迁移</h2><p>无需真实财务资料。备份用于更换浏览器、设备或演示前留档。</p></div></div><div class="data-cards"><article><h3>导出完整备份</h3><p>包含报销、附件原文件、费用申请、组织架构、已发布审批流程、规则、部门预算及操作记录，JSON 格式。附件仅在本浏览器与备份中保留。角色为演示身份，导出不代表真实数据权限。</p><button id="backup" class="primary">下载数据备份</button></article><article><h3>导入已有备份</h3><p>校验格式后替换当前数据。建议先导出；浏览器会要求你确认覆盖。</p><label>选择轻报 JSON 备份<input id="restore" type="file" accept=".json,application/json"></label></article></div><div class="review-box"><h3>使用范围</h3>所有记录仅在当前浏览器中存储，清理浏览器数据会丢失。不同设备不会同步。本原型不是生产财务系统，请使用虚构票据。</div><h3>面试演示路线</h3><div class="demo-steps"><div><b>01</b><h3>完成一笔报销</h3><p>员工创建 → 主管通过 → 财务审核 → 付款登记。</p></div><div><b>02</b><h3>处理一笔异常</h3><p>发现重复票据 → 退回 → 员工修正 → 重提审批。</p></div><div><b>03</b><h3>解释产品决策</h3><p>调整预算查看预警，配置规则观察变化，在操作记录追踪动作。</p></div></div></section>`;
+  return `<section class="panel prose"><div class="section-intro"><span class="section-mark">⇅</span><div><h2>让演示数据，随作品一起迁移</h2><p>无需真实财务资料。备份用于更换浏览器、设备或演示前留档。</p></div></div><div class="data-cards"><article><h3>导出完整备份</h3><p>包含供应商、合同正文与复核、对公支付单、报销、附件原文件、费用申请、组织架构、已发布审批流程、规则、部门预算及操作记录，JSON 格式。附件仅在本浏览器与备份中保留。角色为演示身份，导出不代表真实数据权限。</p><button id="backup" class="primary">下载数据备份</button></article><article><h3>导入已有备份</h3><p>校验格式后替换当前数据。建议先导出；浏览器会要求你确认覆盖。</p><label>选择轻报 JSON 备份<input id="restore" type="file" accept=".json,application/json"></label></article></div><div class="review-box"><h3>使用范围</h3>所有记录仅在当前浏览器中存储，清理浏览器数据会丢失。不同设备不会同步。本原型不是生产财务系统，请使用虚构票据。</div><h3>面试演示路线</h3><div class="demo-steps"><div><b>01</b><h3>完成一笔报销</h3><p>员工创建 → 主管通过 → 财务审核 → 付款登记。</p></div><div><b>02</b><h3>处理一笔异常</h3><p>发现重复票据 → 退回 → 员工修正 → 重提审批。</p></div><div><b>03</b><h3>解释产品决策</h3><p>调整预算查看预警，配置规则观察变化，在操作记录追踪动作。</p></div></div></section>`;
 }
 function downloadFile(content, name, type) {
   const blob = new Blob([content], { type });
@@ -1388,11 +1468,14 @@ function bindMore() {
       return toast("费用申请存储无法读取，不能导出完整备份；原始数据未改动");
     if (!messageReadHealthy)
       return toast("消息已读存储异常，不能生成完整备份；原始值已保留");
+    if (!enterpriseHealthy)
+      return toast("企业业务存储异常，不能生成完整备份；原始值已保留");
     const backup = {
       format: "qingbao-backup",
       version: 1,
       exportedAt: new Date().toISOString(),
       messageRead,
+      enterprise,
       configuration,
       requests,
       items,
@@ -1419,12 +1502,32 @@ function bindMore() {
         );
       if (data.configuration === undefined && !configHealthy)
         throw Error("旧备份未包含组织和流程，不能覆盖未知配置");
+      if (data.enterprise === undefined && !enterpriseHealthy)
+        throw Error("旧备份未包含企业业务，不能覆盖无法读取的原企业数据");
+      const nextEnterprise =
+        data.enterprise === undefined
+          ? enterprise
+          : validateEnterprise(data.enterprise);
+      for (const p of nextEnterprise.payments.filter(
+        (p) => p.status === "已付款",
+      ))
+        assertUniqueReference(p.payment.reference, data.items);
       const nextConfiguration = data.configuration || configuration;
       validateFlows(nextConfiguration.flows, nextConfiguration.org);
       assertOrgChange(nextConfiguration.org, nextConfiguration.org, [
         ...data.items,
         ...(data.requests || requests),
+        ...nextEnterprise.payments,
       ]);
+      if (
+        [...nextEnterprise.contracts, ...nextEnterprise.payments].some(
+          (p) =>
+            !nextConfiguration.org.departments.some(
+              (d) => d.name === p.department,
+            ),
+        )
+      )
+        throw Error("恢复的组织缺少企业业务所属部门");
       const nextRequests =
         data.requests === undefined ? requests : data.requests;
       if (
@@ -1439,7 +1542,7 @@ function bindMore() {
       validateRequestSet(nextRequests, data.items);
       if (
         !confirm(
-          `将使用备份中的 ${data.items.length} 笔报销替换当前数据。${data.requests === undefined ? "旧备份不含申请，保留现有费用申请" : `同时替换为 ${nextRequests.length} 笔费用申请`}；${data.configuration ? "同时恢复组织和已发布流程" : "不含组织/流程，保留现有配置"}，继续吗？`,
+          `将使用备份中的 ${data.items.length} 笔报销替换当前数据。${data.requests === undefined ? "旧备份不含申请，保留现有费用申请" : `同时替换为 ${nextRequests.length} 笔费用申请`}；${data.configuration ? "同时恢复组织和已发布流程" : "不含组织/流程，保留现有配置"}；${data.enterprise ? "同时替换供应商、合同和对公单" : "旧备份不含企业业务，保留已有记录"}，继续吗？`,
         )
       ) {
         input.value = "";
@@ -1455,12 +1558,13 @@ function bindMore() {
           actor: `${currentEmployee()}（${role}）`,
           action: "导入备份",
           target: "演示空间",
-          note: `导入 ${data.items.length} 笔报销`,
+          note: `导入 ${data.items.length} 笔报销；${data.enterprise ? "恢复" : "保留"}企业业务`,
           time: new Date().toLocaleString("zh-CN"),
         },
         ...data.audit,
       ].slice(0, 1000);
       writeStorageBatch(localStorage, [
+        [enterpriseKey, JSON.stringify(nextEnterprise)],
         ["qingbao-v1", serializeExpenseItems(data.items)],
         ["qingbao-configuration-v1", JSON.stringify(nextConfiguration)],
         ["qingbao-requests-v1", JSON.stringify(nextRequests)],
@@ -1473,6 +1577,8 @@ function bindMore() {
           ? [["qingbao-message-read-v1", JSON.stringify(data.messageRead)]]
           : []),
       ]);
+      enterprise = nextEnterprise;
+      enterpriseHealthy = true;
       configuration = nextConfiguration;
       configHealthy = true;
       requests = nextRequests;
@@ -1582,6 +1688,15 @@ function guideView() {
       "审批流程",
       "载入财务分工模板，填写原因发布；叶禾提交 200 元报销，沈岚审批、周宁审核、高璇填写科目及核算归属复核，最后杜川在付款工作台登记模拟付款；多笔可勾选后核对独立参考号并批量模拟登记，再导出筛选清单。旧组织可先添加 CFO 示例组织。",
       "设计理由：部门业务审批、财务票据审核、总账复核和付款是不同职责；发布不改变旧单据路径。",
+    ],
+    [
+      "08",
+      "合同到对公支付",
+      "展示供应商、规则初筛与合同额度",
+      "管理员",
+      "供应商管理",
+      "新增远帆服务有限公司（虚构），统一代码 DEMO-CREDIT-001，户名与全称一致，开户行演示银行，账号 DEMO-SUPPLIER-001。先在审批流程载入并发布财务分工模板；切员工林晓到合同审查提交 HT-DEMO-001、10000元并载入虚构正文。切财务周宁阅读全文、填意见和确认后通过；林晓新建4000元对公单，按页面指定人依次切主管许明、财务周宁、总账高璇（填科目/归属）、付款杜川（填参考号并确认模拟）办理。在合同查看在途转已付、可用6000元。",
+      "设计理由：对公收款人为供应商；独立单据保留合同版本、账户及路径快照。规则初筛不等于 AI 或法律意见，真实 AI 暂缓。",
     ],
   ]
     .map(
@@ -1769,7 +1884,11 @@ function bindConfiguration() {
   };
   const updateOrg = (next) => {
     admin();
-    assertOrgChange(configuration.org, next, [...items, ...requests]);
+    assertOrgChange(configuration.org, next, [
+      ...items,
+      ...requests,
+      ...enterprise.payments,
+    ]);
     const nextConfiguration = { ...configuration, org: next };
     validateFlows(nextConfiguration.flows, next);
     const newBudgets = { ...budgets };
@@ -2384,6 +2503,10 @@ function openPaymentBatch() {
     e.preventDefault();
     try {
       const data = new FormData(form);
+      if (!enterpriseHealthy)
+        throw Error("企业业务存储异常，不能核对付款参考号，未保存付款");
+      for (const ref of batchReferences(data.get("prefix"), ids.length))
+        assertUniqueReference(ref, enterprise.payments);
       const next = batchPayment(
         items,
         ids,

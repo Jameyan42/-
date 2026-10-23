@@ -1,3 +1,5 @@
+import { validateEnterprise } from "./enterprise.js";
+import { assertUniqueReference } from "./payment-batch.js";
 import { validateMessageRead } from "./messages.js";
 import { validateAttachments } from "./attachments.js";
 import { validateTravel, assertTravelSubmission } from "./travel.js";
@@ -176,8 +178,22 @@ export function validateBackup(data) {
     if (r.approval !== undefined)
       validateSnapshot(r.approval, r.status, "request");
   }
+  if (data.enterprise !== undefined) {
+    validateEnterprise(data.enterprise);
+    for (const p of data.enterprise.payments.filter(
+      (p) => p.status === "已付款",
+    ))
+      assertUniqueReference(p.payment.reference, data.items);
+    for (const p of [...data.enterprise.contracts, ...data.enterprise.payments])
+      if (!departments.includes(p.department))
+        throw Error("企业业务部门不在恢复组织中");
+  }
   if (data.configuration)
-    assertOrgChange(org, org, [...data.items, ...(data.requests || [])]);
+    assertOrgChange(org, org, [
+      ...data.items,
+      ...(data.requests || []),
+      ...(data.enterprise?.payments || []),
+    ]);
   if (data.messageRead !== undefined) validateMessageRead(data.messageRead);
   return data;
 }

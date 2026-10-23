@@ -19,7 +19,7 @@ export function messagesView(
       : filterMessages(rows, { type, query }),
     pages = Math.max(1, Math.ceil(filtered.length / 20)),
     index = Math.min(Math.max(0, page), pages - 1);
-  return `<section class="panel prose messages-panel"><h2>${esc(actor?.name || "当前身份")}的站内消息</h2><p>基于本浏览器当前单据状态生成，每单展示当前一条提示。旧记录也可能出现在这里，不代表刚发送；不推送短信、邮件或系统弹窗。</p>${!requestHealthy ? '<p class="risk" role="alert">费用申请数据无法读取，当前仅展示可读取的报销消息，数量不代表完整结果。</p>' : ""}${!readHealthy ? '<p class="risk" role="alert">消息已读存储异常，原始值已保留；暂不能判断未读或标记已读，请恢复有效备份。</p>' : ""}<div class="inbox-summary"><div><span>当前可读取提示</span><strong>${rows.length}</strong></div><div><span>未读</span><strong>${readHealthy ? rows.filter((r) => r.unread).length : "未知"}</strong></div><div><span>待我处理</span><strong>${rows.filter((r) => r.type === "todo").length}</strong></div></div><div class="toolbar inbox-toolbar"><label>消息类别<select id="message-type">${[
+  return `<section class="panel prose messages-panel"><h2>${esc(actor?.name || "当前身份")}的站内消息</h2><p>基于本浏览器当前单据状态生成，每单展示当前一条提示。旧记录也可能出现在这里，不代表刚发送；不推送短信、邮件或系统弹窗。对公业务请到“对公支付单”办理。</p>${!requestHealthy ? '<p class="risk" role="alert">费用申请数据无法读取，当前仅展示可读取的报销消息，数量不代表完整结果。</p>' : ""}${!readHealthy ? '<p class="risk" role="alert">消息已读存储异常，原始值已保留；暂不能判断未读或标记已读，请恢复有效备份。</p>' : ""}<div class="inbox-summary"><div><span>当前可读取提示</span><strong>${rows.length}</strong></div><div><span>未读</span><strong>${readHealthy ? rows.filter((r) => r.unread).length : "未知"}</strong></div><div><span>待我处理</span><strong>${rows.filter((r) => r.type === "todo").length}</strong></div></div><div class="toolbar inbox-toolbar"><label>消息类别<select id="message-type">${[
     ["all", "全部消息"],
     ["todo", "待我处理"],
     ["update", "本人单据进展"],
