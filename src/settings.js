@@ -1,3 +1,4 @@
+import { validateMessageRead } from "./messages.js";
 import { validateAttachments } from "./attachments.js";
 import { validateTravel, assertTravelSubmission } from "./travel.js";
 import { validateOperationHistory } from "./operations.js";
@@ -177,5 +178,6 @@ export function validateBackup(data) {
   }
   if (data.configuration)
     assertOrgChange(org, org, [...data.items, ...(data.requests || [])]);
+  if (data.messageRead !== undefined) validateMessageRead(data.messageRead);
   return data;
 }

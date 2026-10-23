@@ -1,4 +1,12 @@
 import {
+  emptyMessageRead,
+  validateMessageRead,
+  markMessagesRead,
+  businessMessages,
+  filterMessages,
+} from "./messages.js";
+import { messagesView } from "./messages-ui.js";
+import {
   assertUniqueReference,
   batchReferences,
   batchPayment,
@@ -218,6 +226,42 @@ try {
   configuration = { org: defaultOrg(), flows: defaultFlows() };
   configHealthy = false;
 }
+let messageRead = emptyMessageRead(),
+  messageReadHealthy = true;
+try {
+  const raw = localStorage.getItem("qingbao-message-read-v1");
+  messageRead =
+    raw === null ? emptyMessageRead() : validateMessageRead(JSON.parse(raw));
+} catch {
+  messageReadHealthy = false;
+}
+let messageType = "all",
+  messageUnread = "all",
+  messageQuery = "",
+  messagePage = 0;
+function currentMessages() {
+  return businessMessages(
+    items,
+    requests,
+    currentActor(),
+    configuration.org,
+    messageRead,
+  );
+}
+function markVisibleMessages(keys) {
+  if (!messageReadHealthy) throw Error("消息已读存储异常，原始值已保留");
+  const allowed = new Set(currentMessages().map((r) => r.key));
+  if (keys.some((k) => !allowed.has(k)))
+    throw Error("消息状态已变化，请重新查看");
+  const next = markMessagesRead(messageRead, currentActor()?.id, keys);
+  try {
+    localStorage.setItem("qingbao-message-read-v1", JSON.stringify(next));
+  } catch {
+    throw Error("消息已读保存失败或容量不足，未改动已读状态");
+  }
+  messageRead = next;
+}
+
 let flowDraft = structuredClone(configuration.flows),
   flowTarget = "expense",
   orgMode = "reports",
@@ -374,6 +418,10 @@ function currentInbox(options = {}) {
   return inboxRows(items, requests, currentActor(), options);
 }
 function resetInboxFilters() {
+  messageType = "all";
+  messageUnread = "all";
+  messageQuery = "";
+  messagePage = 0;
   requestProgressStatus = "全部";
   requestProgressMonth = "";
   requestProgressQuery = "";
@@ -440,6 +488,7 @@ function visible() {
   );
 }
 function render() {
+  const navigationScroll = document.querySelector("aside")?.scrollTop || 0;
   actorId = currentActor()?.id || actorId;
   const pending = items.filter((x) =>
     ["待主管审批", "待财务审核", "待总账复核", "待付款"].includes(x.status),
@@ -452,6 +501,7 @@ function render() {
     ["费用申请", "◇"],
     ["申请进度", "◎"],
     ["审批中心", "✓"],
+    ["消息中心", "♧"],
     ["付款工作台", "¤"],
     ["费用洞察", "◷"],
     ["预算管理", "▥"],
@@ -469,7 +519,7 @@ function render() {
   ]
     .map(
       ([p, i]) =>
-        `<button class="nav ${page === p ? "active" : ""}" data-page="${p}"><span>${i}</span>${p}${p === "审批中心" ? `<em>${currentInbox().length}</em>` : ""}</button>`,
+        `<button class="nav ${page === p ? "active" : ""}" data-page="${p}"><span>${i}</span>${p}${p === "审批中心" ? `<em>${currentInbox().length}</em>` : p === "消息中心" ? `<em>${messageReadHealthy && requestStoreHealthy ? currentMessages().filter((r) => r.unread).length : "?"}</em>` : ""}</button>`,
     )
     .join(
       "",
@@ -485,71 +535,84 @@ function render() {
     )}</select></label><div class="avatar">${esc(currentEmployee()[0] || "人")}</div></div></header>
 <main><div class="page-heading"><div><div class="eyebrow">让每一笔费用，都清晰有序</div><h1>${page === "工作台" ? "工作台" : page}</h1><p>${esc(currentEmployee())}，你好。${role === "管理员" ? "维护虚构组织与审批配置，查看发布结果。" : role === "员工" ? "提交费用、追踪进度，让报销更轻松。" : "查看待办，按节点分工处理费用。"}</p></div><button class="primary" id="create">＋ 新建报销</button></div>
 ${
-  page === "申请进度"
-    ? requestProgressView(
-        requests,
-        items,
+  page === "消息中心"
+    ? messagesView(
+        currentMessages(),
         currentActor(),
-        configuration.org,
         {
-          status: requestProgressStatus,
-          month: requestProgressMonth,
-          query: requestProgressQuery,
-          page: requestProgressPage,
+          type: messageType,
+          unread: messageUnread,
+          query: messageQuery,
+          page: messagePage,
         },
+        messageReadHealthy,
         requestStoreHealthy,
       )
-    : page === "差旅标准"
-      ? travelStandardsView()
-      : page === "报销进度"
-        ? expenseProgressView(items, currentActor(), configuration.org, {
-            group: progressGroup,
-            query: progressQuery,
-            page: progressPage,
-          })
-        : page === "付款工作台"
-          ? paymentView(
-              items,
-              currentActor(),
-              paymentFilter,
-              paymentQuery,
-              paymentSelected,
-            )
-          : page === "审批中心"
-            ? approvalCenterView()
-            : page === "组织架构"
-              ? orgChartView(configuration.org, role, orgMode, orgChartState)
-              : page === "审批流程"
-                ? flowView(
-                    role === "管理员" ? flowDraft : configuration.flows,
-                    configuration.flows,
-                    configuration.org,
-                    role,
-                    flowTarget,
-                  )
-                : page === "费用申请"
-                  ? requestsView(requests, items, role, currentEmployee())
-                  : page === "体验测试"
-                    ? researchView(role)
-                    : page === "项目案例"
-                      ? caseStudyView()
-                      : page === "产品说明"
-                        ? about()
-                        : page === "费用洞察"
-                          ? insights()
-                          : page === "预算管理"
-                            ? budgetView()
-                            : page === "规则配置"
-                              ? policyView()
-                              : page === "操作记录"
-                                ? auditView()
-                                : page === "数据管理"
-                                  ? dataView()
-                                  : page === "发票台账"
-                                    ? invoiceView()
-                                    : page === "演示指南"
-                                      ? guideView()
-                                      : `
+    : page === "申请进度"
+      ? requestProgressView(
+          requests,
+          items,
+          currentActor(),
+          configuration.org,
+          {
+            status: requestProgressStatus,
+            month: requestProgressMonth,
+            query: requestProgressQuery,
+            page: requestProgressPage,
+          },
+          requestStoreHealthy,
+        )
+      : page === "差旅标准"
+        ? travelStandardsView()
+        : page === "报销进度"
+          ? expenseProgressView(items, currentActor(), configuration.org, {
+              group: progressGroup,
+              query: progressQuery,
+              page: progressPage,
+            })
+          : page === "付款工作台"
+            ? paymentView(
+                items,
+                currentActor(),
+                paymentFilter,
+                paymentQuery,
+                paymentSelected,
+              )
+            : page === "审批中心"
+              ? approvalCenterView()
+              : page === "组织架构"
+                ? orgChartView(configuration.org, role, orgMode, orgChartState)
+                : page === "审批流程"
+                  ? flowView(
+                      role === "管理员" ? flowDraft : configuration.flows,
+                      configuration.flows,
+                      configuration.org,
+                      role,
+                      flowTarget,
+                    )
+                  : page === "费用申请"
+                    ? requestsView(requests, items, role, currentEmployee())
+                    : page === "体验测试"
+                      ? researchView(role)
+                      : page === "项目案例"
+                        ? caseStudyView()
+                        : page === "产品说明"
+                          ? about()
+                          : page === "费用洞察"
+                            ? insights()
+                            : page === "预算管理"
+                              ? budgetView()
+                              : page === "规则配置"
+                                ? policyView()
+                                : page === "操作记录"
+                                  ? auditView()
+                                  : page === "数据管理"
+                                    ? dataView()
+                                    : page === "发票台账"
+                                      ? invoiceView()
+                                      : page === "演示指南"
+                                        ? guideView()
+                                        : `
 ${
   page === "工作台"
     ? `${role === "员工" ? '<div class="review-box"><b>想知道报销到哪一步？</b><p>查看当前节点、待处理人及退回说明。</p><button class="link" data-page="报销进度">打开我的报销进度 →</button></div>' : ""}<section class="stats">${[
@@ -594,16 +657,17 @@ ${
     : ""
 }
 <section class="panel"><div class="panel-title"><div><h3>报销记录</h3><span>跟踪每一笔费用的处理进度</span></div><button class="quiet" id="export">↓ 导出 CSV</button></div><div class="toolbar"><div class="tabs">${["全部", "草稿", "待主管审批", "待财务审核", "待总账复核", "待付款", "已付款", "已退回", "已撤回"].map((s) => `<button data-filter="${s}" class="${filter === s ? "chosen" : ""}">${s === "待主管审批" ? "待审批" : s === "待财务审核" ? "待审核" : s}</button>`).join("")}</div><input id="search" aria-label="搜索报销" placeholder="⌕ 搜索名称、单号或姓名" value="${esc(query)}"></div><div class="table-wrap"><table><thead><tr><th>报销事项 / 单号</th><th>申请人</th><th>费用类型</th><th class="amount">报销金额</th><th>状态</th><th>预审结果</th><th>操作</th></tr></thead><tbody>${
-                                          visible()
-                                            .map(
-                                              (x) =>
-                                                `<tr><td><strong>${esc(x.name)}</strong><small>${esc(x.id)} · ${x.date}</small></td><td><div class="person"><span>${esc(x.employee[0])}</span><div>${esc(x.employee)}<small>${esc(x.department)}</small></div></div></td><td>${esc(x.type)}</td><td class="amount"><strong>${money(x.amount)}</strong></td><td><span class="badge s${["待主管审批", "待财务审核", "待总账复核", "待付款", "已付款", "已退回", "已撤回"].indexOf(x.status)}">${x.status}</span>${x.approval && ["待主管审批", "待财务审核", "待总账复核", "待付款"].includes(x.status) ? `<small>待 ${esc((x.status === "待付款" ? x.approval.paymentActor || x.approval.nodes.at(-1) : x.approval.nodes[x.approval.cursor] || x.approval.nodes.at(-1)).actorName)} 处理</small>` : ""}</td><td><span class="${flags(x).length ? "risk" : "safe"}">${flags(x).length ? "⚑ " + flags(x).length + " 项待核查" : "✓ 未发现风险"}</span></td><td><button class="link" data-detail="${esc(x.id)}">查看 →</button></td></tr>`,
-                                            )
-                                            .join("") ||
-                                          '<tr><td colspan="7" class="empty">暂无符合条件的报销记录</td></tr>'
-                                        }</tbody></table></div><div class="table-footer">共 ${visible().length} 条记录<span>所有金额均为人民币 CNY</span></div></section><div class="footnote">ⓘ 演示使用虚构人员与票据；预审为规则计算，未接入大模型、发票验真或银行付款。</div>`
+                                            visible()
+                                              .map(
+                                                (x) =>
+                                                  `<tr><td><strong>${esc(x.name)}</strong><small>${esc(x.id)} · ${x.date}</small></td><td><div class="person"><span>${esc(x.employee[0])}</span><div>${esc(x.employee)}<small>${esc(x.department)}</small></div></div></td><td>${esc(x.type)}</td><td class="amount"><strong>${money(x.amount)}</strong></td><td><span class="badge s${["待主管审批", "待财务审核", "待总账复核", "待付款", "已付款", "已退回", "已撤回"].indexOf(x.status)}">${x.status}</span>${x.approval && ["待主管审批", "待财务审核", "待总账复核", "待付款"].includes(x.status) ? `<small>待 ${esc((x.status === "待付款" ? x.approval.paymentActor || x.approval.nodes.at(-1) : x.approval.nodes[x.approval.cursor] || x.approval.nodes.at(-1)).actorName)} 处理</small>` : ""}</td><td><span class="${flags(x).length ? "risk" : "safe"}">${flags(x).length ? "⚑ " + flags(x).length + " 项待核查" : "✓ 未发现风险"}</span></td><td><button class="link" data-detail="${esc(x.id)}">查看 →</button></td></tr>`,
+                                              )
+                                              .join("") ||
+                                            '<tr><td colspan="7" class="empty">暂无符合条件的报销记录</td></tr>'
+                                          }</tbody></table></div><div class="table-footer">共 ${visible().length} 条记录<span>所有金额均为人民币 CNY</span></div></section><div class="footnote">ⓘ 演示使用虚构人员与票据；预审为规则计算，未接入大模型、发票验真或银行付款。</div>`
 }</main><footer>轻报 QINGBAO <span>让费用管理回归简单</span><button id="reset">重置演示数据</button></footer></div><div id="overlay"></div>`;
   bind();
+  document.querySelector("aside").scrollTop = navigationScroll;
 }
 function about() {
   return `<section class="panel prose"><h2>用 AI 辅助构建，让产品思考可见</h2><p>轻报是面向 200 人成长型企业的费控产品原型，目标是减少报销反复填写、审批进度不透明和票据重复审核的成本。</p><h3>体验一条完整业务流程</h3><p>切换到员工创建报销 → 切换主管审批 → 切换财务审核 → 财务登记付款。出现风险时退回，员工在详情中修正并重新提交。</p><h3>三个演示案例</h3><p>上海客户拜访：正常审批；产品共创工作坊：超标预警；客户出行交通：重复票据提示。风险单应退回修改后再审核。</p><h3>预算管理</h3><p>按部门与月份查看额度、已付款、在途占用和可用余额。超过额度显示预警；财务可调整部门月度额度。额度为各月共用的演示标准，调整会影响所有月份的统计，不拦截报销。</p><h3>票据与付款闭环</h3><p>发票台账按报销单关联票据名称和发票号码，可筛选重复号码；未上传或验真票据。员工可在主管审批前撤回，释放预算占用。财务登记付款需填写日期、方式和参考号，仍不执行转账。</p><h3>能力边界</h3><p>预审仅使用透明规则。图片可通过浏览器 OCR 辅助提取，核对后填入表单；附件保存时仅记录名称，不保存原图；角色切换是演示机制，不具备真实身份认证与访问隔离。所有数据保存在当前浏览器，没有后端或多人协作。付款仅改变记录状态，不执行资金转账。</p><h3>后续验证</h3><p>招募员工、主管、财务各 2 人完成任务，记录提交耗时、一次通过率及风险提示理解率；以测试结果调整设计，不将演示数据当作真实业务效果。</p></section>`;
@@ -632,6 +696,85 @@ function canLeaveOrgEditor() {
   );
 }
 function bind() {
+  for (const [id, set] of [
+    ["message-type", (v) => (messageType = v)],
+    ["message-unread", (v) => (messageUnread = v)],
+  ])
+    document.querySelector("#" + id)?.addEventListener("change", (e) => {
+      set(e.target.value);
+      messagePage = 0;
+      render();
+    });
+  document.querySelector("#message-search")?.addEventListener("input", (e) => {
+    messageQuery = e.target.value;
+    const pos = e.target.selectionStart;
+    messagePage = 0;
+    render();
+    const el = document.querySelector("#message-search");
+    el.focus();
+    el.setSelectionRange(pos, pos);
+  });
+  document.querySelectorAll("[data-message-page]").forEach(
+    (b) =>
+      (b.onclick = () => {
+        messagePage = Number(b.dataset.messagePage);
+        render();
+      }),
+  );
+  document.querySelector("#message-clear")?.addEventListener("click", () => {
+    messageType = "all";
+    messageUnread = "all";
+    messageQuery = "";
+    messagePage = 0;
+    render();
+  });
+  document.querySelectorAll("[data-message-read]").forEach(
+    (b) =>
+      (b.onclick = () => {
+        try {
+          markVisibleMessages([b.dataset.messageRead]);
+          render();
+        } catch (e) {
+          toast(e.message);
+        }
+      }),
+  );
+  document
+    .querySelector("#message-read-filtered")
+    ?.addEventListener("click", () => {
+      try {
+        markVisibleMessages(
+          filterMessages(currentMessages(), {
+            type: messageType,
+            unread: messageUnread,
+            query: messageQuery,
+          })
+            .filter((r) => r.unread)
+            .map((r) => r.key),
+        );
+        render();
+        toast("当前筛选的全部消息已标为已读，业务待办未改变");
+      } catch (e) {
+        toast(e.message);
+      }
+    });
+  document.querySelectorAll("[data-message-open]").forEach(
+    (b) =>
+      (b.onclick = () => {
+        const r = currentMessages().find(
+          (r) => r.key === b.dataset.messageOpen,
+        );
+        if (!r) return toast("消息状态已变化，请重新查看");
+        try {
+          markVisibleMessages([r.key]);
+          render();
+        } catch (e) {
+          toast(e.message);
+        }
+        if (r.kind === "expense") detail(r.doc.id);
+        else requestDetail(r.doc.id);
+      }),
+  );
   for (const [id, set] of [
     ["request-progress-status", (v) => (requestProgressStatus = v)],
     ["request-progress-month", (v) => (requestProgressMonth = v)],
@@ -1243,10 +1386,13 @@ function bindMore() {
       return toast("组织/流程存储无法读取，不能导出完整备份；原始数据未改动");
     if (!requestStoreHealthy)
       return toast("费用申请存储无法读取，不能导出完整备份；原始数据未改动");
+    if (!messageReadHealthy)
+      return toast("消息已读存储异常，不能生成完整备份；原始值已保留");
     const backup = {
       format: "qingbao-backup",
       version: 1,
       exportedAt: new Date().toISOString(),
+      messageRead,
       configuration,
       requests,
       items,
@@ -1323,6 +1469,9 @@ function bindMore() {
         ["qingbao-flow-draft-v1", JSON.stringify(nextDraft)],
         ["qingbao-audit", JSON.stringify(nextAudit)],
         ["qingbao-budget-audit", null],
+        ...(data.messageRead !== undefined
+          ? [["qingbao-message-read-v1", JSON.stringify(data.messageRead)]]
+          : []),
       ]);
       configuration = nextConfiguration;
       configHealthy = true;
@@ -1333,6 +1482,10 @@ function bindMore() {
       flowDraft = nextDraft;
       policy = data.policy;
       audit = nextAudit;
+      if (data.messageRead !== undefined) {
+        messageRead = data.messageRead;
+        messageReadHealthy = true;
+      }
       filter = "全部";
       query = "";
       render();
@@ -1382,7 +1535,7 @@ function guideView() {
       "完成从审批到付款的闭环",
       "主管",
       "审批中心",
-      "审批中心集中处理报销、申请和付款，完成后切到“我已处理”回看本人结果与当时摘要，可用今天、近7天或起止日期筛选，导出全部匹配记录。财务审核后仍需登记付款；切其他人员验证历史记录归属。",
+      "审批中心集中处理报销、申请和付款，也可到消息中心查看并打开待办；标已读不改变审批状态。完成后切到“我已处理”回看本人结果与当时摘要，可用今天、近7天或起止日期筛选，导出全部匹配记录。财务审核后仍需登记付款；切其他人员验证历史记录归属。",
       "设计理由：审批通过和实际付款是不同事件，不能用一个“完成”状态代替。",
     ],
     [

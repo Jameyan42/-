@@ -47,11 +47,15 @@ aside {
   top: 0;
   left: 0;
   height: 100vh;
+  overflow-y: auto;
   background: white;
   border-right: 1px solid #e8ecf2;
   padding: 30px 20px;
   display: flex;
   flex-direction: column;
+}
+aside > * {
+  flex-shrink: 0;
 }
 .brand {
   display: flex;
@@ -756,6 +760,7 @@ footer button {
 @media (max-width: 750px) {
   aside {
     position: static;
+    overflow: visible;
     width: 100%;
     height: auto;
     padding: 16px;
@@ -1860,7 +1865,7 @@ header .demo-tag::after {
   margin-top: 12px;
 }
 header .demo-tag::after {
-  content: " · v0.18";
+  content: " · v0.19";
 }
 header .header-right {
   gap: 13px;
@@ -2595,4 +2600,17 @@ header .header-right label {
 }
 .batch-preview small {
   display: block;
+}
+
+.message-is-unread {
+  border-left: 4px solid #4263eb;
+  background: #fcfdff;
+}
+.message-card .actions {
+  flex-wrap: wrap;
+}
+.messages-panel .inbox-toolbar select {
+  padding: 10px;
+  border: 1px solid #dfe6f3;
+  border-radius: 6px;
 }
