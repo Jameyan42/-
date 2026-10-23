@@ -13,7 +13,7 @@ export function requestsView(requests, items, role, employee = "林晓") {
   const rows = requests.filter(
     (r) => role !== "员工" || r.employee === employee,
   );
-  return `<section class="panel"><div class="panel-title"><div><h3>先申请，再支出</h3><span>员工提交 → 主管审批 → 预留预算 → 关联报销 → 结束释放余额</span></div><button id="new-request" class="primary">＋ 新建费用申请</button></div><div class="table-wrap"><table><thead><tr><th>事项 / 月份</th><th>申请人</th><th>申请额度</th><th>已关联金额</th><th>剩余额度</th><th>状态</th><th>操作</th></tr></thead><tbody>${
+  return `<section class="panel"><div class="panel-title"><div><h3>先申请，再支出</h3><span>员工提交 → 主管审批 → 预留预算 → 关联报销 → 结束释放余额</span></div>${role === "员工" ? '<button data-page="申请进度">查看我的申请进度 →</button>' : ""}<button id="new-request" class="primary">＋ 新建费用申请</button></div><div class="table-wrap"><table><thead><tr><th>事项 / 月份</th><th>申请人</th><th>申请额度</th><th>已关联金额</th><th>剩余额度</th><th>状态</th><th>操作</th></tr></thead><tbody>${
     rows
       .map((r) => {
         const b = requestBalance(r, items);

@@ -1,3 +1,5 @@
+import { requestProgressRows, requestProgressCsv } from "./request-progress.js";
+import { requestProgressView } from "./request-progress-ui.js";
 import {
   travelForm,
   mountTravelForm,
@@ -272,6 +274,10 @@ function currentDepartment() {
 function canHandleExpense(x) {
   return canHandleDocument(x, "expense", currentActor());
 }
+let requestProgressStatus = "全部",
+  requestProgressMonth = "",
+  requestProgressQuery = "",
+  requestProgressPage = 0;
 let progressGroup = "all",
   progressQuery = "",
   progressPage = 0;
@@ -350,6 +356,10 @@ function currentInbox(options = {}) {
   return inboxRows(items, requests, currentActor(), options);
 }
 function resetInboxFilters() {
+  requestProgressStatus = "全部";
+  requestProgressMonth = "";
+  requestProgressQuery = "";
+  requestProgressPage = 0;
   progressGroup = "all";
   progressQuery = "";
   progressPage = 0;
@@ -421,6 +431,7 @@ function render() {
     ["报销管理", "▤"],
     ["报销进度", "↗"],
     ["费用申请", "◇"],
+    ["申请进度", "◎"],
     ["审批中心", "✓"],
     ["付款工作台", "¤"],
     ["费用洞察", "◷"],
@@ -455,51 +466,65 @@ function render() {
     )}</select></label><div class="avatar">${esc(currentEmployee()[0] || "人")}</div></div></header>
 <main><div class="page-heading"><div><div class="eyebrow">让每一笔费用，都清晰有序</div><h1>${page === "工作台" ? "工作台" : page}</h1><p>${esc(currentEmployee())}，你好。${role === "管理员" ? "维护虚构组织与审批配置，查看发布结果。" : role === "员工" ? "提交费用、追踪进度，让报销更轻松。" : "查看待办，按节点分工处理费用。"}</p></div><button class="primary" id="create">＋ 新建报销</button></div>
 ${
-  page === "差旅标准"
-    ? travelStandardsView()
-    : page === "报销进度"
-      ? expenseProgressView(items, currentActor(), configuration.org, {
-          group: progressGroup,
-          query: progressQuery,
-          page: progressPage,
-        })
-      : page === "付款工作台"
-        ? paymentView(items, currentActor(), paymentFilter, paymentQuery)
-        : page === "审批中心"
-          ? approvalCenterView()
-          : page === "组织架构"
-            ? orgChartView(configuration.org, role, orgMode, orgChartState)
-            : page === "审批流程"
-              ? flowView(
-                  role === "管理员" ? flowDraft : configuration.flows,
-                  configuration.flows,
-                  configuration.org,
-                  role,
-                  flowTarget,
-                )
-              : page === "费用申请"
-                ? requestsView(requests, items, role, currentEmployee())
-                : page === "体验测试"
-                  ? researchView(role)
-                  : page === "项目案例"
-                    ? caseStudyView()
-                    : page === "产品说明"
-                      ? about()
-                      : page === "费用洞察"
-                        ? insights()
-                        : page === "预算管理"
-                          ? budgetView()
-                          : page === "规则配置"
-                            ? policyView()
-                            : page === "操作记录"
-                              ? auditView()
-                              : page === "数据管理"
-                                ? dataView()
-                                : page === "发票台账"
-                                  ? invoiceView()
-                                  : page === "演示指南"
-                                    ? guideView()
-                                    : `
+  page === "申请进度"
+    ? requestProgressView(
+        requests,
+        items,
+        currentActor(),
+        configuration.org,
+        {
+          status: requestProgressStatus,
+          month: requestProgressMonth,
+          query: requestProgressQuery,
+          page: requestProgressPage,
+        },
+        requestStoreHealthy,
+      )
+    : page === "差旅标准"
+      ? travelStandardsView()
+      : page === "报销进度"
+        ? expenseProgressView(items, currentActor(), configuration.org, {
+            group: progressGroup,
+            query: progressQuery,
+            page: progressPage,
+          })
+        : page === "付款工作台"
+          ? paymentView(items, currentActor(), paymentFilter, paymentQuery)
+          : page === "审批中心"
+            ? approvalCenterView()
+            : page === "组织架构"
+              ? orgChartView(configuration.org, role, orgMode, orgChartState)
+              : page === "审批流程"
+                ? flowView(
+                    role === "管理员" ? flowDraft : configuration.flows,
+                    configuration.flows,
+                    configuration.org,
+                    role,
+                    flowTarget,
+                  )
+                : page === "费用申请"
+                  ? requestsView(requests, items, role, currentEmployee())
+                  : page === "体验测试"
+                    ? researchView(role)
+                    : page === "项目案例"
+                      ? caseStudyView()
+                      : page === "产品说明"
+                        ? about()
+                        : page === "费用洞察"
+                          ? insights()
+                          : page === "预算管理"
+                            ? budgetView()
+                            : page === "规则配置"
+                              ? policyView()
+                              : page === "操作记录"
+                                ? auditView()
+                                : page === "数据管理"
+                                  ? dataView()
+                                  : page === "发票台账"
+                                    ? invoiceView()
+                                    : page === "演示指南"
+                                      ? guideView()
+                                      : `
 ${
   page === "工作台"
     ? `${role === "员工" ? '<div class="review-box"><b>想知道报销到哪一步？</b><p>查看当前节点、待处理人及退回说明。</p><button class="link" data-page="报销进度">打开我的报销进度 →</button></div>' : ""}<section class="stats">${[
@@ -544,14 +569,14 @@ ${
     : ""
 }
 <section class="panel"><div class="panel-title"><div><h3>报销记录</h3><span>跟踪每一笔费用的处理进度</span></div><button class="quiet" id="export">↓ 导出 CSV</button></div><div class="toolbar"><div class="tabs">${["全部", "草稿", "待主管审批", "待财务审核", "待总账复核", "待付款", "已付款", "已退回", "已撤回"].map((s) => `<button data-filter="${s}" class="${filter === s ? "chosen" : ""}">${s === "待主管审批" ? "待审批" : s === "待财务审核" ? "待审核" : s}</button>`).join("")}</div><input id="search" aria-label="搜索报销" placeholder="⌕ 搜索名称、单号或姓名" value="${esc(query)}"></div><div class="table-wrap"><table><thead><tr><th>报销事项 / 单号</th><th>申请人</th><th>费用类型</th><th class="amount">报销金额</th><th>状态</th><th>预审结果</th><th>操作</th></tr></thead><tbody>${
-                                        visible()
-                                          .map(
-                                            (x) =>
-                                              `<tr><td><strong>${esc(x.name)}</strong><small>${esc(x.id)} · ${x.date}</small></td><td><div class="person"><span>${esc(x.employee[0])}</span><div>${esc(x.employee)}<small>${esc(x.department)}</small></div></div></td><td>${esc(x.type)}</td><td class="amount"><strong>${money(x.amount)}</strong></td><td><span class="badge s${["待主管审批", "待财务审核", "待总账复核", "待付款", "已付款", "已退回", "已撤回"].indexOf(x.status)}">${x.status}</span>${x.approval && ["待主管审批", "待财务审核", "待总账复核", "待付款"].includes(x.status) ? `<small>待 ${esc((x.status === "待付款" ? x.approval.paymentActor || x.approval.nodes.at(-1) : x.approval.nodes[x.approval.cursor] || x.approval.nodes.at(-1)).actorName)} 处理</small>` : ""}</td><td><span class="${flags(x).length ? "risk" : "safe"}">${flags(x).length ? "⚑ " + flags(x).length + " 项待核查" : "✓ 未发现风险"}</span></td><td><button class="link" data-detail="${esc(x.id)}">查看 →</button></td></tr>`,
-                                          )
-                                          .join("") ||
-                                        '<tr><td colspan="7" class="empty">暂无符合条件的报销记录</td></tr>'
-                                      }</tbody></table></div><div class="table-footer">共 ${visible().length} 条记录<span>所有金额均为人民币 CNY</span></div></section><div class="footnote">ⓘ 演示使用虚构人员与票据；预审为规则计算，未接入大模型、发票验真或银行付款。</div>`
+                                          visible()
+                                            .map(
+                                              (x) =>
+                                                `<tr><td><strong>${esc(x.name)}</strong><small>${esc(x.id)} · ${x.date}</small></td><td><div class="person"><span>${esc(x.employee[0])}</span><div>${esc(x.employee)}<small>${esc(x.department)}</small></div></div></td><td>${esc(x.type)}</td><td class="amount"><strong>${money(x.amount)}</strong></td><td><span class="badge s${["待主管审批", "待财务审核", "待总账复核", "待付款", "已付款", "已退回", "已撤回"].indexOf(x.status)}">${x.status}</span>${x.approval && ["待主管审批", "待财务审核", "待总账复核", "待付款"].includes(x.status) ? `<small>待 ${esc((x.status === "待付款" ? x.approval.paymentActor || x.approval.nodes.at(-1) : x.approval.nodes[x.approval.cursor] || x.approval.nodes.at(-1)).actorName)} 处理</small>` : ""}</td><td><span class="${flags(x).length ? "risk" : "safe"}">${flags(x).length ? "⚑ " + flags(x).length + " 项待核查" : "✓ 未发现风险"}</span></td><td><button class="link" data-detail="${esc(x.id)}">查看 →</button></td></tr>`,
+                                            )
+                                            .join("") ||
+                                          '<tr><td colspan="7" class="empty">暂无符合条件的报销记录</td></tr>'
+                                        }</tbody></table></div><div class="table-footer">共 ${visible().length} 条记录<span>所有金额均为人民币 CNY</span></div></section><div class="footnote">ⓘ 演示使用虚构人员与票据；预审为规则计算，未接入大模型、发票验真或银行付款。</div>`
 }</main><footer>轻报 QINGBAO <span>让费用管理回归简单</span><button id="reset">重置演示数据</button></footer></div><div id="overlay"></div>`;
   bind();
 }
@@ -582,6 +607,67 @@ function canLeaveOrgEditor() {
   );
 }
 function bind() {
+  for (const [id, set] of [
+    ["request-progress-status", (v) => (requestProgressStatus = v)],
+    ["request-progress-month", (v) => (requestProgressMonth = v)],
+  ])
+    document.querySelector("#" + id)?.addEventListener("change", (e) => {
+      set(e.target.value);
+      requestProgressPage = 0;
+      render();
+    });
+  document
+    .querySelector("#request-progress-search")
+    ?.addEventListener("input", (e) => {
+      requestProgressQuery = e.target.value;
+      const pos = e.target.selectionStart;
+      requestProgressPage = 0;
+      render();
+      const el = document.querySelector("#request-progress-search");
+      el.focus();
+      el.setSelectionRange(pos, pos);
+    });
+  document.querySelectorAll("[data-request-progress-page]").forEach(
+    (b) =>
+      (b.onclick = () => {
+        requestProgressPage = Number(b.dataset.requestProgressPage);
+        render();
+      }),
+  );
+  document
+    .querySelector("#request-progress-clear")
+    ?.addEventListener("click", () => {
+      requestProgressStatus = "全部";
+      requestProgressMonth = "";
+      requestProgressQuery = "";
+      requestProgressPage = 0;
+      render();
+    });
+  document
+    .querySelector("#request-progress-export")
+    ?.addEventListener("click", () => {
+      if (!requestStoreHealthy)
+        return toast("费用申请存储无法完整读取，不能导出");
+      const options = {
+        status: requestProgressStatus,
+        month: requestProgressMonth,
+        query: requestProgressQuery,
+      };
+      downloadFile(
+        requestProgressCsv(
+          requestProgressRows(
+            requests,
+            items,
+            currentActor(),
+            configuration.org,
+            options,
+          ),
+          options,
+        ),
+        "轻报-本人申请进度.csv",
+        "text/csv;charset=utf-8",
+      );
+    });
   document.querySelectorAll("[data-progress-group]").forEach(
     (b) =>
       (b.onclick = () => {
@@ -1216,7 +1302,7 @@ function guideView() {
       "体验如何减少返工",
       "员工",
       "报销管理",
-      "可先载入虚构样票体验 OCR，核对后填入；保存草稿并补充用途后提交。发现错误可在主管审批前撤回再修改；到报销进度查看当前待处理人，退回后在“待我完善”核对原因并重提。差旅场景可先申请行程，再关联住宿/餐补等明细自动合计，到差旅标准查看超标口径。",
+      "可先载入虚构样票体验 OCR，核对后填入；保存草稿并补充用途后提交。发现错误可在主管审批前撤回再修改；到报销进度查看当前待处理人，退回后在“待我完善”核对原因并重提。差旅场景可先申请行程，再关联住宿/餐补等明细自动合计，到差旅标准查看超标口径；申请进度可查看当前审批人、额度占用和本人关联报销。",
       "设计理由：区分草稿、撤回和退回，既降低输入成本，也保持审批状态清晰。",
     ],
     [
@@ -1402,7 +1488,11 @@ function newRequest() {
 }
 function requestDetail(id) {
   const r = requests.find((r) => r.id === id);
-  if (!r) return;
+  if (
+    !r ||
+    (role === "员工" && !ownsExpense(r, currentActor(), configuration.org))
+  )
+    return toast("仅可查看本人的费用申请");
   const departmentBudget = budgetRows(items, budgets, r.month, requests).find(
     (b) => b.department === r.department,
   ) || { limit: 0, available: 0 };

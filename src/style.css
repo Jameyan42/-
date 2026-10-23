@@ -1860,7 +1860,7 @@ header .demo-tag::after {
   margin-top: 12px;
 }
 header .demo-tag::after {
-  content: " · v0.15";
+  content: " · v0.16";
 }
 header .header-right {
   gap: 13px;
@@ -2484,4 +2484,69 @@ header .header-right label {
 }
 .travel-form input[readonly] {
   background: #f2f4fa;
+}
+
+.request-progress .progress-summary > div {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 18px;
+  border: 1px solid #dfe6f3;
+  border-radius: 8px;
+  background: #f7f9ff;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.request-progress .progress-summary strong {
+  font-size: 22px;
+}
+.request-progress-toolbar {
+  flex-wrap: wrap;
+  padding-left: 0;
+  padding-right: 0;
+}
+.request-progress-toolbar label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.request-progress-toolbar select {
+  padding: 10px;
+  border: 1px solid #dfe6f3;
+  border-radius: 6px;
+}
+.request-amounts {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px 16px;
+  background: #f7f9ff;
+  padding: 12px;
+  border-radius: 8px;
+}
+.request-amounts p {
+  display: flex;
+  flex-direction: column;
+  margin: 4px 0;
+}
+.request-linked {
+  margin: 16px 0;
+}
+.request-linked summary {
+  cursor: pointer;
+}
+@media (max-width: 600px) {
+  .request-amounts {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .request-progress-toolbar label {
+    width: 100%;
+  }
+  .request-progress-toolbar input {
+    width: 100%;
+  }
+  .request-progress .panel-title {
+    padding: 0;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
 }
