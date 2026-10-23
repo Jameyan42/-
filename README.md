@@ -60,3 +60,7 @@ npm run test:e2e
 ## 功能迭代 Excel
 
 [下载功能迭代记录](deliverables/qingbao-feature-history.xlsx)，包含阶段总览、36 项历史新增内容、下一步计划及维护说明。源数据为 `docs/iterations/feature-history.json`；安装 openpyxl 3.1+ 后运行 `python3 scripts/export_feature_history.py` 可重新生成。每阶段结束先追加源记录再更新 Excel，历史与未完成计划分开维护。
+
+## v0.9 统一审批待办
+
+审批中心集中展示当前具体人员可处理的报销、费用申请及付款登记；支持类型筛选、搜索、提交时间排序、路径进度与当前列表 CSV 导出。处理后同步更新角标；财务审核通过后保留付款任务。旧记录保留原角色流程，缺失提交时间时明确标注。演示指南、面试案例及功能迭代 Excel 同步维护。

@@ -1,9 +1,10 @@
+import { canHandleDocument, inboxRows, inboxCsv } from "./inbox.js";
+import { inboxView } from "./inbox-ui.js";
 import { defaultOrg, assertOrgChange } from "./organization.js";
 import {
   defaultFlows,
   validateFlows,
   compileApproval,
-  canApprove,
   approvalStatus,
 } from "./approval.js";
 import {
@@ -229,15 +230,17 @@ function currentDepartment() {
   );
 }
 function canHandleExpense(x) {
-  if (x.approval) {
-    if (x.status === "待付款")
-      return x.approval.nodes.at(-1)?.actorId === currentActor()?.id;
-    return canApprove(x, currentActor() || {});
-  }
-  return (
-    (role === "主管" && x.status === "待主管审批") ||
-    (role === "财务" && ["待财务审核", "待付款"].includes(x.status))
-  );
+  return canHandleDocument(x, "expense", currentActor());
+}
+let inboxKind = "all",
+  inboxQuery = "",
+  inboxOrder = "oldest";
+function currentInbox(options = {}) {
+  return inboxRows(items, requests, currentActor(), options);
+}
+function resetInboxFilters() {
+  inboxKind = "all";
+  inboxQuery = "";
 }
 function saveConfiguration(next) {
   if (!configHealthy)
@@ -283,8 +286,7 @@ function visible() {
     (x) =>
       (role !== "员工" || x.employee === currentEmployee()) &&
       (filter === "全部" || x.status === filter) &&
-      (!query || [x.name, x.id, x.employee].join(" ").includes(query)) &&
-      (page !== "审批中心" || (role === "员工" ? true : canHandleExpense(x))),
+      (!query || [x.name, x.id, x.employee].join(" ").includes(query)),
   );
 }
 function render() {
@@ -313,7 +315,7 @@ function render() {
   ]
     .map(
       ([p, i]) =>
-        `<button class="nav ${page === p ? "active" : ""}" data-page="${p}"><span>${i}</span>${p}${p === "审批中心" ? `<em>${items.filter(canHandleExpense).length}</em>` : ""}</button>`,
+        `<button class="nav ${page === p ? "active" : ""}" data-page="${p}"><span>${i}</span>${p}${p === "审批中心" ? `<em>${currentInbox().length}</em>` : ""}</button>`,
     )
     .join(
       "",
@@ -329,39 +331,49 @@ function render() {
     )}</select></label><div class="avatar">${esc(currentEmployee()[0] || "人")}</div></div></header>
 <main><div class="page-heading"><div><div class="eyebrow">让每一笔费用，都清晰有序</div><h1>${page === "工作台" ? "工作台" : page}</h1><p>${esc(currentEmployee())}，你好。${role === "管理员" ? "维护虚构组织与审批配置，查看发布结果。" : role === "员工" ? "提交费用、追踪进度，让报销更轻松。" : "查看待办，按节点分工处理费用。"}</p></div><button class="primary" id="create">＋ 新建报销</button></div>
 ${
-  page === "组织架构"
-    ? orgView(configuration.org, role, orgMode)
-    : page === "审批流程"
-      ? flowView(
-          role === "管理员" ? flowDraft : configuration.flows,
-          configuration.flows,
-          configuration.org,
-          role,
-          flowTarget,
-        )
-      : page === "费用申请"
-        ? requestsView(requests, items, role, currentEmployee())
-        : page === "体验测试"
-          ? researchView(role)
-          : page === "项目案例"
-            ? caseStudyView()
-            : page === "产品说明"
-              ? about()
-              : page === "费用洞察"
-                ? insights()
-                : page === "预算管理"
-                  ? budgetView()
-                  : page === "规则配置"
-                    ? policyView()
-                    : page === "操作记录"
-                      ? auditView()
-                      : page === "数据管理"
-                        ? dataView()
-                        : page === "发票台账"
-                          ? invoiceView()
-                          : page === "演示指南"
-                            ? guideView()
-                            : `
+  page === "审批中心"
+    ? inboxView(
+        currentInbox(),
+        currentInbox({ kind: inboxKind, query: inboxQuery, order: inboxOrder }),
+        currentActor(),
+        inboxKind,
+        inboxQuery,
+        inboxOrder,
+        requestStoreHealthy,
+      )
+    : page === "组织架构"
+      ? orgView(configuration.org, role, orgMode)
+      : page === "审批流程"
+        ? flowView(
+            role === "管理员" ? flowDraft : configuration.flows,
+            configuration.flows,
+            configuration.org,
+            role,
+            flowTarget,
+          )
+        : page === "费用申请"
+          ? requestsView(requests, items, role, currentEmployee())
+          : page === "体验测试"
+            ? researchView(role)
+            : page === "项目案例"
+              ? caseStudyView()
+              : page === "产品说明"
+                ? about()
+                : page === "费用洞察"
+                  ? insights()
+                  : page === "预算管理"
+                    ? budgetView()
+                    : page === "规则配置"
+                      ? policyView()
+                      : page === "操作记录"
+                        ? auditView()
+                        : page === "数据管理"
+                          ? dataView()
+                          : page === "发票台账"
+                            ? invoiceView()
+                            : page === "演示指南"
+                              ? guideView()
+                              : `
 ${
   page === "工作台"
     ? `<section class="stats">${[
@@ -405,15 +417,15 @@ ${
         )}</section><section class="assistant"><div class="spark">✧</div><div><h3>报销预审助手 <span>规则演示</span></h3><p>发现 ${items.filter((x) => flags(x).length).length} 笔报销需要关注。超标费用与重复票据已标记，建议优先核查。</p></div><button id="risks">查看风险单 →</button></section>`
     : ""
 }
-<section class="panel"><div class="panel-title"><div><h3>${page === "审批中心" ? "我的审批待办" : "报销记录"}</h3><span>跟踪每一笔费用的处理进度</span></div><button class="quiet" id="export">↓ 导出 CSV</button></div><div class="toolbar"><div class="tabs">${["全部", "草稿", "待主管审批", "待财务审核", "待付款", "已付款", "已退回", "已撤回"].map((s) => `<button data-filter="${s}" class="${filter === s ? "chosen" : ""}">${s === "待主管审批" ? "待审批" : s === "待财务审核" ? "待审核" : s}</button>`).join("")}</div><input id="search" aria-label="搜索报销" placeholder="⌕ 搜索名称、单号或姓名" value="${esc(query)}"></div><div class="table-wrap"><table><thead><tr><th>报销事项 / 单号</th><th>申请人</th><th>费用类型</th><th class="amount">报销金额</th><th>状态</th><th>预审结果</th><th>操作</th></tr></thead><tbody>${
-                                visible()
-                                  .map(
-                                    (x) =>
-                                      `<tr><td><strong>${esc(x.name)}</strong><small>${esc(x.id)} · ${x.date}</small></td><td><div class="person"><span>${esc(x.employee[0])}</span><div>${esc(x.employee)}<small>${esc(x.department)}</small></div></div></td><td>${esc(x.type)}</td><td class="amount"><strong>${money(x.amount)}</strong></td><td><span class="badge s${["待主管审批", "待财务审核", "待付款", "已付款", "已退回", "已撤回"].indexOf(x.status)}">${x.status}</span>${x.approval && ["待主管审批", "待财务审核", "待付款"].includes(x.status) ? `<small>待 ${esc((x.approval.nodes[x.approval.cursor] || x.approval.nodes.at(-1)).actorName)} 处理</small>` : ""}</td><td><span class="${flags(x).length ? "risk" : "safe"}">${flags(x).length ? "⚑ " + flags(x).length + " 项待核查" : "✓ 未发现风险"}</span></td><td><button class="link" data-detail="${esc(x.id)}">查看 →</button></td></tr>`,
-                                  )
-                                  .join("") ||
-                                '<tr><td colspan="7" class="empty">暂无符合条件的报销记录</td></tr>'
-                              }</tbody></table></div><div class="table-footer">共 ${visible().length} 条记录<span>所有金额均为人民币 CNY</span></div></section><div class="footnote">ⓘ 演示使用虚构人员与票据；预审为规则计算，未接入大模型、发票验真或银行付款。</div>`
+<section class="panel"><div class="panel-title"><div><h3>报销记录</h3><span>跟踪每一笔费用的处理进度</span></div><button class="quiet" id="export">↓ 导出 CSV</button></div><div class="toolbar"><div class="tabs">${["全部", "草稿", "待主管审批", "待财务审核", "待付款", "已付款", "已退回", "已撤回"].map((s) => `<button data-filter="${s}" class="${filter === s ? "chosen" : ""}">${s === "待主管审批" ? "待审批" : s === "待财务审核" ? "待审核" : s}</button>`).join("")}</div><input id="search" aria-label="搜索报销" placeholder="⌕ 搜索名称、单号或姓名" value="${esc(query)}"></div><div class="table-wrap"><table><thead><tr><th>报销事项 / 单号</th><th>申请人</th><th>费用类型</th><th class="amount">报销金额</th><th>状态</th><th>预审结果</th><th>操作</th></tr></thead><tbody>${
+                                  visible()
+                                    .map(
+                                      (x) =>
+                                        `<tr><td><strong>${esc(x.name)}</strong><small>${esc(x.id)} · ${x.date}</small></td><td><div class="person"><span>${esc(x.employee[0])}</span><div>${esc(x.employee)}<small>${esc(x.department)}</small></div></div></td><td>${esc(x.type)}</td><td class="amount"><strong>${money(x.amount)}</strong></td><td><span class="badge s${["待主管审批", "待财务审核", "待付款", "已付款", "已退回", "已撤回"].indexOf(x.status)}">${x.status}</span>${x.approval && ["待主管审批", "待财务审核", "待付款"].includes(x.status) ? `<small>待 ${esc((x.approval.nodes[x.approval.cursor] || x.approval.nodes.at(-1)).actorName)} 处理</small>` : ""}</td><td><span class="${flags(x).length ? "risk" : "safe"}">${flags(x).length ? "⚑ " + flags(x).length + " 项待核查" : "✓ 未发现风险"}</span></td><td><button class="link" data-detail="${esc(x.id)}">查看 →</button></td></tr>`,
+                                    )
+                                    .join("") ||
+                                  '<tr><td colspan="7" class="empty">暂无符合条件的报销记录</td></tr>'
+                                }</tbody></table></div><div class="table-footer">共 ${visible().length} 条记录<span>所有金额均为人民币 CNY</span></div></section><div class="footnote">ⓘ 演示使用虚构人员与票据；预审为规则计算，未接入大模型、发票验真或银行付款。</div>`
 }</main><footer>轻报 QINGBAO <span>让费用管理回归简单</span><button id="reset">重置演示数据</button></footer></div><div id="overlay"></div>`;
   bind();
 }
@@ -439,8 +451,10 @@ function insights() {
 }
 function bind() {
   bindConfiguration();
+  bindInbox();
   document.querySelector("#actor").onchange = (e) => {
     actorId = e.target.value;
+    resetInboxFilters();
     render();
   };
   bindRequests();
@@ -459,6 +473,7 @@ function bind() {
     (b) =>
       (b.onclick = () => {
         page = b.dataset.page;
+        resetInboxFilters();
         filter = "全部";
         query = "";
         render();
@@ -466,6 +481,7 @@ function bind() {
   );
   document.querySelector("#role").onchange = (e) => {
     role = e.target.value;
+    resetInboxFilters();
     render();
   };
   document.querySelector("#create").onclick = () => form();
@@ -1014,7 +1030,7 @@ function guideView() {
       "完成从审批到付款的闭环",
       "主管",
       "审批中心",
-      "主管通过后切财务审核。付款时填写模拟参考号并确认仅作登记，完成后查看付款记录。",
+      "审批中心集中显示报销、费用申请及付款登记；按类型筛选，选择当前人员查看并处理。财务审核后仍需登记付款，最后查看付款记录。",
       "设计理由：审批通过和实际付款是不同事件，不能用一个“完成”状态代替。",
     ],
     [
@@ -1188,9 +1204,7 @@ function requestDetail(id) {
     departmentBudget.available - (r.status === "待审批" ? r.amount : 0);
   const b = requestBalance(r, items),
     linked = items.filter((x) => x.requestId === r.id);
-  const approval = r.approval
-      ? canApprove(r, currentActor() || {})
-      : role === "主管" && r.status === "待审批",
+  const approval = canHandleDocument(r, "request", currentActor()),
     close =
       role === "员工" &&
       r.employee === currentEmployee() &&
@@ -1455,5 +1469,43 @@ function bindConfiguration() {
     } catch (e) {
       out.textContent = "试算未通过：" + e.message;
     }
+  });
+}
+
+function bindInbox() {
+  document.querySelectorAll("[data-inbox-kind]").forEach(
+    (button) =>
+      (button.onclick = () => {
+        inboxKind = button.dataset.inboxKind;
+        render();
+      }),
+  );
+  document.querySelector("#inbox-order")?.addEventListener("change", (e) => {
+    inboxOrder = e.target.value;
+    render();
+  });
+  document.querySelector("#inbox-search")?.addEventListener("input", (e) => {
+    inboxQuery = e.target.value;
+    const position = e.target.selectionStart;
+    render();
+    const input = document.querySelector("#inbox-search");
+    input.focus();
+    input.setSelectionRange(position, position);
+  });
+  document.querySelector("#inbox-clear")?.addEventListener("click", () => {
+    resetInboxFilters();
+    render();
+  });
+  document.querySelector("#inbox-export")?.addEventListener("click", () => {
+    if (!requestStoreHealthy)
+      return toast("申请存储异常，不能导出完整统一待办；请先恢复有效备份");
+    downloadFile(
+      inboxCsv(
+        currentInbox({ kind: inboxKind, query: inboxQuery, order: inboxOrder }),
+      ),
+      "轻报-当前审批待办.csv",
+      "text/csv;charset=utf-8",
+    );
+    toast("已导出当前身份和筛选范围内的待办");
   });
 }
