@@ -1,3 +1,4 @@
+import { locateOrganization, parseChartKey } from "./org-search.js";
 import { processedRows, processedCsv } from "./operations.js";
 import { processedView } from "./processed-ui.js";
 import { orgChartView } from "./org-chart.js";
@@ -216,6 +217,9 @@ const orgChartState = {
   collapsed: new Set(),
   scrollLeft: null,
   scrollTop: 0,
+  searchQuery: "",
+  searchType: "all",
+  focusKey: null,
 };
 let paymentFilter = "待付款",
   paymentQuery = "";
@@ -511,11 +515,21 @@ function insights() {
       "",
     )}<h3>流程分布</h3><div class="flow">${["待主管审批", "待财务审核", "待总账复核", "待付款", "已付款", "已退回", "已撤回"].map((s) => `<div><h2>${items.filter((x) => x.status === s).length}</h2>${s}</div>`).join("")}</div></section>`;
 }
+function canLeaveOrgEditor() {
+  return (
+    !document.querySelector("#org-inspector-form")?.dataset.dirty ||
+    confirm("节点修改尚未保存，是否放弃修改并切换？")
+  );
+}
 function bind() {
   bindConfiguration();
   bindInbox();
   bindPayments();
   document.querySelector("#actor").onchange = (e) => {
+    if (!canLeaveOrgEditor()) {
+      e.target.value = actorId;
+      return;
+    }
     actorId = e.target.value;
     resetInboxFilters();
     render();
@@ -535,6 +549,7 @@ function bind() {
   document.querySelectorAll("[data-page]").forEach(
     (b) =>
       (b.onclick = () => {
+        if (!canLeaveOrgEditor()) return;
         page = b.dataset.page;
         resetInboxFilters();
         filter = "全部";
@@ -543,6 +558,10 @@ function bind() {
       }),
   );
   document.querySelector("#role").onchange = (e) => {
+    if (!canLeaveOrgEditor()) {
+      e.target.value = role;
+      return;
+    }
     role = e.target.value;
     resetInboxFilters();
     render();
@@ -1126,7 +1145,7 @@ function guideView() {
       "验证配置和在途流程的关系",
       "管理员",
       "组织架构",
-      "在组织架构汇报树点选 CFO、部门总或员工，侧栏编辑岗位与上级；用卡片上的＋添加下级。可缩放、折叠或适应画布，再进入审批流程配置路径。",
+      "在组织架构折叠 CFO 后搜索叶禾，点结果展开上级并定位；可按岗位或部门查找，点击路径回到祖先。侧栏维护资料，未保存切页时可选择继续编辑。",
       "设计理由：按人员而非只有角色授权，提交时保留流程快照，避免组织变化打乱在途单据。",
     ],
     [
@@ -1441,9 +1460,7 @@ function bindConfiguration() {
       orgChartState.scrollTop = view.scrollTop;
     }
   };
-  const canLeaveInspector = () =>
-    !document.querySelector("#org-inspector-form")?.dataset.dirty ||
-    confirm("节点修改尚未保存，是否放弃修改并切换？");
+  const canLeaveInspector = canLeaveOrgEditor;
   const view = document.querySelector(".chart-viewport");
   if (view) {
     if (orgChartState.scrollLeft === null) {
@@ -1460,13 +1477,89 @@ function bindConfiguration() {
       orgChartState.scrollLeft = view.scrollLeft;
     } else view.scrollLeft = orgChartState.scrollLeft;
     view.scrollTop = orgChartState.scrollTop;
+    if (orgChartState.focusKey) {
+      const target = [...document.querySelectorAll("[data-org-select]")].find(
+        (b) => b.dataset.orgSelect === orgChartState.focusKey,
+      );
+      if (target) {
+        const node = target.closest(".chart-node");
+        view.scrollLeft =
+          (node.offsetLeft + 104) * orgChartState.zoom - view.clientWidth / 2;
+        view.scrollTop =
+          (node.offsetTop + 54) * orgChartState.zoom - view.clientHeight / 2;
+        orgChartState.scrollLeft = view.scrollLeft;
+        orgChartState.scrollTop = view.scrollTop;
+        target.focus({ preventScroll: true });
+      }
+      orgChartState.focusKey = null;
+    }
   }
+  const locate = (key) => {
+    if (!canLeaveInspector()) return;
+    try {
+      rememberChart();
+      const result = locateOrganization(
+        configuration.org,
+        orgMode,
+        key,
+        orgChartState.collapsed,
+      );
+      orgMode = result.mode;
+      orgChartState.selected = result.selected;
+      orgChartState.collapsed = result.collapsed;
+      orgChartState.focusKey = key;
+      orgChartState.zoom = Math.max(0.65, orgChartState.zoom);
+      render();
+      toast("已定位：" + result.path.at(-1).name + "，上级路径已展开");
+    } catch (e) {
+      toast(e.message);
+    }
+  };
+  document
+    .querySelectorAll("[data-org-locate]")
+    .forEach((b) => (b.onclick = () => locate(b.dataset.orgLocate)));
+  document.querySelector("#chart-selected")?.addEventListener("click", () => {
+    if (orgChartState.selected)
+      locate(orgChartState.selected.type + ":" + orgChartState.selected.id);
+  });
+  document.querySelector("#org-search")?.addEventListener("input", (e) => {
+    if (!canLeaveInspector()) {
+      e.target.value = orgChartState.searchQuery;
+      return;
+    }
+    rememberChart();
+    orgChartState.searchQuery = e.target.value;
+    const position = e.target.selectionStart;
+    render();
+    const input = document.querySelector("#org-search");
+    input.focus({ preventScroll: true });
+    if (position !== null) input.setSelectionRange(position, position);
+  });
+  document
+    .querySelector("#org-search-type")
+    ?.addEventListener("change", (e) => {
+      if (!canLeaveInspector()) {
+        e.target.value = orgChartState.searchType;
+        return;
+      }
+      rememberChart();
+      orgChartState.searchType = e.target.value;
+      render();
+    });
+  document.querySelector("#org-search-clear")?.addEventListener("click", () => {
+    if (!canLeaveInspector()) return;
+    rememberChart();
+    orgChartState.searchQuery = "";
+    orgChartState.searchType = "all";
+    render();
+    document.querySelector("#org-search")?.focus({ preventScroll: true });
+  });
   document.querySelectorAll("[data-org-select]").forEach(
     (b) =>
       (b.onclick = () => {
         if (!canLeaveInspector()) return;
         rememberChart();
-        const [type, id] = b.dataset.orgSelect.split(":");
+        const { type, id } = parseChartKey(b.dataset.orgSelect);
         orgChartState.selected = { type, id };
         render();
       }),
@@ -1519,7 +1612,7 @@ function bindConfiguration() {
   document.querySelectorAll("[data-org-add]").forEach(
     (b) =>
       (b.onclick = () => {
-        const [type, id] = b.dataset.orgAdd.split(":");
+        const { type, id } = parseChartKey(b.dataset.orgAdd);
         if (type === "department") {
           const d = configuration.org.departments.find((d) => d.id === id);
           editPerson(undefined, d.headId || "admin-gu", d.id);

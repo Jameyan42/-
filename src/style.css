@@ -1860,7 +1860,7 @@ header .demo-tag::after {
   margin-top: 12px;
 }
 header .demo-tag::after {
-  content: " · v0.11";
+  content: " · v0.12";
 }
 header .header-right {
   gap: 13px;
@@ -2245,4 +2245,84 @@ header .header-right label {
   margin: 16px;
   flex-wrap: wrap;
   color: #7a8ba7;
+}
+
+.org-search {
+  border: 1px solid #e0e7f4;
+  border-radius: 10px;
+  padding: 16px;
+  margin: 0 0 16px;
+  background: #fafcff;
+}
+.org-search-fields {
+  display: flex;
+  align-items: end;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.org-search-fields label {
+  font-size: 11px;
+  color: #7e8ca4;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.org-search-fields label:first-child {
+  flex: 1;
+  min-width: 180px;
+}
+.org-search-fields input,
+.org-search-fields select {
+  padding: 10px;
+  border: 1px solid #dbe4f2;
+  border-radius: 7px;
+  background: white;
+  min-width: 0;
+}
+#org-search-status {
+  margin-top: 10px;
+  line-height: 1.7;
+  color: #8191ad;
+  font-size: 11px;
+}
+.org-search-results {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  margin-top: 10px;
+  max-height: 240px;
+  overflow: auto;
+}
+.org-search-results button {
+  text-align: left;
+  padding: 12px;
+  background: white;
+  min-width: 0;
+}
+.org-search-results button span {
+  display: block;
+  color: #8090aa;
+  font-size: 10px;
+  margin-top: 4px;
+  overflow-wrap: anywhere;
+}
+.org-breadcrumb {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0 0 16px;
+  color: #8090aa;
+  font-size: 11px;
+}
+.org-breadcrumb button {
+  padding: 3px;
+}
+@media (max-width: 750px) {
+  .org-search-fields label {
+    width: 100%;
+  }
+  .org-search-results {
+    grid-template-columns: 1fr;
+  }
 }
