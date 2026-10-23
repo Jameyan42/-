@@ -747,6 +747,8 @@ function bindMore() {
     }
   });
   document.querySelector("#backup")?.addEventListener("click", () => {
+    if (!requestStoreHealthy)
+      return toast("费用申请存储无法读取，不能导出完整备份；原始数据未改动");
     const backup = {
       format: "qingbao-backup",
       version: 1,
@@ -771,6 +773,10 @@ function bindMore() {
     try {
       if (file.size > 5 * 1024 * 1024) throw Error("备份文件不能超过 5 MB");
       const data = validateBackup(JSON.parse(await file.text()));
+      if (data.requests === undefined && !requestStoreHealthy)
+        throw new Error(
+          "旧备份未包含申请，不能覆盖无法读取的原申请数据；请使用包含申请的有效备份",
+        );
       const nextRequests =
         data.requests === undefined ? requests : data.requests;
       validateRequestSet(nextRequests, data.items);

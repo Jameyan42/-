@@ -111,13 +111,11 @@ test("申请关联报销付款后结束释放未用余额，保留付款关联",
   await page.locator("[name=amount]").fill("600");
   await page.locator("[name=note]").fill("虚构客户拜访");
   await page.locator("[name=invoice]").fill("REQUEST-PAY-001");
-  await page
-    .locator("[name=receipt]")
-    .setInputFiles({
-      name: "虚构票据.pdf",
-      mimeType: "application/pdf",
-      buffer: Buffer.from("demo"),
-    });
+  await page.locator("[name=receipt]").setInputFiles({
+    name: "虚构票据.pdf",
+    mimeType: "application/pdf",
+    buffer: Buffer.from("demo"),
+  });
   const id = await page
     .locator("[name=requestId] option")
     .nth(1)
@@ -157,4 +155,47 @@ test("申请关联报销付款后结束释放未用余额，保留付款关联",
   await expect(page.locator(".payment-summary")).toContainText(
     "DEMO-REQUEST-001",
   );
+});
+test("申请存储损坏时不导出假完整备份，旧备份不覆盖未知数据", async ({
+  page,
+}) => {
+  await page.goto("/");
+  await nav(page, "数据管理");
+  const wait = page.waitForEvent("download");
+  await page.locator("#backup").click();
+  const file = await wait;
+  const { readFile } = await import("node:fs/promises");
+  const backup = JSON.parse(await readFile(await file.path(), "utf8"));
+  await page.evaluate(() =>
+    localStorage.setItem("qingbao-requests-v1", "{broken"),
+  );
+  await page.reload();
+  await nav(page, "数据管理");
+  await page.locator("#backup").click();
+  await expect(page.locator(".toast")).toContainText("不能导出完整备份");
+  delete backup.requests;
+  await page
+    .locator("#restore")
+    .setInputFiles({
+      name: "legacy.json",
+      mimeType: "application/json",
+      buffer: Buffer.from(JSON.stringify(backup)),
+    });
+  await expect(page.locator(".toast")).toContainText("旧备份未包含申请");
+  expect(
+    await page.evaluate(() => localStorage.getItem("qingbao-requests-v1")),
+  ).toBe("{broken");
+  backup.requests = [];
+  page.once("dialog", (d) => d.accept());
+  await page
+    .locator("#restore")
+    .setInputFiles({
+      name: "complete.json",
+      mimeType: "application/json",
+      buffer: Buffer.from(JSON.stringify(backup)),
+    });
+  await expect(page.locator(".toast")).toContainText("备份已恢复");
+  expect(
+    await page.evaluate(() => localStorage.getItem("qingbao-requests-v1")),
+  ).toBe("[]");
 });
