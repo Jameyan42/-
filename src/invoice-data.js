@@ -64,6 +64,8 @@ export function validateInvoices(bundle) {
       !money(r.amount) ||
       r.amount <= 0 ||
       [r.netAmount, r.taxAmount].some((v) => v !== null && !money(v)) ||
+      (r.attachmentId !== undefined &&
+        (!text(r.attachmentId, 60) || !r.attachmentId)) ||
       !r.capture ||
       !["manual", "ocr-assisted"].includes(r.capture.method) ||
       r.capture.confirmed !== true ||
@@ -82,6 +84,21 @@ export function validateInvoices(bundle) {
     throw Error("结构化票据超过容量限制");
   return bundle;
 }
+// References are local to the same document; never infer a match from filenames.
+export function validateInvoiceAttachments(bundle, attachments = []) {
+  if (bundle === undefined) return;
+  validateInvoices(bundle);
+  const linked = new Set();
+  for (const r of bundle.records) {
+    if (!r.attachmentId) continue;
+    const f = attachments.find((f) => f.id === r.attachmentId);
+    if (!f || f.kind !== "发票")
+      throw Error("票面关联原件不存在或不是发票分类，请先解除关联再移除或改类");
+    if (linked.has(r.attachmentId))
+      throw Error("同一个原件只能关联一张票面记录；多票合并文件请拆分后上传");
+    linked.add(r.attachmentId);
+  }
+}
 export const emptyInvoices = () => ({ schema: 1, records: [] });
 export function invoiceRecord(
   input,
@@ -99,6 +116,7 @@ export function invoiceRecord(
           .trim(),
       ]),
     ),
+    ...(input.attachmentId ? { attachmentId: input.attachmentId } : {}),
     amount: Number(input.amount),
     netAmount:
       input.netAmount === "" || input.netAmount == null

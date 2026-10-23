@@ -324,13 +324,11 @@ test("票号跨报销及对公查重，两个审核详情均显示关联，配�
   await p.locator("[name=name]").fill("同票号报销");
   await p.locator("[name=amount]").fill("100");
   await p.locator("[name=note]").fill("虚构重复票据");
-  await p
-    .locator("[name=receipt]")
-    .setInputFiles({
-      name: "虚构.pdf",
-      mimeType: "application/pdf",
-      buffer: Buffer.from("demo"),
-    });
+  await p.locator("[name=receipt]").setInputFiles({
+    name: "虚构.pdf",
+    mimeType: "application/pdf",
+    buffer: Buffer.from("demo"),
+  });
   await add(p, values());
   await p.locator("#expense-form [type=submit]").click();
   await p.locator("#role").selectOption("主管");
@@ -359,4 +357,194 @@ test("票号跨报销及对公查重，两个审核详情均显示关联，配�
   await nav(p, "对公支付单");
   await p.locator("[data-enterprise-open]").click();
   await expect(p.locator(".precheck-panel").first()).toContainText("报销 BX");
+});
+
+test("关联留存原件真实OCR、审核下载字节及引用备份恢复保护", async ({
+  page: p,
+  context,
+}) => {
+  test.setTimeout(120000);
+  const fs = await import("node:fs/promises"),
+    bytes = await fs.readFile("public/samples/structured-invoice.png");
+  const external = [];
+  context.on("request", (r) => {
+    if (r.url().startsWith("http") && new URL(r.url()).hostname !== "127.0.0.1")
+      external.push(r.url());
+  });
+  await expense(p, "原件关联OCR");
+  await p.locator("#attachment-kind").selectOption("发票");
+  await p.locator("#attachments-upload").setInputFiles({
+    name: "虚构原件.png",
+    mimeType: "image/png",
+    buffer: bytes,
+  });
+  await expect(p.locator("#attachments-status")).toContainText("已添加");
+  await p
+    .locator("#invoice-attachment")
+    .selectOption({ label: "虚构原件.png" });
+  await p.locator("#invoice-attachment-read").click();
+  await expect(field(p, "number")).toHaveValue("22345678901234567890", {
+    timeout: 90000,
+  });
+  await expect(p.locator("#invoice-attachment option:checked")).toHaveText(
+    "虚构原件.png",
+  );
+  await p.locator("#invoice-data-confirm").check();
+  await p.locator("#invoice-data-add").click();
+  await p.locator("[data-attachment-remove]").click();
+  await expect(p.locator("#attachments-status")).toContainText(
+    "先编辑票面解除关联",
+  );
+  await p.locator("[data-attachment-kind]").selectOption("其他材料");
+  await expect(p.locator("[data-attachment-kind]")).toHaveValue("发票");
+  await p.locator("#expense-form [type=submit]").click();
+  await p.reload();
+  await p.locator("#role").selectOption("主管");
+  await nav(p, "报销管理");
+  await p
+    .locator("tbody tr")
+    .filter({ hasText: "原件关联OCR" })
+    .locator("[data-detail]")
+    .click();
+  await p.locator(".invoice-original details summary").click();
+  await expect(p.locator(".invoice-original img")).toBeVisible();
+  const dl = p.waitForEvent("download");
+  await p.locator(".invoice-original [data-attachment-download]").click();
+  expect(await fs.readFile(await (await dl).path())).toEqual(bytes);
+  await p.locator("[data-close]").click();
+  await p.locator("#role").selectOption("员工");
+  await nav(p, "数据管理");
+  const bdl = p.waitForEvent("download");
+  await p.locator("#backup").click();
+  const b = JSON.parse(await fs.readFile(await (await bdl).path(), "utf8"));
+  const x = b.items.find((x) => x.name === "原件关联OCR");
+  expect(x.invoices.records[0].attachmentId).toBe(x.attachments[0].id);
+  const before = await p.evaluate(() => localStorage.getItem("qingbao-v1"));
+  x.invoices.records[0].attachmentId = "dangling";
+  await p.locator("#restore").setInputFiles({
+    name: "坏引用.json",
+    mimeType: "application/json",
+    buffer: Buffer.from(JSON.stringify(b)),
+  });
+  await expect(p.locator(".toast")).toContainText("原件");
+  expect(await p.evaluate(() => localStorage.getItem("qingbao-v1"))).toBe(
+    before,
+  );
+  x.invoices.records[0].attachmentId = x.attachments[0].id;
+  p.once("dialog", (d) => d.accept());
+  await p.locator("#restore").setInputFiles({
+    name: "原件备份.json",
+    mimeType: "application/json",
+    buffer: Buffer.from(JSON.stringify(b)),
+  });
+  await expect(p.locator(".toast")).toContainText("备份已恢复");
+  expect(external).toEqual([]);
+});
+
+test("对公发票与验收材料、PDF关联和容量失败重试，审核人只读下载", async ({
+  page: p,
+}) => {
+  const seed = setupCorporate(),
+    fs = await import("node:fs/promises"),
+    bytes = Buffer.from("%PDF-1.4\nfictional acceptance\n%%EOF");
+  await p.goto("/");
+  await p.evaluate(({ s, org, flows }) => {
+    localStorage.setItem("qingbao-enterprise-v1", JSON.stringify(s));
+    localStorage.setItem(
+      "qingbao-configuration-v1",
+      JSON.stringify({ org, flows }),
+    );
+  }, seed);
+  await p.reload();
+  await p.locator("#role").selectOption("员工");
+  await nav(p, "对公支付单");
+  await p.locator("#enterprise-create").click();
+  await p.locator("[name=contractId]").selectOption(seed.s.contracts[0].id);
+  await p.locator("[name=name]").fill("对公原件闭环");
+  await p.locator("[name=amount]").fill("100");
+  await p.locator("[name=note]").fill("虚构材料");
+  for (const kind of ["发票", "验收单"]) {
+    await p.locator("#attachment-kind").selectOption(kind);
+    await p.locator("#attachments-upload").setInputFiles({
+      name: kind + ".pdf",
+      mimeType: "application/pdf",
+      buffer: bytes,
+    });
+    await expect(p.locator("#attachments-status")).toContainText("已添加");
+  }
+  await p.locator("#invoice-attachment").selectOption({ label: "发票.pdf" });
+  await p.locator("#invoice-attachment-read").click();
+  await expect(p.locator("#invoice-data-status")).toContainText(
+    "PDF请下载核对",
+  );
+  await add(p, values());
+  const before = await p.evaluate(() =>
+    localStorage.getItem("qingbao-enterprise-v1"),
+  );
+  await p.evaluate(() => {
+    window.originalSet = Storage.prototype.setItem;
+    Storage.prototype.setItem = function (k, v) {
+      if (k === "qingbao-enterprise-v1") throw Error("quota");
+      return window.originalSet.call(this, k, v);
+    };
+  });
+  await p.locator("#enterprise-form [type=submit]").click();
+  await expect(p.locator("#enterprise-error")).toContainText("原数据未改动");
+  expect(
+    await p.evaluate(() => localStorage.getItem("qingbao-enterprise-v1")),
+  ).toBe(before);
+  await expect(p.locator(".attachment-card")).toHaveCount(2);
+  await p.evaluate(() => (Storage.prototype.setItem = window.originalSet));
+  await p.locator("#enterprise-form [type=submit]").click();
+  await p.locator("#role").selectOption("主管");
+  await p.locator("#actor").selectOption("head-xu");
+  await p.locator("[data-enterprise-open]").first().click();
+  await expect(p.locator(".attachment-details")).toContainText("验收单");
+  await expect(p.locator("[data-attachment-remove]")).toHaveCount(0);
+  const dl = p.waitForEvent("download");
+  await p.locator(".invoice-original [data-attachment-download]").click();
+  expect(await fs.readFile(await (await dl).path())).toEqual(bytes);
+  await p.locator("#enterprise-form [name=note]").fill("核对原件与验收单");
+  await p.locator("#enterprise-form [type=submit]").click();
+  const s = await p.evaluate(() =>
+    JSON.parse(localStorage.getItem("qingbao-enterprise-v1")),
+  );
+  expect(s.payments[0].attachments).toHaveLength(2);
+  expect(s.payments[0].invoices.records[0].attachmentId).toBe(
+    s.payments[0].attachments[0].id,
+  );
+});
+
+test("手机明确解除票面关联后才能移除或改类，移除字段不删除原件", async ({
+  page: p,
+}) => {
+  await p.setViewportSize({ width: 390, height: 844 });
+  await expense(p, "手机解除原件");
+  await p.locator("#attachment-kind").selectOption("发票");
+  await p.locator("#attachments-upload").setInputFiles({
+    name: "发票.pdf",
+    mimeType: "application/pdf",
+    buffer: Buffer.from("%PDF-1.4\nfake\n%%EOF"),
+  });
+  await expect(p.locator("#attachments-status")).toContainText("已添加");
+  await p.locator("#invoice-attachment").selectOption({ label: "发票.pdf" });
+  await add(p, values());
+  await p.locator("[data-invoice-edit]").click();
+  await p.locator("#invoice-attachment").selectOption("");
+  await p.locator("#invoice-data-confirm").check();
+  await p.locator("#invoice-data-add").click();
+  await p.locator("[data-attachment-kind]").selectOption("合同附件");
+  await expect(p.locator("[data-attachment-kind]")).toHaveValue("合同附件");
+  await p.locator("[data-invoice-remove]").click();
+  await expect(p.locator(".attachment-card")).toHaveCount(1);
+  expect(
+    await p.evaluate(() => document.documentElement.scrollWidth <= innerWidth),
+  ).toBe(true);
+  await p.locator("#draft").click();
+  expect(
+    await p.evaluate(
+      () =>
+        JSON.parse(localStorage.getItem("qingbao-v1"))[0].attachments[0].kind,
+    ),
+  ).toBe("合同附件");
 });

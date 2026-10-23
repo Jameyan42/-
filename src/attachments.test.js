@@ -178,3 +178,53 @@ test("附件文件随备份往返，非法文件拒绝且旧名称记录可导�
   delete b.items[0].attachments;
   assert.doesNotThrow(() => validateBackup(b));
 });
+
+test("票面原件引用必须存在且为发票，不按名称猜测或重复关联", async () => {
+  const { invoiceRecord, validateInvoiceAttachments } =
+    await import("./invoice-data.js");
+  const r = invoiceRecord({
+    number: "12345678901234567890",
+    amount: 100,
+    attachmentId: "F1",
+  });
+  const b = { schema: 1, records: [r] };
+  assert.throws(() => validateInvoiceAttachments(b, []), /原件/);
+  assert.throws(() => validateInvoiceAttachments(b, [file()]), /分类/);
+  assert.doesNotThrow(() =>
+    validateInvoiceAttachments(b, [file({ kind: "发票" })]),
+  );
+  assert.throws(
+    () =>
+      validateInvoiceAttachments(
+        { schema: 1, records: [r, { ...r, id: "2" }] },
+        [file({ kind: "发票" })],
+      ),
+    /只能关联/,
+  );
+  assert.doesNotThrow(() =>
+    validateInvoiceAttachments({
+      schema: 1,
+      records: [{ ...r, attachmentId: undefined }],
+    }),
+  );
+});
+test("坏原件引用在持久化前拒绝，真实文件与关联随序列化往返", async () => {
+  const { invoiceRecord } = await import("./invoice-data.js");
+  const r = invoiceRecord({
+    number: "12345678901234567890",
+    amount: 100,
+    attachmentId: "F1",
+  });
+  const x = {
+    invoices: { schema: 1, records: [r] },
+    attachments: [file({ kind: "发票" })],
+  };
+  const s = storage({ "qingbao-v1": "old" });
+  assert.throws(
+    () => persistExpenseItems(s, [{ ...x, attachments: [] }]),
+    /原件/,
+  );
+  assert.equal(s.getItem("qingbao-v1"), "old");
+  persistExpenseItems(s, [x]);
+  assert.deepEqual(JSON.parse(s.getItem("qingbao-v1")), [x]);
+});

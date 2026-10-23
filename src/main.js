@@ -757,7 +757,7 @@ ${
   document.querySelector("aside").scrollTop = navigationScroll;
 }
 function about() {
-  return `<section class="panel prose"><h2>用 AI 辅助构建，让产品思考可见</h2><p>轻报面向 200 人成长型企业的费控演示作品，覆盖员工差旅与对公支付两条业务线。产品假设和自动化测试不代表真实用户研究或生产效果。</p><h3>员工费用闭环</h3><p>费用申请与出差行程 → 多项费用明细及酒店水单等附件 → 报销提交 → 具名审批 → 财务审核 → 总账复核 → 模拟付款。管理员先发布财务分工模板，新单按版本生成审批快照；旧单保留原路径。</p><h3>对公支付闭环</h3><p>管理员维护供应商和虚构收款账户 → 员工提交合同 → 本地规则初筛 → 财务或管理员阅读全文并复核 → 员工按本人已复核合同发起对公支付单 → 部门业务节点、财务、总账、指定付款人员逐级办理。合同在途与已付共同占用额度，退回或撤回释放；供应商变更不改写已提交单据收款快照。</p><h3>报销与对公规则预审</h3><p>可配置14条补充规则、阈值及提醒/拦截，展示触发依据、关联单号和核对建议。当前规则在财务、总账和付款时重新检查，主管仍可转交财务；每次处理保留规则参数与结果，历史不随当前配置改写。它不是AI、发票验真或自动审批。</p><h3>票面结构化与自动比对</h3><p>报销和对公支持每单最多5张票面数据，浏览器OCR提取候选后人工修正并确认，记录购销方、税号、号码、日期及金额税额。财务统一抬头基准，系统比对购买方、多票合计、金额税额和跨单重复；票面金额不自动改写申请金额。采集区不留原件，报销附件可另存；图片读取不代表官方验真。</p><h3>合同审查范围</h3><p>支持粘贴正文与UTF-8 TXT导入，对主体、付款、验收、发票、违约及争议条款做透明规则初筛，显示片段与人工核对建议。不是大模型或法律意见；真实 AI 尚未连接，PDF/DOCX正文提取尚未提供。</p><h3>存储与使用范围</h3><p>数据与报销附件原文件保存在本浏览器，可下载备份后迁移。浏览器OCR不上传图片，发票识别不等于验真。角色选择是演示机制，没有生产鉴权、后端并发或跨设备实时同步。只使用虚构资料，模拟付款不执行转账。</p><h3>当前模块边界</h3><p>对公任务在对公支付单办理，尚未统一到原审批中心、消息中心和报销付款工作台；对公合同额度与原部门报销预算分别统计。对公履约附件与发票验真、真实银行支付、总账凭证、真实 AI 待后续接入。</p></section>`;
+  return `<section class="panel prose"><h2>用 AI 辅助构建，让产品思考可见</h2><p>轻报面向 200 人成长型企业的费控演示作品，覆盖员工差旅与对公支付两条业务线。产品假设和自动化测试不代表真实用户研究或生产效果。</p><h3>员工费用闭环</h3><p>费用申请与出差行程 → 多项费用明细及酒店水单等附件 → 报销提交 → 具名审批 → 财务审核 → 总账复核 → 模拟付款。管理员先发布财务分工模板，新单按版本生成审批快照；旧单保留原路径。</p><h3>对公支付闭环</h3><p>管理员维护供应商和虚构收款账户 → 员工提交合同 → 本地规则初筛 → 财务或管理员阅读全文并复核 → 员工按本人已复核合同发起对公支付单 → 部门业务节点、财务、总账、指定付款人员逐级办理。合同在途与已付共同占用额度，退回或撤回释放；供应商变更不改写已提交单据收款快照。</p><h3>报销与对公规则预审</h3><p>可配置14条补充规则、阈值及提醒/拦截，展示触发依据、关联单号和核对建议。当前规则在财务、总账和付款时重新检查，主管仍可转交财务；每次处理保留规则参数与结果，历史不随当前配置改写。它不是AI、发票验真或自动审批。</p><h3>票面结构化与自动比对</h3><p>报销和对公支持每单最多5张票面数据，浏览器OCR提取候选后人工修正并确认，记录购销方、税号、号码、日期及金额税额。财务统一抬头基准，系统比对购买方、多票合计、金额税额和跨单重复；票面金额不自动改写申请金额。报销与对公可上传并关联发票原件，从已存图片识别，审核人从字段卡片预览或下载；仅选图识别仍不保留原件。关联不代表官方验真。</p><h3>合同审查范围</h3><p>支持粘贴正文与UTF-8 TXT导入，对主体、付款、验收、发票、违约及争议条款做透明规则初筛，显示片段与人工核对建议。不是大模型或法律意见；真实 AI 尚未连接，PDF/DOCX正文提取尚未提供。</p><h3>存储与使用范围</h3><p>数据与报销、对公附件原文件保存在本浏览器，可下载备份后迁移。浏览器OCR不上传图片，发票识别不等于验真。角色选择是演示机制，没有生产鉴权、后端并发或跨设备实时同步。只使用虚构资料，模拟付款不执行转账。</p><h3>当前模块边界</h3><p>对公任务在对公支付单办理，尚未统一到原审批中心、消息中心和报销付款工作台；对公合同额度与原部门报销预算分别统计。对公支持发票、验收单等履约材料；发票验真、真实银行支付、总账凭证、真实 AI 待后续接入。</p></section>`;
 }
 function insights() {
   const groups = {};
@@ -1153,7 +1153,7 @@ function detail(id) {
   const precheck = expensePrecheck(x);
   const can = canHandleExpense(x);
   modal(
-    `<div class="modal-title"><div><small>${esc(x.id)}</small><h2>${esc(x.name)}</h2></div><button data-close aria-label="关闭">✕</button></div><div class="detail-amount">${money(x.amount)} <span class="badge">${x.status}</span></div><div class="detail-grid"><p>申请人<b>${esc(x.employee)} · ${esc(x.department)}</b></p><p>费用类型<b>${esc(x.type)}</b></p><p>发票号码<b>${esc(x.invoice || "未填写")}</b></p><p>原票据附件名称（旧入口）<b>${esc(x.receipt || "未提供")}</b></p></div><p>${esc(x.note)}</p>${precheckPanel(precheck, { healthy: policyHealthy })}${precheckHistory(x.history)}${x.payment ? `<div class="review-box payment-summary"><h3>付款登记信息</h3><p>方式：${esc(x.payment.method)} · 日期：${esc(x.payment.date)}</p><p>参考号：${esc(x.payment.reference)}</p><small>仅作模拟登记，未连接银行或执行转账。</small></div>` : x.status === "已付款" ? '<p class="footnote">历史演示记录未提供付款参考号。</p>' : ""}${x.ocr ? '<p class="footnote">曾使用浏览器 OCR 辅助并由员工核对，识别不代表发票真实或字段准确。</p>' : ""}${x.requestId ? `<div class="review-box"><h3>关联费用申请</h3><p>${esc(requests.find((r) => r.id === x.requestId)?.name || x.requestId)}</p><small>提交时占用申请额度，付款后转为实际支出；未核销余额仍预留。</small></div>` : ""}${invoiceDetails(x.invoices, policy)}${attachmentDetails(x.attachments)}${travelSummary(x.travel)}${x.ledgerReview ? `<div class="review-box ledger-summary"><h3>总账复核记录</h3><p>科目：${esc(x.ledgerReview.account)} · 核算归属：${esc(x.ledgerReview.costCenter)}</p><small>复核时间：${esc(new Date(x.ledgerReview.at).toLocaleString("zh-CN"))}；仅模拟记录，未生成会计凭证。</small></div>` : ""}${approvalTimeline(x)}<h3>流转记录</h3><div class="timeline">${x.history.map((h) => `<p>${esc(h.text)}<small>${esc(h.operation ? new Date(h.operation.at).toLocaleString("zh-CN") : h.time)}${h.operation ? " · " + esc(h.operation.actorName) + " · " + (h.operation.flowVersion ? "v" + h.operation.flowVersion : "历史固定流程") : ""}</small></p>`).join("")}</div>${role === "员工" && x.employee === currentEmployee() && x.status === "待主管审批" && (x.approval?.cursor || 0) === 0 ? '<div class="review-box"><label>撤回原因<textarea id="withdraw-reason" maxlength="200" placeholder="如金额填写有误，需要修改"></textarea></label><button id="withdraw">撤回并修改</button><p>仅主管审批前可撤回，之后需由审核人退回。</p></div>' : ""}${can ? `${x.status === "待付款" ? paymentFields() : x.status === "待总账复核" ? '<div class="review-box"><h3>总账复核信息</h3><label>总账科目<input id="ledger-account" maxlength="100" placeholder="如 6602 管理费用（仅演示）"></label><label>核算归属<input id="ledger-costcenter" maxlength="100" placeholder="如 法报中心 / 示例项目"></label><small>只记录复核信息，不生成会计凭证或自动记账。</small></div>' : ""}<label>处理备注<textarea id="reason" placeholder="退回时必须填写原因"></textarea></label><div class="actions"><button id="reject">退回修改</button><button class="primary" id="approve">${x.status === "待付款" ? "登记付款" : "审核通过"}</button></div>` : role === "员工" && x.employee === currentEmployee() && ["已退回", "草稿", "已撤回"].includes(x.status) ? `<button class="primary" id="edit">${x.status === "草稿" ? "继续填写草稿" : "修改并重新提交"}</button>` : '<p class="footnote">切换到审批路径中指定的角色和具体人员后处理。</p>'}`,
+    `<div class="modal-title"><div><small>${esc(x.id)}</small><h2>${esc(x.name)}</h2></div><button data-close aria-label="关闭">✕</button></div><div class="detail-amount">${money(x.amount)} <span class="badge">${x.status}</span></div><div class="detail-grid"><p>申请人<b>${esc(x.employee)} · ${esc(x.department)}</b></p><p>费用类型<b>${esc(x.type)}</b></p><p>发票号码<b>${esc(x.invoice || "未填写")}</b></p><p>原票据附件名称（旧入口）<b>${esc(x.receipt || "未提供")}</b></p></div><p>${esc(x.note)}</p>${precheckPanel(precheck, { healthy: policyHealthy })}${precheckHistory(x.history)}${x.payment ? `<div class="review-box payment-summary"><h3>付款登记信息</h3><p>方式：${esc(x.payment.method)} · 日期：${esc(x.payment.date)}</p><p>参考号：${esc(x.payment.reference)}</p><small>仅作模拟登记，未连接银行或执行转账。</small></div>` : x.status === "已付款" ? '<p class="footnote">历史演示记录未提供付款参考号。</p>' : ""}${x.ocr ? '<p class="footnote">曾使用浏览器 OCR 辅助并由员工核对，识别不代表发票真实或字段准确。</p>' : ""}${x.requestId ? `<div class="review-box"><h3>关联费用申请</h3><p>${esc(requests.find((r) => r.id === x.requestId)?.name || x.requestId)}</p><small>提交时占用申请额度，付款后转为实际支出；未核销余额仍预留。</small></div>` : ""}${invoiceDetails(x.invoices, policy, x.attachments)}${attachmentDetails(x.attachments)}${travelSummary(x.travel)}${x.ledgerReview ? `<div class="review-box ledger-summary"><h3>总账复核记录</h3><p>科目：${esc(x.ledgerReview.account)} · 核算归属：${esc(x.ledgerReview.costCenter)}</p><small>复核时间：${esc(new Date(x.ledgerReview.at).toLocaleString("zh-CN"))}；仅模拟记录，未生成会计凭证。</small></div>` : ""}${approvalTimeline(x)}<h3>流转记录</h3><div class="timeline">${x.history.map((h) => `<p>${esc(h.text)}<small>${esc(h.operation ? new Date(h.operation.at).toLocaleString("zh-CN") : h.time)}${h.operation ? " · " + esc(h.operation.actorName) + " · " + (h.operation.flowVersion ? "v" + h.operation.flowVersion : "历史固定流程") : ""}</small></p>`).join("")}</div>${role === "员工" && x.employee === currentEmployee() && x.status === "待主管审批" && (x.approval?.cursor || 0) === 0 ? '<div class="review-box"><label>撤回原因<textarea id="withdraw-reason" maxlength="200" placeholder="如金额填写有误，需要修改"></textarea></label><button id="withdraw">撤回并修改</button><p>仅主管审批前可撤回，之后需由审核人退回。</p></div>' : ""}${can ? `${x.status === "待付款" ? paymentFields() : x.status === "待总账复核" ? '<div class="review-box"><h3>总账复核信息</h3><label>总账科目<input id="ledger-account" maxlength="100" placeholder="如 6602 管理费用（仅演示）"></label><label>核算归属<input id="ledger-costcenter" maxlength="100" placeholder="如 法报中心 / 示例项目"></label><small>只记录复核信息，不生成会计凭证或自动记账。</small></div>' : ""}<label>处理备注<textarea id="reason" placeholder="退回时必须填写原因"></textarea></label><div class="actions"><button id="reject">退回修改</button><button class="primary" id="approve">${x.status === "待付款" ? "登记付款" : "审核通过"}</button></div>` : role === "员工" && x.employee === currentEmployee() && ["已退回", "草稿", "已撤回"].includes(x.status) ? `<button class="primary" id="edit">${x.status === "草稿" ? "继续填写草稿" : "修改并重新提交"}</button>` : '<p class="footnote">切换到审批路径中指定的角色和具体人员后处理。</p>'}`,
   );
   bindAttachmentDetails(document.querySelector("#overlay"), x.attachments);
   bindInvoiceDetails(document.querySelector("#overlay"), x.invoices);
@@ -1285,7 +1285,11 @@ function form(existing) {
   const attachmentFiles = mountAttachmentEditor(
     formEl,
     existing?.attachments,
-    () => preview(),
+    () => {
+      invoiceCapture.refreshAttachments();
+      preview();
+    },
+    { isLinked: (id) => invoiceCapture.isLinked(id) },
   );
   const travelEditor = mountTravelForm(formEl, () => preview());
   const invoiceCapture = mountInvoiceEditor(
@@ -1293,6 +1297,7 @@ function form(existing) {
     existing?.invoices,
     policy,
     {
+      getAttachments: () => attachmentFiles.read(),
       getAmount: () => formEl.elements.amount.value,
       onChange: () => preview(),
     },
@@ -1746,7 +1751,7 @@ function guideView() {
       "体验如何减少返工",
       "员工",
       "报销管理",
-      "可先用旧快速OCR核对单票后填入；也可在结构化发票采集载入新虚构样票，人工确认购销方、日期和金额后加入多票清单，票面合计与申请金额分别显示。财务在规则配置统一抬头与税号基准，详情提示差异，发票台账可导出票面字段；采集区不留原件。在报销附件区上传酒店水单、行程单等材料，保存草稿并补充用途后提交；审核人可预览图片或下载原文件。发现错误可在主管审批前撤回再修改；到报销进度查看当前待处理人，退回后在“待我完善”核对原因并重提。差旅场景可先申请行程，再关联住宿/餐补等明细自动合计，到差旅标准查看超标口径；申请进度可查看当前审批人、额度占用和本人关联报销。",
+      "可先用旧快速OCR核对单票后填入；也可在结构化发票采集载入新虚构样票，人工确认购销方、日期和金额后加入多票清单，票面合计与申请金额分别显示。财务在规则配置统一抬头与税号基准，详情提示差异，发票台账可导出票面字段；可先在附件区保留发票原件，再在票面采集选择关联并从图片识别，审核人可从字段卡片核对原件。在报销附件区上传酒店水单、行程单等材料，保存草稿并补充用途后提交；审核人可预览图片或下载原文件。发现错误可在主管审批前撤回再修改；到报销进度查看当前待处理人，退回后在“待我完善”核对原因并重提。差旅场景可先申请行程，再关联住宿/餐补等明细自动合计，到差旅标准查看超标口径；申请进度可查看当前审批人、额度占用和本人关联报销。",
       "设计理由：区分草稿、撤回和退回，既降低输入成本，也保持审批状态清晰。",
     ],
     [
@@ -1809,7 +1814,7 @@ function guideView() {
       "展示供应商、规则初筛与合同额度",
       "管理员",
       "供应商管理",
-      "新增远帆服务有限公司（虚构），统一代码 DEMO-CREDIT-001，户名与全称一致，开户行演示银行，账号 DEMO-SUPPLIER-001。先在审批流程载入并发布财务分工模板；切员工林晓到合同审查提交 HT-DEMO-001、10000元并载入虚构正文。切财务周宁阅读全文、填意见和确认后通过；林晓新建4000元对公单，按页面指定人依次切主管许明、财务周宁、总账高璇（填科目/归属）、付款杜川（填参考号并确认模拟）办理。在合同查看在途转已付、可用6000元。",
+      "新增远帆服务有限公司（虚构），统一代码 DEMO-CREDIT-001，户名与全称一致，开户行演示银行，账号 DEMO-SUPPLIER-001。先在审批流程载入并发布财务分工模板；切员工林晓到合同审查提交 HT-DEMO-001、10000元并载入虚构正文。切财务周宁阅读全文、填意见和确认后通过；林晓新建4000元对公单，上传发票和验收单，关联发票原件并人工核对票面字段；按页面指定人依次切主管许明、财务周宁、总账高璇（填科目/归属）、付款杜川（填参考号并确认模拟）办理。在合同查看在途转已付、可用6000元。",
       "设计理由：对公收款人为供应商；独立单据保留合同版本、账户及路径快照。规则初筛不等于 AI 或法律意见，真实 AI 暂缓。",
     ],
   ]

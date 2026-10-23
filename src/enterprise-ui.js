@@ -1,4 +1,10 @@
 import {
+  attachmentEditor,
+  mountAttachmentEditor,
+  attachmentDetails,
+  bindAttachmentDetails,
+} from "./attachments-ui.js";
+import {
   invoiceEditor,
   mountInvoiceEditor,
   invoiceDetails,
@@ -307,10 +313,17 @@ export function mountEnterprise({
         state().suppliers.some((s) => s.id === c.supplierId && s.active),
     );
     modal(
-      `<h2>${id ? "重新提交" : "新建"}对公支付单</h2><p>当前仅可使用本人提交并已复核的合同。金额不得超过合同可用额度；提交时固定收款账户与审批路径。</p><form id="enterprise-form"><label>关联合同<select name="contractId" required><option value="">请选择已复核合同</option>${options(contracts, old.contractId, (c) => `${c.number} · ${c.title}`)}</select></label><div id="corporate-contract-summary" class="review-box"></div>${field("付款事项", "name", old.name, "text", 'required maxlength="100"')}${field("本次支付金额 CNY", "amount", old.amount || "", "number", 'required min="0.01" max="1000000" step="0.01"')}${field("期望付款日期（不代表到账日）", "date", old.date || today(), "date", "required")}<label>用途与付款依据<textarea name="note" maxlength="500" required>${esc(old.note)}</textarea></label>${invoiceEditor()}<p>票面字段比对不等于发票验真或履约确认，原文件此区不保留，财务须人工核对付款条件。</p>${footer("提交对公支付审批")}</form>`,
+      `<h2>${id ? "重新提交" : "新建"}对公支付单</h2><p>当前仅可使用本人提交并已复核的合同。金额不得超过合同可用额度；提交时固定收款账户与审批路径。</p><form id="enterprise-form"><label>关联合同<select name="contractId" required><option value="">请选择已复核合同</option>${options(contracts, old.contractId, (c) => `${c.number} · ${c.title}`)}</select></label><div id="corporate-contract-summary" class="review-box"></div>${field("付款事项", "name", old.name, "text", 'required maxlength="100"')}${field("本次支付金额 CNY", "amount", old.amount || "", "number", 'required min="0.01" max="1000000" step="0.01"')}${field("期望付款日期（不代表到账日）", "date", old.date || today(), "date", "required")}<label>用途与付款依据<textarea name="note" maxlength="500" required>${esc(old.note)}</textarea></label>${attachmentEditor(true)}${invoiceEditor()}<p>票面字段比对不等于发票验真或履约确认，财务须人工核对付款条件和验收材料。</p>${footer("提交对公支付审批")}</form>`,
     );
     const f = document.querySelector("#enterprise-form");
+    const attachmentFiles = mountAttachmentEditor(
+      f,
+      old.attachments,
+      () => invoiceCapture.refreshAttachments(),
+      { isLinked: (id) => invoiceCapture.isLinked(id) },
+    );
     const invoiceCapture = mountInvoiceEditor(f, old.invoices, policy, {
+      getAttachments: () => attachmentFiles.read(),
       getAmount: () => f.elements.amount.value,
     });
     const refresh = () => {
@@ -325,13 +338,19 @@ export function mountEnterprise({
     bindForm((d) => {
       const c = state().contracts.find((c) => c.id === d.contractId);
       if (c?.createdBy !== actor.id) throw Error("仅可使用本人已复核合同");
+      if (attachmentFiles.isBusy())
+        throw Error("附件读取尚未完成，请等待后提交");
       if (invoiceCapture.isBusy())
         throw Error("票面识别尚未完成，请等待或取消");
       if (invoiceCapture.isPending())
         throw Error("请先确认票面候选加入清单或清空候选");
       return submitCorporate(
         state(),
-        { ...d, invoices: invoiceCapture.read() },
+        {
+          ...d,
+          invoices: invoiceCapture.read(),
+          attachments: attachmentFiles.read(),
+        },
         actor,
         org,
         flows,
@@ -355,9 +374,10 @@ export function mountEnterprise({
       policy,
     );
     modal(
-      `<h2>${esc(p.name)}</h2><p>${esc(p.id)} · ${esc(p.status)} · ${money(p.amount)}</p><p>${esc(p.employee)} / ${esc(p.department)} · 期望日期 ${esc(p.date)}</p><p>${esc(p.note)}</p>${invoiceDetails(p.invoices, policy)}${precheckPanel(report, { healthy: policyHealthy })}${precheckHistory(p.history)}<section class="review-box"><h3>提交时收款快照</h3><p>${esc(s.name)} / ${esc(s.creditCode)}</p><p>户名 ${esc(s.accountName)} / ${esc(s.bankName)} / ${esc(s.bankAccount)}</p><small>供应商档案后续变更不改写本单快照。</small></section><div class="review-box"><h3>关联合同 ${esc(c.number)} · v${p.contractVersion}</h3><p>总额 ${money(b.total)} / 在途 ${money(b.occupied)} / 已登记付款 ${money(b.paid)} / 可用 ${money(b.available)}</p><p>人工复核 ${esc(c.review.actorName)}：${esc(c.review.note)}</p></div><details><summary>合同原文与规则提示</summary>${reviewHTML(c.screen)}<pre class="contract-text">${esc(c.text)}</pre></details><h3>审批快照 · 流程 v${p.approval.version}</h3><ol class="corporate-route">${route.map((n, i) => `<li class="${i === p.approval.cursor && handle ? "current" : ""}">${esc(n.label)} · ${esc(n.actorName)}<small>${i < p.approval.cursor || p.status === "已付款" ? "已完成" : i === p.approval.cursor && !["已退回", "已撤回"].includes(p.status) ? "当前节点" : ""}</small></li>`).join("")}</ol>${p.ledgerReview ? `<p>总账科目：${esc(p.ledgerReview.account)} / 核算归属：${esc(p.ledgerReview.costCenter)}</p>` : ""}${p.payment ? `<div class="review-box"><h3>模拟付款已登记</h3><p>${esc(p.payment.date)} / ${esc(p.payment.method)} / ${esc(p.payment.reference)}</p><p>此记录不代表银行转账或到账。</p></div>` : ""}${historyHTML(p)}${handle ? `<form id="enterprise-form">${noteField}${p.status === "待总账复核" ? `<div class="form-grid">${field("总账科目", "account", "", "text", 'maxlength="100"')}${field("核算归属 / 成本中心", "costCenter", "", "text", 'maxlength="100"')}</div>` : ""}${p.status === "待付款" ? `${field("付款日期", "paymentDate", today(), "date")}<label>付款方式<select name="method"><option>银行转账</option><option>其他线下付款</option></select></label>${field("付款参考号", "reference", "", "text", 'maxlength="60"')}<label class="check-line"><input name="confirmed" type="checkbox">确认仅登记模拟付款，不会实际转账</label>` : ""}<label>处理动作<select name="action"><option value="approve">${p.status === "待付款" ? "登记模拟付款" : "通过当前节点"}</option><option value="reject">退回员工修改</option></select></label>${footer("确认处理对公单")}</form>` : actor.id === p.createdBy && ["已退回", "已撤回"].includes(p.status) ? `<button id="corporate-edit" class="primary">修改并重新提交</button>` : actor.id === p.createdBy && p.approval.cursor === 0 && p.status === "待主管审批" ? `<form id="enterprise-form">${noteField}${footer("撤回未审批单据")}</form>` : ""}${localNotice}`,
+      `<h2>${esc(p.name)}</h2><p>${esc(p.id)} · ${esc(p.status)} · ${money(p.amount)}</p><p>${esc(p.employee)} / ${esc(p.department)} · 期望日期 ${esc(p.date)}</p><p>${esc(p.note)}</p>${invoiceDetails(p.invoices, policy, p.attachments)}${attachmentDetails(p.attachments, true)}${precheckPanel(report, { healthy: policyHealthy })}${precheckHistory(p.history)}<section class="review-box"><h3>提交时收款快照</h3><p>${esc(s.name)} / ${esc(s.creditCode)}</p><p>户名 ${esc(s.accountName)} / ${esc(s.bankName)} / ${esc(s.bankAccount)}</p><small>供应商档案后续变更不改写本单快照。</small></section><div class="review-box"><h3>关联合同 ${esc(c.number)} · v${p.contractVersion}</h3><p>总额 ${money(b.total)} / 在途 ${money(b.occupied)} / 已登记付款 ${money(b.paid)} / 可用 ${money(b.available)}</p><p>人工复核 ${esc(c.review.actorName)}：${esc(c.review.note)}</p></div><details><summary>合同原文与规则提示</summary>${reviewHTML(c.screen)}<pre class="contract-text">${esc(c.text)}</pre></details><h3>审批快照 · 流程 v${p.approval.version}</h3><ol class="corporate-route">${route.map((n, i) => `<li class="${i === p.approval.cursor && handle ? "current" : ""}">${esc(n.label)} · ${esc(n.actorName)}<small>${i < p.approval.cursor || p.status === "已付款" ? "已完成" : i === p.approval.cursor && !["已退回", "已撤回"].includes(p.status) ? "当前节点" : ""}</small></li>`).join("")}</ol>${p.ledgerReview ? `<p>总账科目：${esc(p.ledgerReview.account)} / 核算归属：${esc(p.ledgerReview.costCenter)}</p>` : ""}${p.payment ? `<div class="review-box"><h3>模拟付款已登记</h3><p>${esc(p.payment.date)} / ${esc(p.payment.method)} / ${esc(p.payment.reference)}</p><p>此记录不代表银行转账或到账。</p></div>` : ""}${historyHTML(p)}${handle ? `<form id="enterprise-form">${noteField}${p.status === "待总账复核" ? `<div class="form-grid">${field("总账科目", "account", "", "text", 'maxlength="100"')}${field("核算归属 / 成本中心", "costCenter", "", "text", 'maxlength="100"')}</div>` : ""}${p.status === "待付款" ? `${field("付款日期", "paymentDate", today(), "date")}<label>付款方式<select name="method"><option>银行转账</option><option>其他线下付款</option></select></label>${field("付款参考号", "reference", "", "text", 'maxlength="60"')}<label class="check-line"><input name="confirmed" type="checkbox">确认仅登记模拟付款，不会实际转账</label>` : ""}<label>处理动作<select name="action"><option value="approve">${p.status === "待付款" ? "登记模拟付款" : "通过当前节点"}</option><option value="reject">退回员工修改</option></select></label>${footer("确认处理对公单")}</form>` : actor.id === p.createdBy && ["已退回", "已撤回"].includes(p.status) ? `<button id="corporate-edit" class="primary">修改并重新提交</button>` : actor.id === p.createdBy && p.approval.cursor === 0 && p.status === "待主管审批" ? `<form id="enterprise-form">${noteField}${footer("撤回未审批单据")}</form>` : ""}${localNotice}`,
     );
     bindInvoiceDetails(document.querySelector("#overlay"), p.invoices);
+    bindAttachmentDetails(document.querySelector("#overlay"), p.attachments);
     if (handle)
       bindForm((d, f) => {
         if (d.action === "approve") requirePolicy(p.status);

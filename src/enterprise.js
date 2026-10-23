@@ -1,4 +1,8 @@
-import { validateInvoices } from "./invoice-data.js";
+import { validateAttachments, MAX_ITEMS_CHARS } from "./attachments.js";
+import {
+  validateInvoices,
+  validateInvoiceAttachments,
+} from "./invoice-data.js";
 import {
   evaluatePrecheck,
   assertPrecheck,
@@ -253,6 +257,8 @@ export function validateEnterprise(state) {
     )
       fail("支付单主体与已复核合同不一致");
     if (p.invoices !== undefined) validateInvoices(p.invoices);
+    if (p.attachments !== undefined) validateAttachments(p.attachments);
+    validateInvoiceAttachments(p.invoices, p.attachments);
     validateSnapshot(p.approval, p.status, "expense");
     for (const h of p.history)
       if (h.precheck !== undefined)
@@ -283,8 +289,19 @@ export function validateEnterprise(state) {
   for (const c of state.contracts)
     if (contractBalance(state, c.id).available < 0)
       fail("对公支付累计超过合同可用额度");
-  if (JSON.stringify(state).length > 800000)
+  const metadata = {
+    ...state,
+    payments: state.payments.map((p) => ({
+      ...p,
+      ...(p.attachments
+        ? { attachments: p.attachments.map(({ data, ...meta }) => meta) }
+        : {}),
+    })),
+  };
+  if (JSON.stringify(metadata).length > 800000)
     fail("企业业务数据超过本地容量上限，请缩短合同正文（不自动删除记录）");
+  if (JSON.stringify(state).length > MAX_ITEMS_CHARS)
+    fail("对公附件超过本地容量上限，请减少本次附件；原数据未改动");
   return state;
 }
 export function persistEnterprise(storage, state) {
@@ -432,7 +449,14 @@ export function submitCorporate(state, input, actor, org, flows, id = "") {
     name: input.name?.trim(),
     ...(input.invoices !== undefined
       ? { invoices: structuredClone(validateInvoices(input.invoices)) }
-      : {}),
+      : old?.invoices
+        ? { invoices: structuredClone(old.invoices) }
+        : {}),
+    ...(input.attachments !== undefined
+      ? { attachments: structuredClone(validateAttachments(input.attachments)) }
+      : old?.attachments
+        ? { attachments: structuredClone(old.attachments) }
+        : {}),
     contractId: c.id,
     contractVersion: c.version,
     supplierId: s.id,

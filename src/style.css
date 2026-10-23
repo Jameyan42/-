@@ -1865,7 +1865,7 @@ header .demo-tag::after {
   margin-top: 12px;
 }
 header .demo-tag::after {
-  content: " · v0.22";
+  content: " · v0.23";
 }
 header .header-right {
   gap: 13px;
@@ -2815,4 +2815,11 @@ header .header-right label {
   .invoice-data-grid {
     grid-template-columns: 1fr;
   }
+}
+
+.invoice-original {
+  margin-top: 16px;
+  padding-top: 12px;
+  border-top: 1px solid #e5eaf1;
+  overflow-wrap: anywhere;
 }

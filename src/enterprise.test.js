@@ -429,3 +429,104 @@ test("完整与旧备份兼容；对公信息格式和跨业务参考号冲突�
   bad.enterprise.payments[0].payment.recordedBy = employee.id;
   assert.throws(() => validateBackup(bad), /责任人/);
 });
+
+test("对公原件跨撤回重提和审批保留，错误关联与容量失败不覆盖", async () => {
+  const { invoiceRecord } = await import("./invoice-data.js");
+  const raw = Buffer.from("%PDF-1.4\nfake invoice\n%%EOF"),
+    f = {
+      id: "original-1",
+      name: "虚构发票.pdf",
+      kind: "发票",
+      type: "application/pdf",
+      size: raw.length,
+      data: "data:application/pdf;base64," + raw.toString("base64"),
+    },
+    invoices = {
+      schema: 1,
+      records: [
+        invoiceRecord({
+          number: "12345678901234567890",
+          amount: 100,
+          attachmentId: f.id,
+        }),
+      ],
+    };
+  const input = (s) => ({
+    name: "关联原件",
+    amount: 100,
+    contractId: s.contracts[0].id,
+    date: "2026-10-24",
+    note: "虚构材料",
+  });
+  let s = setup();
+  s = submitCorporate(
+    s,
+    {
+      ...input(s),
+      invoices,
+      attachments: [
+        f,
+        { ...f, id: "acceptance", name: "验收单.pdf", kind: "验收单" },
+      ],
+    },
+    employee,
+    org,
+    flows,
+  );
+  assert.equal(s.payments[0].attachments.length, 2);
+  assert.throws(
+    () =>
+      validateEnterprise({
+        ...s,
+        payments: [{ ...s.payments[0], attachments: [] }],
+      }),
+    /原件/,
+  );
+  let old = JSON.stringify(s);
+  assert.throws(
+    () =>
+      persistEnterprise(
+        {
+          setItem() {
+            throw Error("quota");
+          },
+        },
+        s,
+      ),
+    /原数据未改动/,
+  );
+  assert.equal(JSON.stringify(s), old);
+  s = actCorporate(s, s.payments[0].id, employee, "withdraw", {
+    note: "修订材料",
+  });
+  s = submitCorporate(s, input(s), employee, org, flows, s.payments[0].id);
+  assert.deepEqual(s.payments[0].invoices, invoices);
+  assert.deepEqual(s.payments[0].attachments[0], f);
+  s = toPayment(s);
+  assert.deepEqual(s.payments[0].attachments[0], f);
+});
+test("对公二进制容量与合同元数据分别限额，不因文件突破原正文限额", () => {
+  let s = submit(setup(), 100);
+  const raw = Buffer.alloc(700 * 1024, 32);
+  raw.write("%PDF-1.4");
+  const f = {
+    id: "large",
+    name: "验收.pdf",
+    kind: "验收单",
+    type: "application/pdf",
+    size: raw.length,
+    data: "data:application/pdf;base64," + raw.toString("base64"),
+  };
+  s.payments[0].attachments = [f];
+  assert(JSON.stringify(s).length > 800000);
+  assert.doesNotThrow(() => validateEnterprise(s));
+  const many = structuredClone(s);
+  many.payments.push(
+    { ...structuredClone(many.payments[0]), id: "DG-2" },
+    { ...structuredClone(many.payments[0]), id: "DG-3" },
+  );
+  assert.throws(() => validateEnterprise(many), /容量/);
+  const metadata = structuredClone(s);
+  metadata.extra = "x".repeat(800000);
+  assert.throws(() => validateEnterprise(metadata), /缩短合同正文/);
+});

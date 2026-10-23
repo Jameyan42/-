@@ -1,4 +1,8 @@
-import { validateInvoices, validateInvoiceBuyer } from "./invoice-data.js";
+import {
+  validateInvoices,
+  validateInvoiceBuyer,
+  validateInvoiceAttachments,
+} from "./invoice-data.js";
 import { validatePrecheck, validatePrecheckReport } from "./precheck.js";
 import { validateEnterprise } from "./enterprise.js";
 import { assertUniqueReference } from "./payment-batch.js";
@@ -102,6 +106,7 @@ export function validateBackup(data) {
     }
     if (x.attachments !== undefined) validateAttachments(x.attachments);
     if (x.invoices !== undefined) validateInvoices(x.invoices);
+    validateInvoiceAttachments(x.invoices, x.attachments);
     validateOperationHistory(x.history, "expense");
     for (const h of x.history)
       if (h.precheck !== undefined)
