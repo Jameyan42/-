@@ -56,3 +56,7 @@ npm run test:e2e
 ## v0.8 组织与审批树
 
 右上角切换管理员，进入“组织架构”维护部门树和人员汇报树；进入“审批流程”配置报销/费用申请的金额与类型分支、顺序审批节点、财务人员，保存草稿、试算并发布。运行时按具体人员处理；新提交保留版本与路径，旧单据不被自动迁移。演示指南新增两条路线，完整规则见 [审批与组织设计](docs/审批与组织设计.md)。当前为树形表单编辑，不含拖拽、会签、任意嵌套或生产账号权限。
+
+## 功能迭代 Excel
+
+[下载功能迭代记录](deliverables/qingbao-feature-history.xlsx)，包含阶段总览、36 项历史新增内容、下一步计划及维护说明。源数据为 `docs/iterations/feature-history.json`；安装 openpyxl 3.1+ 后运行 `python3 scripts/export_feature_history.py` 可重新生成。每阶段结束先追加源记录再更新 Excel，历史与未完成计划分开维护。
