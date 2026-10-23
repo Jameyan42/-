@@ -1860,7 +1860,7 @@ header .demo-tag::after {
   margin-top: 12px;
 }
 header .demo-tag::after {
-  content: " · v0.14";
+  content: " · v0.15";
 }
 header .header-right {
   gap: 13px;
@@ -2466,4 +2466,22 @@ header .header-right label {
   .expense-progress .toolbar label {
     width: 100%;
   }
+}
+
+.travel-line {
+  border: 1px solid #dfe6f3;
+  border-radius: 8px;
+  padding: 12px;
+  margin: 12px 0;
+  background: white;
+}
+.travel-form [hidden] {
+  display: none !important;
+}
+.travel-summary,
+.trip-summary {
+  overflow-wrap: anywhere;
+}
+.travel-form input[readonly] {
+  background: #f2f4fa;
 }

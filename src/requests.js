@@ -1,3 +1,4 @@
+import { validateTrip, validateTravel, sameTrip } from "./travel.js";
 import { makeOperation, validateOperationHistory } from "./operations.js";
 import { advanceApproval } from "./approval.js";
 const inactive = new Set(["草稿", "已退回", "已撤回"]);
@@ -36,6 +37,11 @@ export function validateRequest(request) {
     request.history.some((h) => !h || !str(h.text, 1000) || !str(h.time, 100))
   )
     throw new Error("费用申请数据格式无效");
+  if (request.trip !== undefined) {
+    validateTrip(request.trip, request.month);
+    if (request.type !== "差旅交通")
+      throw Error("出差申请必须选择差旅交通类型");
+  }
   validateOperationHistory(request.history, "request");
   return request;
 }
@@ -51,6 +57,12 @@ export function assertClaimLink(item, requests, items) {
     throw new Error("只能关联本人同部门的费用申请");
   if (r.month !== item.date.slice(0, 7) || r.type !== item.type)
     throw new Error("报销月份和费用类型必须与申请一致");
+  if (
+    r.trip &&
+    !inactive.has(item.status) &&
+    (!item.travel || !sameTrip(r.trip, item.travel.trip))
+  )
+    throw Error("差旅报销行程必须与批准的出差申请一致，请载入申请行程");
   if (inactive.has(item.status)) return;
   if (
     r.status !== "已批准" &&
@@ -133,6 +145,7 @@ export function validateRequestSet(requests, items) {
     ids.add(r.id);
   }
   for (const x of items) {
+    if (x.travel !== undefined) validateTravel(x.travel, x.amount, x.type);
     if (
       x.requestId !== undefined &&
       (typeof x.requestId !== "string" || x.requestId.length > 60)

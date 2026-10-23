@@ -1,3 +1,4 @@
+import { validateTravel, assertTravelSubmission } from "./travel.js";
 import { validateOperationHistory } from "./operations.js";
 import { defaultOrg, assertOrgChange } from "./organization.js";
 import {
@@ -79,6 +80,11 @@ export function validateBackup(data) {
       x.history.some((h) => !h || !text(h.text, 1000) || !text(h.time, 100))
     )
       throw new Error("备份中的报销数据不完整或格式无效");
+    if (x.travel !== undefined) {
+      validateTravel(x.travel, x.amount, x.type);
+      if (x.status !== "草稿")
+        assertTravelSubmission(x.travel, x.amount, x.type);
+    }
     validateOperationHistory(x.history, "expense");
     if (
       x.status !== "草稿" &&

@@ -17,7 +17,7 @@ export function requestsView(requests, items, role, employee = "林晓") {
     rows
       .map((r) => {
         const b = requestBalance(r, items);
-        return `<tr><td><strong>${esc(r.name)}</strong><small>${esc(r.month)} · ${esc(r.type)}</small></td><td>${esc(r.employee)}<small>${esc(r.department)}</small></td><td>${money(r.amount)}</td><td>${money(b.used)}</td><td>${money(b.remaining)}<small>${r.status === "已批准" ? "预留中" : "未预留"}</small></td><td><span class="badge">${r.status}</span>${r.approval && r.status === "待审批" ? `<small>待 ${esc(r.approval.nodes[r.approval.cursor]?.actorName || "处理")}</small>` : ""}</td><td><button class="link" data-request="${esc(r.id)}">查看 →</button></td></tr>`;
+        return `<tr><td><strong>${esc(r.name)}</strong><small>${esc(r.month)} · ${esc(r.type)}</small>${r.trip ? `<small>${esc(r.trip.origin)} → ${esc(r.trip.destination)}<br>${esc(r.trip.start)} 至 ${esc(r.trip.end)}</small>` : ""}</td><td>${esc(r.employee)}<small>${esc(r.department)}</small></td><td>${money(r.amount)}</td><td>${money(b.used)}</td><td>${money(b.remaining)}<small>${r.status === "已批准" ? "预留中" : "未预留"}</small></td><td><span class="badge">${r.status}</span>${r.approval && r.status === "待审批" ? `<small>待 ${esc(r.approval.nodes[r.approval.cursor]?.actorName || "处理")}</small>` : ""}</td><td><button class="link" data-request="${esc(r.id)}">查看 →</button></td></tr>`;
       })
       .join("") ||
     '<tr><td colspan="7" class="empty">暂无费用申请。切换员工后，可创建第一笔事前申请。</td></tr>'

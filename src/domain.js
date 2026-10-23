@@ -1,3 +1,4 @@
+import { assertTravelSubmission } from "./travel.js";
 import { makeOperation } from "./operations.js";
 import { advanceApproval } from "./approval.js";
 import { defaultPolicy } from "./settings.js";
@@ -6,6 +7,13 @@ export const stages = ["待主管审批", "待财务审核", "待付款", "已�
 export function review(item, all = [], policy = defaultPolicy) {
   const flags = [];
   if (["草稿", "已撤回"].includes(item.status)) return flags;
+  if (item.travel) {
+    try {
+      assertTravelSubmission(item.travel, item.amount, item.type);
+    } catch (e) {
+      flags.push(e.message);
+    }
+  }
   if (item.amount > policy.limit)
     flags.push(
       `超过单笔 ${policy.limit.toLocaleString("zh-CN")} 元标准，需说明业务必要性`,
