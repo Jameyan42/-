@@ -1,3 +1,4 @@
+import { validateRequestSet } from "./requests.js";
 import { validatePayment } from "./expenses.js";
 export const defaultPolicy = {
   limit: 3000,
@@ -115,5 +116,9 @@ export function validateBackup(data) {
     )
   )
     throw new Error("备份中的操作记录无效");
+  validateRequestSet(
+    data.requests === undefined ? [] : data.requests,
+    data.items,
+  );
   return data;
 }

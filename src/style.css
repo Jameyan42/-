@@ -1607,3 +1607,4 @@ header .demo-tag::after {
 header .demo-tag::after {
   content: " · v0.6";
 }
+.request-notice{margin:24px;font-size:11px}.request-notice h3{margin:0 0 8px}.budget-card dl>div{gap:12px}header .demo-tag::after{content:' · v0.7'}

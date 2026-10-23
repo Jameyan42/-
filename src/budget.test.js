@@ -14,6 +14,8 @@ test("预算按月份统计，退回释放占用，付款由在途转实际", ()
     limit: 1000,
     paid: 200,
     reserved: 200,
+    reimbursementReserved: 200,
+    applicationReserved: 0,
     available: 600,
     ratio: 0.4,
   });
