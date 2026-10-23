@@ -92,6 +92,9 @@ test("流程草稿、试算、发布版本与历史快照互不混淆，非管�
   await nav(p, "审批流程");
   await p.locator("[data-flow-target=request]").click();
   await p.locator("[name=threshold]").fill("5000");
+  await expect(
+    p.locator(".flow-branch:last-child .branch-title small"),
+  ).toContainText("5000");
   await p.locator("#save-flow-draft").click();
   await expect(p.locator(".toast")).toContainText("草稿已保存");
   await p.locator("#test-route").click();
@@ -101,6 +104,8 @@ test("流程草稿、试算、发布版本与历史快照互不混淆，非管�
   await expect(p.locator("#publish-flow")).toHaveCount(0);
   await p.locator("#test-route").click();
   await expect(p.locator("#route-output")).toContainText("条件分支");
+  await p.locator("[data-flow-target=expense]").click();
+  await p.locator("[data-flow-target=request]").click();
   await p.locator("#role").selectOption("管理员");
   await expect(p.locator("[name=threshold]")).toHaveValue("5000");
   await p.locator("#publish-flow").click();
@@ -198,13 +203,11 @@ test("备份包含组织流程快照，旧备份保留当前配置，损坏快�
   expect(data.configuration.flows.version).toBe(1);
   expect(data.requests[0].approval.nodes[0].actorId).toBe("manager-zhao");
   const restore = async (data) =>
-    p
-      .locator("#restore")
-      .setInputFiles({
-        name: "backup.json",
-        mimeType: "application/json",
-        buffer: Buffer.from(JSON.stringify(data)),
-      });
+    p.locator("#restore").setInputFiles({
+      name: "backup.json",
+      mimeType: "application/json",
+      buffer: Buffer.from(JSON.stringify(data)),
+    });
   const invalid = structuredClone(data);
   invalid.requests[0].approval.cursor = 1;
   await restore(invalid);
@@ -246,13 +249,11 @@ test("指定人员报销流程发布后完成逐人审批付款，在途人员�
   await p.locator("[name=amount]").fill("2000");
   await p.locator("[name=note]").fill("虚构审批路径验收");
   await p.locator("[name=invoice]").fill("TREE-001");
-  await p
-    .locator("[name=receipt]")
-    .setInputFiles({
-      name: "虚构附件.pdf",
-      mimeType: "application/pdf",
-      buffer: Buffer.from("demo"),
-    });
+  await p.locator("[name=receipt]").setInputFiles({
+    name: "虚构附件.pdf",
+    mimeType: "application/pdf",
+    buffer: Buffer.from("demo"),
+  });
   await p.locator("#expense-form button[type=submit]").click();
   await p.locator("#role").selectOption("管理员");
   await nav(p, "组织架构");

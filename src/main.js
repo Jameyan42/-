@@ -1338,7 +1338,7 @@ function bindConfiguration() {
   document.querySelectorAll("[data-flow-target]").forEach(
     (b) =>
       (b.onclick = () => {
-        flowDraft = read();
+        if (role === "管理员") flowDraft = read();
         flowTarget = b.dataset.flowTarget;
         render();
       }),
@@ -1346,7 +1346,13 @@ function bindConfiguration() {
   if (form) {
     form.onsubmit = (e) => e.preventDefault();
     form.addEventListener("input", () => {
+      if (role !== "管理员") return;
       flowDraft = read();
+      const description = form.querySelector(
+        ".flow-branch:last-child .branch-title small",
+      );
+      if (description)
+        description.textContent = `金额 > ${flowDraft[flowTarget].threshold} 且类型为 ${flowDraft[flowTarget].type}`;
     });
     form.querySelectorAll("[data-selector]").forEach(
       (select) =>
