@@ -104,7 +104,7 @@ def main():
           f"{BASE}/" + (f"blob/{r['commit']}/README.md" if r['evidence']=='README.md' else f"blob/main/{r['evidence']}")] for r in history], 'FeatureHistory', 88)
     make_sheet(wb, '下一步计划', '轻报｜下一步计划',
         '以下是建议及待办，尚未交付。已完成项已移入历史新增明细，不继续混在计划中。',
-        '建议顺序：对公履约附件与统一待办 → 预算模型评估；规则预审已交付，后续按使用反馈扩展；真实AI按用户选择暂缓。',
+        '建议顺序：对公统一待办与消息 → 费用行分摊及预算模型评估；规则预审已交付，后续按使用反馈扩展；真实AI按用户选择暂缓。',
         ['顺序','优先级','计划内容','状态','要解决的问题','建议范围','完成验收标准','依赖与说明'],
         [10,12,28,19,40,48,54,46],
         [[r[k] for k in ['order','priority','name','status','problem','scope','acceptance','dependency']] for r in data['roadmap']], 'Roadmap', 100)
@@ -119,8 +119,8 @@ def main():
         ['后续维护规则','每个完整阶段结束，先更新 JSON 源记录，再重新导出本 Excel；新增记录追加序号，不将计划提前标为已完成。'],
         ['可持续维护来源','docs/iterations/feature-history.json；导出命令：python3 scripts/export_feature_history.py（依赖 openpyxl 3.1+）。'],
         ['与需求文档区别','Excel 追踪“何时新增了什么”；需求及设计文档解释业务规则；阶段验收记录测试证据，三者同时维护。'],
-        ['本轮更新','v0.22 完成多票结构化、购销方及金额税额OCR候选、财务抬头基准、四条票面规则与台账/JSON/CSV；真伪验证与原文件绑定未接。'],
-        ['在线演示入口','https://jameyan42.github.io/-/?v=0.22'],
+        ['本轮更新','v0.23完成报销/对公原件关联、从留存图片OCR、对公发票/验收材料、审核预览下载、误删改类保护及含文件备份；明细分摊与官方验真未接。'],
+        ['在线演示入口','https://jameyan42.github.io/-/?v=0.23'],
     ]
     make_sheet(wb, '使用与维护', '轻报｜使用与维护说明',
         '用于作品进度回顾、面试准备和后续连续迭代；不编造真实用户、访谈或业务提升数字。',
