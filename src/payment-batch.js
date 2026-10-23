@@ -75,6 +75,8 @@ export function batchPayment(
         `${note.trim()}${note.trim() ? " · " : ""}批量登记 ${prefix}`,
         { reference: refs[i], date, method, confirmed },
         actor,
+        null,
+        { items, policy },
       ),
     );
   });

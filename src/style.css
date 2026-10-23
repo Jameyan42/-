@@ -1865,7 +1865,7 @@ header .demo-tag::after {
   margin-top: 12px;
 }
 header .demo-tag::after {
-  content: " · v0.20";
+  content: " · v0.21";
 }
 header .header-right {
   gap: 13px;
@@ -2726,4 +2726,59 @@ header .header-right label {
 .enterprise-close {
   float: right;
   margin: 0 0 12px 12px;
+}
+
+/* Deterministic precheck findings and policy controls. */
+.precheck-warning {
+  color: #926000;
+}
+.precheck-finding {
+  padding: 16px 0;
+  border-top: 1px solid #dce3ec;
+  overflow-wrap: anywhere;
+}
+.precheck-finding p {
+  margin: 10px 0;
+  line-height: 1.75;
+}
+.precheck-panel small {
+  display: block;
+  color: #61718a;
+  overflow-wrap: anywhere;
+}
+.precheck-history {
+  margin: 20px 0;
+}
+.precheck-history > details {
+  margin: 12px 0;
+}
+.precheck-rule {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(220px, 1fr);
+  gap: 24px;
+  padding: 22px 0;
+  border-bottom: 1px solid #e2e7ef;
+}
+.precheck-rule p {
+  color: #61718a;
+  line-height: 1.8;
+}
+.precheck-rule-controls {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+.precheck-rule-controls label {
+  flex: 1 1 130px;
+}
+.precheck-rule-controls input[type="number"],
+.precheck-rule-controls select {
+  width: 100%;
+}
+@media (max-width: 700px) {
+  .precheck-rule {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
 }

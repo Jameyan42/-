@@ -1,42 +1,19 @@
-import { assertTravelSubmission } from "./travel.js";
+import {
+  evaluatePrecheck,
+  assertPrecheck,
+  appendPrecheck,
+} from "./precheck.js";
 import { makeOperation } from "./operations.js";
 import { advanceApproval } from "./approval.js";
 import { defaultPolicy } from "./settings.js";
-import { validatePayment, inactiveStatuses } from "./expenses.js";
+import { validatePayment } from "./expenses.js";
 export const stages = ["待主管审批", "待财务审核", "待付款", "已付款"];
 export function review(item, all = [], policy = defaultPolicy) {
-  const flags = [];
-  if (["草稿", "已撤回"].includes(item.status)) return flags;
-  if (item.travel) {
-    try {
-      assertTravelSubmission(item.travel, item.amount, item.type);
-    } catch (e) {
-      flags.push(e.message);
-    }
-  }
-  if (item.amount > policy.limit)
-    flags.push(
-      `超过单笔 ${policy.limit.toLocaleString("zh-CN")} 元标准，需说明业务必要性`,
-    );
-  if (
-    policy.requireReceipt &&
-    !item.receipt &&
-    !item.attachments?.some((f) => f.kind === "发票")
-  )
-    flags.push("缺少票据附件，财务审核前需补充");
-  if (
-    policy.checkDuplicate &&
-    item.invoice &&
-    all.some(
-      (x) =>
-        x.id !== item.id &&
-        !inactiveStatuses.includes(x.status) &&
-        x.invoice === item.invoice,
-    )
-  )
-    flags.push("发票号码与历史报销重复，请核对");
-  return flags;
+  return evaluatePrecheck("expense", item, { items: all }, policy)
+    .findings.filter((f) => f.effect === "block")
+    .map((f) => f.message);
 }
+
 export function transition(
   item,
   action,
@@ -45,13 +22,20 @@ export function transition(
   payment = null,
   actor = null,
   ledgerReview = null,
+  screening = null,
 ) {
   if (!["approve", "reject"].includes(action)) throw new Error("未知操作");
   if (typeof note !== "string" || note.length > 500)
     throw Error("处理备注不能超过500字");
   if (actor && actor.role !== role) throw Error("处理身份与角色不一致");
-  if (item.approval && item.status !== "待付款")
-    return advanceApproval(item, action, actor || {}, note, ledgerReview);
+  const report = screening
+    ? evaluatePrecheck("expense", item, screening, screening.policy)
+    : null;
+  if (action === "approve" && report) assertPrecheck(report, item.status);
+  if (item.approval && item.status !== "待付款") {
+    const next = advanceApproval(item, action, actor || {}, note, ledgerReview);
+    return report ? appendPrecheck(next, report) : next;
+  }
   if (
     item.approval &&
     (!actor ||
@@ -81,7 +65,7 @@ export function transition(
       : null;
   const status =
     action === "reject" ? "已退回" : stages[stages.indexOf(item.status) + 1];
-  return {
+  const next = {
     ...item,
     status,
     ...(paid ? { payment: paid } : {}),
@@ -121,4 +105,5 @@ export function transition(
       },
     ],
   };
+  return report ? appendPrecheck(next, report) : next;
 }

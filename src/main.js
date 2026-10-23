@@ -1,3 +1,11 @@
+import { evaluatePrecheck } from "./precheck.js";
+import {
+  precheckPanel,
+  precheckBadge,
+  precheckHistory,
+  precheckSettings,
+  collectPrecheck,
+} from "./precheck-ui.js";
 import {
   emptyEnterprise,
   validateEnterprise,
@@ -92,14 +100,20 @@ import { review, transition } from "./domain.js";
 import { withdraw, invoiceRows } from "./expenses.js";
 import { defaultBudgets, budgetRows } from "./budget.js";
 import { defaultPolicy, validatePolicy, validateBackup } from "./settings.js";
-let policy, audit;
+let policy,
+  audit,
+  policyHealthy = true;
 try {
-  policy = validatePolicy(
-    JSON.parse(localStorage.getItem("qingbao-policy")) || defaultPolicy,
-  );
+  const raw = localStorage.getItem("qingbao-policy");
+  policy =
+    raw === null
+      ? structuredClone(defaultPolicy)
+      : validatePolicy(JSON.parse(raw));
 } catch {
-  policy = { ...defaultPolicy };
+  policy = structuredClone(defaultPolicy);
+  policyHealthy = false;
 }
+
 try {
   audit = JSON.parse(localStorage.getItem("qingbao-audit")) || [];
 } catch {
@@ -498,6 +512,15 @@ const esc = (s) =>
 function save() {
   localStorage.setItem("qingbao-v1", JSON.stringify(items));
 }
+function expensePrecheck(x) {
+  return evaluatePrecheck("expense", x, { items }, policy);
+}
+function requirePolicyForApproval(status) {
+  if (!policyHealthy && ["待财务审核", "待总账复核", "待付款"].includes(status))
+    throw Error(
+      "预审规则存储异常，不能通过财务/总账/付款；原规则已保留，请恢复有效备份",
+    );
+}
 function flags(x) {
   return review(x, items, policy);
 }
@@ -576,6 +599,8 @@ ${
         currentActor(),
         enterpriseHealthy,
         configuration.flows,
+        policy,
+        policyHealthy,
       )
     : page === "消息中心"
       ? messagesView(
@@ -677,7 +702,7 @@ ${
         ],
         [
           "预审风险单",
-          items.filter((x) => flags(x).length).length,
+          items.filter((x) => expensePrecheck(x).findings.length).length,
           "笔",
           "基于明确规则自动识别",
           "orange",
@@ -700,14 +725,14 @@ ${
         )
         .join(
           "",
-        )}</section><section class="assistant"><div class="spark">✧</div><div><h3>报销预审助手 <span>规则演示</span></h3><p>发现 ${items.filter((x) => flags(x).length).length} 笔报销需要关注。超标费用与重复票据已标记，建议优先核查。</p></div><button id="risks">查看风险单 →</button></section>`
+        )}</section><section class="assistant"><div class="spark">✧</div><div><h3>报销预审助手 <span>规则演示</span></h3><p>发现 ${items.filter((x) => expensePrecheck(x).findings.length).length} 笔报销需要关注。超标费用与重复票据已标记，建议优先核查。</p></div><button id="risks">查看风险单 →</button></section>`
     : ""
 }
 <section class="panel"><div class="panel-title"><div><h3>报销记录</h3><span>跟踪每一笔费用的处理进度</span></div><button class="quiet" id="export">↓ 导出 CSV</button></div><div class="toolbar"><div class="tabs">${["全部", "草稿", "待主管审批", "待财务审核", "待总账复核", "待付款", "已付款", "已退回", "已撤回"].map((s) => `<button data-filter="${s}" class="${filter === s ? "chosen" : ""}">${s === "待主管审批" ? "待审批" : s === "待财务审核" ? "待审核" : s}</button>`).join("")}</div><input id="search" aria-label="搜索报销" placeholder="⌕ 搜索名称、单号或姓名" value="${esc(query)}"></div><div class="table-wrap"><table><thead><tr><th>报销事项 / 单号</th><th>申请人</th><th>费用类型</th><th class="amount">报销金额</th><th>状态</th><th>预审结果</th><th>操作</th></tr></thead><tbody>${
                                               visible()
                                                 .map(
                                                   (x) =>
-                                                    `<tr><td><strong>${esc(x.name)}</strong><small>${esc(x.id)} · ${x.date}</small></td><td><div class="person"><span>${esc(x.employee[0])}</span><div>${esc(x.employee)}<small>${esc(x.department)}</small></div></div></td><td>${esc(x.type)}</td><td class="amount"><strong>${money(x.amount)}</strong></td><td><span class="badge s${["待主管审批", "待财务审核", "待总账复核", "待付款", "已付款", "已退回", "已撤回"].indexOf(x.status)}">${x.status}</span>${x.approval && ["待主管审批", "待财务审核", "待总账复核", "待付款"].includes(x.status) ? `<small>待 ${esc((x.status === "待付款" ? x.approval.paymentActor || x.approval.nodes.at(-1) : x.approval.nodes[x.approval.cursor] || x.approval.nodes.at(-1)).actorName)} 处理</small>` : ""}</td><td><span class="${flags(x).length ? "risk" : "safe"}">${flags(x).length ? "⚑ " + flags(x).length + " 项待核查" : "✓ 未发现风险"}</span></td><td><button class="link" data-detail="${esc(x.id)}">查看 →</button></td></tr>`,
+                                                    `<tr><td><strong>${esc(x.name)}</strong><small>${esc(x.id)} · ${x.date}</small></td><td><div class="person"><span>${esc(x.employee[0])}</span><div>${esc(x.employee)}<small>${esc(x.department)}</small></div></div></td><td>${esc(x.type)}</td><td class="amount"><strong>${money(x.amount)}</strong></td><td><span class="badge s${["待主管审批", "待财务审核", "待总账复核", "待付款", "已付款", "已退回", "已撤回"].indexOf(x.status)}">${x.status}</span>${x.approval && ["待主管审批", "待财务审核", "待总账复核", "待付款"].includes(x.status) ? `<small>待 ${esc((x.status === "待付款" ? x.approval.paymentActor || x.approval.nodes.at(-1) : x.approval.nodes[x.approval.cursor] || x.approval.nodes.at(-1)).actorName)} 处理</small>` : ""}</td><td>${policyHealthy ? precheckBadge(expensePrecheck(x)) : '<span class="risk">规则无法读取</span>'}</td><td><button class="link" data-detail="${esc(x.id)}">查看 →</button></td></tr>`,
                                                 )
                                                 .join("") ||
                                               '<tr><td colspan="7" class="empty">暂无符合条件的报销记录</td></tr>'
@@ -717,7 +742,7 @@ ${
   document.querySelector("aside").scrollTop = navigationScroll;
 }
 function about() {
-  return `<section class="panel prose"><h2>用 AI 辅助构建，让产品思考可见</h2><p>轻报面向 200 人成长型企业的费控演示作品，覆盖员工差旅与对公支付两条业务线。产品假设和自动化测试不代表真实用户研究或生产效果。</p><h3>员工费用闭环</h3><p>费用申请与出差行程 → 多项费用明细及酒店水单等附件 → 报销提交 → 具名审批 → 财务审核 → 总账复核 → 模拟付款。管理员先发布财务分工模板，新单按版本生成审批快照；旧单保留原路径。</p><h3>对公支付闭环</h3><p>管理员维护供应商和虚构收款账户 → 员工提交合同 → 本地规则初筛 → 财务或管理员阅读全文并复核 → 员工按本人已复核合同发起对公支付单 → 部门业务节点、财务、总账、指定付款人员逐级办理。合同在途与已付共同占用额度，退回或撤回释放；供应商变更不改写已提交单据收款快照。</p><h3>合同审查范围</h3><p>支持粘贴正文与UTF-8 TXT导入，对主体、付款、验收、发票、违约及争议条款做透明规则初筛，显示片段与人工核对建议。不是大模型或法律意见；真实 AI 尚未连接，PDF/DOCX正文提取尚未提供。</p><h3>存储与使用范围</h3><p>数据与报销附件原文件保存在本浏览器，可下载备份后迁移。浏览器OCR不上传图片，发票识别不等于验真。角色选择是演示机制，没有生产鉴权、后端并发或跨设备实时同步。只使用虚构资料，模拟付款不执行转账。</p><h3>当前模块边界</h3><p>对公任务在对公支付单办理，尚未统一到原审批中心、消息中心和报销付款工作台；对公合同额度与原部门报销预算分别统计。对公履约附件与发票验真、真实银行支付、总账凭证、真实 AI 待后续接入。</p></section>`;
+  return `<section class="panel prose"><h2>用 AI 辅助构建，让产品思考可见</h2><p>轻报面向 200 人成长型企业的费控演示作品，覆盖员工差旅与对公支付两条业务线。产品假设和自动化测试不代表真实用户研究或生产效果。</p><h3>员工费用闭环</h3><p>费用申请与出差行程 → 多项费用明细及酒店水单等附件 → 报销提交 → 具名审批 → 财务审核 → 总账复核 → 模拟付款。管理员先发布财务分工模板，新单按版本生成审批快照；旧单保留原路径。</p><h3>对公支付闭环</h3><p>管理员维护供应商和虚构收款账户 → 员工提交合同 → 本地规则初筛 → 财务或管理员阅读全文并复核 → 员工按本人已复核合同发起对公支付单 → 部门业务节点、财务、总账、指定付款人员逐级办理。合同在途与已付共同占用额度，退回或撤回释放；供应商变更不改写已提交单据收款快照。</p><h3>报销与对公规则预审</h3><p>可配置10条补充规则、阈值及提醒/拦截，展示触发依据、关联单号和核对建议。当前规则在财务、总账和付款时重新检查，主管仍可转交财务；每次处理保留规则参数与结果，历史不随当前配置改写。它不是AI、发票验真或自动审批。</p><h3>合同审查范围</h3><p>支持粘贴正文与UTF-8 TXT导入，对主体、付款、验收、发票、违约及争议条款做透明规则初筛，显示片段与人工核对建议。不是大模型或法律意见；真实 AI 尚未连接，PDF/DOCX正文提取尚未提供。</p><h3>存储与使用范围</h3><p>数据与报销附件原文件保存在本浏览器，可下载备份后迁移。浏览器OCR不上传图片，发票识别不等于验真。角色选择是演示机制，没有生产鉴权、后端并发或跨设备实时同步。只使用虚构资料，模拟付款不执行转账。</p><h3>当前模块边界</h3><p>对公任务在对公支付单办理，尚未统一到原审批中心、消息中心和报销付款工作台；对公合同额度与原部门报销预算分别统计。对公履约附件与发票验真、真实银行支付、总账凭证、真实 AI 待后续接入。</p></section>`;
 }
 function insights() {
   const groups = {};
@@ -750,6 +775,9 @@ function bind() {
     org: configuration.org,
     flows: configuration.flows,
     healthy: enterpriseHealthy,
+    policy,
+    policyHealthy,
+    requirePolicy: requirePolicyForApproval,
     expenseItems: () => items,
     save: saveEnterprise,
     modal,
@@ -977,6 +1005,8 @@ function bind() {
   };
   document.querySelector("#create")?.addEventListener("click", () => form());
   document.querySelector("#reset").onclick = () => {
+    if (!policyHealthy)
+      return toast("预审规则无法读取，原值已保留，请恢复有效备份");
     if (
       !enterpriseHealthy ||
       enterprise.suppliers.length ||
@@ -1027,7 +1057,7 @@ function bind() {
     .querySelectorAll("[data-detail]")
     .forEach((b) => (b.onclick = () => detail(b.dataset.detail)));
   document.querySelector("#risks")?.addEventListener("click", () => {
-    const item = items.find((x) => flags(x).length);
+    const item = items.find((x) => expensePrecheck(x).findings.length);
     if (item) detail(item.id);
     else toast("当前没有预审风险单");
   });
@@ -1104,10 +1134,10 @@ function detail(id) {
     toast("仅可查看本人的报销");
     return;
   }
-  const f = flags(x);
+  const precheck = expensePrecheck(x);
   const can = canHandleExpense(x);
   modal(
-    `<div class="modal-title"><div><small>${esc(x.id)}</small><h2>${esc(x.name)}</h2></div><button data-close aria-label="关闭">✕</button></div><div class="detail-amount">${money(x.amount)} <span class="badge">${x.status}</span></div><div class="detail-grid"><p>申请人<b>${esc(x.employee)} · ${esc(x.department)}</b></p><p>费用类型<b>${esc(x.type)}</b></p><p>发票号码<b>${esc(x.invoice || "未填写")}</b></p><p>原票据附件名称（旧入口）<b>${esc(x.receipt || "未提供")}</b></p></div><p>${esc(x.note)}</p><div class="review-box"><h3>✧ 预审说明 · 规则计算</h3>${f.length ? f.map((s) => `<p class="risk">⚑ ${s}</p>`).join("") : '<p class="safe">✓ 未发现超标、缺失附件或重复号码风险</p>'}<small>未进行票据真伪验证；提示不替代人工审核。</small></div>${x.payment ? `<div class="review-box payment-summary"><h3>付款登记信息</h3><p>方式：${esc(x.payment.method)} · 日期：${esc(x.payment.date)}</p><p>参考号：${esc(x.payment.reference)}</p><small>仅作模拟登记，未连接银行或执行转账。</small></div>` : x.status === "已付款" ? '<p class="footnote">历史演示记录未提供付款参考号。</p>' : ""}${x.ocr ? '<p class="footnote">曾使用浏览器 OCR 辅助并由员工核对，识别不代表发票真实或字段准确。</p>' : ""}${x.requestId ? `<div class="review-box"><h3>关联费用申请</h3><p>${esc(requests.find((r) => r.id === x.requestId)?.name || x.requestId)}</p><small>提交时占用申请额度，付款后转为实际支出；未核销余额仍预留。</small></div>` : ""}${attachmentDetails(x.attachments)}${travelSummary(x.travel)}${x.ledgerReview ? `<div class="review-box ledger-summary"><h3>总账复核记录</h3><p>科目：${esc(x.ledgerReview.account)} · 核算归属：${esc(x.ledgerReview.costCenter)}</p><small>复核时间：${esc(new Date(x.ledgerReview.at).toLocaleString("zh-CN"))}；仅模拟记录，未生成会计凭证。</small></div>` : ""}${approvalTimeline(x)}<h3>流转记录</h3><div class="timeline">${x.history.map((h) => `<p>${esc(h.text)}<small>${esc(h.operation ? new Date(h.operation.at).toLocaleString("zh-CN") : h.time)}${h.operation ? " · " + esc(h.operation.actorName) + " · " + (h.operation.flowVersion ? "v" + h.operation.flowVersion : "历史固定流程") : ""}</small></p>`).join("")}</div>${role === "员工" && x.employee === currentEmployee() && x.status === "待主管审批" && (x.approval?.cursor || 0) === 0 ? '<div class="review-box"><label>撤回原因<textarea id="withdraw-reason" maxlength="200" placeholder="如金额填写有误，需要修改"></textarea></label><button id="withdraw">撤回并修改</button><p>仅主管审批前可撤回，之后需由审核人退回。</p></div>' : ""}${can ? `${x.status === "待付款" ? paymentFields() : x.status === "待总账复核" ? '<div class="review-box"><h3>总账复核信息</h3><label>总账科目<input id="ledger-account" maxlength="100" placeholder="如 6602 管理费用（仅演示）"></label><label>核算归属<input id="ledger-costcenter" maxlength="100" placeholder="如 法报中心 / 示例项目"></label><small>只记录复核信息，不生成会计凭证或自动记账。</small></div>' : ""}<label>处理备注<textarea id="reason" placeholder="退回时必须填写原因"></textarea></label><div class="actions"><button id="reject">退回修改</button><button class="primary" id="approve">${x.status === "待付款" ? "登记付款" : "审核通过"}</button></div>` : role === "员工" && x.employee === currentEmployee() && ["已退回", "草稿", "已撤回"].includes(x.status) ? `<button class="primary" id="edit">${x.status === "草稿" ? "继续填写草稿" : "修改并重新提交"}</button>` : '<p class="footnote">切换到审批路径中指定的角色和具体人员后处理。</p>'}`,
+    `<div class="modal-title"><div><small>${esc(x.id)}</small><h2>${esc(x.name)}</h2></div><button data-close aria-label="关闭">✕</button></div><div class="detail-amount">${money(x.amount)} <span class="badge">${x.status}</span></div><div class="detail-grid"><p>申请人<b>${esc(x.employee)} · ${esc(x.department)}</b></p><p>费用类型<b>${esc(x.type)}</b></p><p>发票号码<b>${esc(x.invoice || "未填写")}</b></p><p>原票据附件名称（旧入口）<b>${esc(x.receipt || "未提供")}</b></p></div><p>${esc(x.note)}</p>${precheckPanel(precheck, { healthy: policyHealthy })}${precheckHistory(x.history)}${x.payment ? `<div class="review-box payment-summary"><h3>付款登记信息</h3><p>方式：${esc(x.payment.method)} · 日期：${esc(x.payment.date)}</p><p>参考号：${esc(x.payment.reference)}</p><small>仅作模拟登记，未连接银行或执行转账。</small></div>` : x.status === "已付款" ? '<p class="footnote">历史演示记录未提供付款参考号。</p>' : ""}${x.ocr ? '<p class="footnote">曾使用浏览器 OCR 辅助并由员工核对，识别不代表发票真实或字段准确。</p>' : ""}${x.requestId ? `<div class="review-box"><h3>关联费用申请</h3><p>${esc(requests.find((r) => r.id === x.requestId)?.name || x.requestId)}</p><small>提交时占用申请额度，付款后转为实际支出；未核销余额仍预留。</small></div>` : ""}${attachmentDetails(x.attachments)}${travelSummary(x.travel)}${x.ledgerReview ? `<div class="review-box ledger-summary"><h3>总账复核记录</h3><p>科目：${esc(x.ledgerReview.account)} · 核算归属：${esc(x.ledgerReview.costCenter)}</p><small>复核时间：${esc(new Date(x.ledgerReview.at).toLocaleString("zh-CN"))}；仅模拟记录，未生成会计凭证。</small></div>` : ""}${approvalTimeline(x)}<h3>流转记录</h3><div class="timeline">${x.history.map((h) => `<p>${esc(h.text)}<small>${esc(h.operation ? new Date(h.operation.at).toLocaleString("zh-CN") : h.time)}${h.operation ? " · " + esc(h.operation.actorName) + " · " + (h.operation.flowVersion ? "v" + h.operation.flowVersion : "历史固定流程") : ""}</small></p>`).join("")}</div>${role === "员工" && x.employee === currentEmployee() && x.status === "待主管审批" && (x.approval?.cursor || 0) === 0 ? '<div class="review-box"><label>撤回原因<textarea id="withdraw-reason" maxlength="200" placeholder="如金额填写有误，需要修改"></textarea></label><button id="withdraw">撤回并修改</button><p>仅主管审批前可撤回，之后需由审核人退回。</p></div>' : ""}${can ? `${x.status === "待付款" ? paymentFields() : x.status === "待总账复核" ? '<div class="review-box"><h3>总账复核信息</h3><label>总账科目<input id="ledger-account" maxlength="100" placeholder="如 6602 管理费用（仅演示）"></label><label>核算归属<input id="ledger-costcenter" maxlength="100" placeholder="如 法报中心 / 示例项目"></label><small>只记录复核信息，不生成会计凭证或自动记账。</small></div>' : ""}<label>处理备注<textarea id="reason" placeholder="退回时必须填写原因"></textarea></label><div class="actions"><button id="reject">退回修改</button><button class="primary" id="approve">${x.status === "待付款" ? "登记付款" : "审核通过"}</button></div>` : role === "员工" && x.employee === currentEmployee() && ["已退回", "草稿", "已撤回"].includes(x.status) ? `<button class="primary" id="edit">${x.status === "草稿" ? "继续填写草稿" : "修改并重新提交"}</button>` : '<p class="footnote">切换到审批路径中指定的角色和具体人员后处理。</p>'}`,
   );
   bindAttachmentDetails(document.querySelector("#overlay"), x.attachments);
   if (can) {
@@ -1132,6 +1162,7 @@ function detail(id) {
 function act(action) {
   try {
     const i = items.findIndex((x) => x.id === selected.id);
+    if (action === "approve") requirePolicyForApproval(items[i].status);
     const nextDoc = transition(
       { ...items[i], flags: flags(items[i]) },
       action,
@@ -1152,6 +1183,7 @@ function act(action) {
             costCenter: document.querySelector("#ledger-costcenter").value,
           }
         : null,
+      { items, policy },
     );
     if (nextDoc.status === "已付款") {
       if (!enterpriseHealthy)
@@ -1397,7 +1429,7 @@ function editBudget(department) {
   };
 }
 function policyView() {
-  return `<section class="panel prose"><div class="section-intro"><span class="section-mark">⚙</span><div><h2>将费用制度，转成清晰规则</h2><p>审批路径可配置；财务分工模板支持部门总 → 财务 → 总账 → 付款工作台</p></div></div><form id="policy-form"><div class="settings-row"><div><h3>单笔费用上限</h3><p>超过上限触发预警；财务不能通过有未解决风险的报销。</p></div><label>金额（元）<input type="number" name="limit" min="0.01" max="1000000" step="0.01" required value="${policy.limit}" ${role !== "财务" ? "disabled" : ""}></label></div><div class="settings-row"><div><h3>附件完整性</h3><p>未记录附件文件名时提示补充；不校验文件内容。</p></div><label class="check-line"><input type="checkbox" name="requireReceipt" ${policy.requireReceipt ? "checked" : ""} ${role !== "财务" ? "disabled" : ""}>启用检查</label></div><div class="settings-row"><div><h3>发票号码查重</h3><p>与其他已提交且未退回单据比较；草稿不参与查重。</p></div><label class="check-line"><input type="checkbox" name="checkDuplicate" ${policy.checkDuplicate ? "checked" : ""} ${role !== "财务" ? "disabled" : ""}>启用检查</label></div>${role === "财务" ? '<label>变更原因<textarea name="reason" required maxlength="200" placeholder="填写本次规则调整的业务原因"></textarea></label><div class="actions"><button class="primary" type="submit">保存规则</button></div>' : '<p class="footnote">切换财务角色可配置规则。</p>'}</form><div class="review-box">规则变更会立即重新计算所有报销的预审提示，包括历史单据；不会更改原审批结论或触发付款。此版本没有历史规则快照。预算仍为独立的软预警。</div></section>`;
+  return `<section class="panel prose"><div class="section-intro"><span class="section-mark">⚙</span><div><h2>将费用制度，转成清晰规则</h2><p>审批路径可配置；财务分工模板支持部门总 → 财务 → 总账 → 付款工作台</p></div></div><form id="policy-form"><div class="settings-row"><div><h3>单笔费用上限</h3><p>此项为报销旧硬规则：超额阻止财务/总账/付款通过；对公单笔阈值在下方单独设置。</p></div><label>金额（元）<input type="number" name="limit" min="0.01" max="1000000" step="0.01" required value="${policy.limit}" ${role !== "财务" ? "disabled" : ""}></label></div><div class="settings-row"><div><h3>附件完整性</h3><p>旧票据名称或发票类原文件满足此项。是否留存原文件由下方补充规则单独检查；不验真。</p></div><label class="check-line"><input type="checkbox" name="requireReceipt" ${policy.requireReceipt ? "checked" : ""} ${role !== "财务" ? "disabled" : ""}>启用检查</label></div><div class="settings-row"><div><h3>发票号码查重</h3><p>与其他已提交且未退回单据比较；草稿不参与查重。</p></div><label class="check-line"><input type="checkbox" name="checkDuplicate" ${policy.checkDuplicate ? "checked" : ""} ${role !== "财务" ? "disabled" : ""}>启用检查</label></div>${precheckSettings(policy, role === "财务" && policyHealthy, policyHealthy)}${role === "财务" ? '<label>变更原因<textarea name="reason" required maxlength="200" placeholder="填写本次规则调整的业务原因"></textarea></label><div class="actions"><button class="primary" type="submit">保存规则</button></div>' : '<p class="footnote">切换财务角色可配置规则。</p>'}</form><div class="review-box">规则变更立即重新计算报销和对公的当前提示，不改既有审批结论。新版每次处理保留当时的规则版本、阈值和命中结果；旧记录不补造。预算仍为独立软预警。</div></section>`;
 }
 function auditView() {
   const legacy = JSON.parse(
@@ -1441,27 +1473,40 @@ function bindMore() {
     if (role !== "财务") return;
     const d = new FormData(e.target);
     try {
+      if (!policyHealthy)
+        throw Error("预审规则存储异常，原值已保留，请恢复有效备份");
       const next = validatePolicy({
         limit: Number(d.get("limit")),
         requireReceipt: d.has("requireReceipt"),
         checkDuplicate: d.has("checkDuplicate"),
+        precheck: collectPrecheck(e.target, policy),
       });
       if (!d.get("reason").trim()) return toast("请填写变更原因");
-      const before = { ...policy };
+      try {
+        localStorage.setItem("qingbao-policy", JSON.stringify(next));
+      } catch {
+        throw Error("规则保存失败或浏览器容量不足，原规则未改动");
+      }
       policy = next;
-      localStorage.setItem("qingbao-policy", JSON.stringify(policy));
-      record(
-        "调整预审规则",
-        "费用政策",
-        `${d.get("reason").trim()}；单笔上限 ${before.limit} → ${policy.limit}，附件检查 ${policy.requireReceipt ? "开启" : "关闭"}，查重 ${policy.checkDuplicate ? "开启" : "关闭"}`,
-      );
+      let warning = "";
+      try {
+        record(
+          "调整预审规则",
+          "费用政策",
+          `${d.get("reason").trim()}；规则 v${next.precheck.version}；单笔上限 ${next.limit}，补充规则同时作用报销与对公`,
+        );
+      } catch {
+        warning = "；操作日志保存失败，业务规则已保存，请及时备份";
+      }
       render();
-      toast("规则已保存，预审提示已重新计算");
+      toast("规则已保存，预审提示已重新计算" + warning);
     } catch (e) {
       toast(e.message);
     }
   });
   document.querySelector("#backup")?.addEventListener("click", () => {
+    if (!policyHealthy)
+      return toast("预审规则存储异常，不能生成完整备份；原始值已保留");
     if (!configHealthy)
       return toast("组织/流程存储无法读取，不能导出完整备份；原始数据未改动");
     if (!requestStoreHealthy)
@@ -1586,7 +1631,8 @@ function bindMore() {
       items = data.items;
       budgets = nextBudgets;
       flowDraft = nextDraft;
-      policy = data.policy;
+      policy = validatePolicy(data.policy);
+      policyHealthy = true;
       audit = nextAudit;
       if (data.messageRead !== undefined) {
         messageRead = data.messageRead;
@@ -1659,8 +1705,8 @@ function guideView() {
       "说明产品决策与验证边界",
       "财务",
       "规则配置",
-      "调整单笔上限并填写原因，到操作记录查看变化。用数据管理导出备份，保留演示现场。",
-      "设计理由：配置要可追踪；当前仍需验证真实用户理解程度，不能把测试通过说成业务效果提升。",
+      "在规则配置设置报销原文件检查、疑似重复、时效，以及对公大额、账户变更等提醒或拦截，填写原因保存。新建仅有票据名称的报销，主管通过后财务看到依据与建议；设为拦截时不能通过，可退回补件。对公在途档案变更只提示或拦截，不改收款快照。处理后查看当时规则与结果，调阈值不回改历史快照。用数据管理备份保留现场。",
+      "设计理由：提醒和拦截承担不同职责；关联匹配只是待核对线索，不是违规结论。自动化验证不能替代真实用户研究。",
     ],
     [
       "05",
@@ -2503,6 +2549,7 @@ function openPaymentBatch() {
     e.preventDefault();
     try {
       const data = new FormData(form);
+      requirePolicyForApproval("待付款");
       if (!enterpriseHealthy)
         throw Error("企业业务存储异常，不能核对付款参考号，未保存付款");
       for (const ref of batchReferences(data.get("prefix"), ids.length))

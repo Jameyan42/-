@@ -47,7 +47,7 @@ test("保存不完整草稿，继续填写，提交后进入审批", async ({ pa
   await page.locator("[name=note]").fill("补全差旅信息");
   await page.locator("[type=submit]").click();
   await expect(row(page, "出差草稿")).toContainText("待主管审批");
-  await expect(row(page, "出差草稿")).toContainText("1 项待核查");
+  await expect(row(page, "出差草稿")).toContainText("1 项拦截");
 });
 test("风险单被财务拦截，退回修正重提后风险清除", async ({ page }) => {
   await page.locator("#role").selectOption("财务");
@@ -64,7 +64,7 @@ test("风险单被财务拦截，退回修正重提后风险清除", async ({ pa
   await page.locator("#edit").click();
   await page.locator("[name=invoice]").fill("FIX001");
   await page.locator("[type=submit]").click();
-  await expect(row(page, "客户出行交通")).toContainText("未发现风险");
+  await expect(row(page, "客户出行交通")).toContainText("项提醒");
 });
 test("财务规则调整改变预审提示并记录原因，其他角色只读", async ({ page }) => {
   await navigate(page, "规则配置");
@@ -74,7 +74,7 @@ test("财务规则调整改变预审提示并记录原因，其他角色只读",
   await page.locator("[name=reason]").fill("调整客户活动费用标准");
   await page.locator("[type=submit]").click();
   await navigate(page, "报销管理");
-  await expect(row(page, "产品共创工作坊")).toContainText("未发现风险");
+  await expect(row(page, "产品共创工作坊")).toContainText("项提醒");
   await navigate(page, "操作记录");
   await expect(page.locator("tbody")).toContainText("调整客户活动费用标准");
   await page.reload();
@@ -164,7 +164,7 @@ test("员工撤回释放预算，可修改后重新提交，票据索引同步",
   await page.locator("[name=invoice]").fill("WITHDRAW-FIX");
   await page.locator("[type=submit]").click();
   await expect(row(page, "客户出行交通")).toContainText("待主管审批");
-  await expect(row(page, "客户出行交通")).toContainText("未发现风险");
+  await expect(row(page, "客户出行交通")).toContainText("项提醒");
 });
 test("付款必须确认，完成后详情保留参考信息", async ({ page }) => {
   await page.locator("#role").selectOption("财务");

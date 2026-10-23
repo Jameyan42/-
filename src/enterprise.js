@@ -1,4 +1,10 @@
 import {
+  evaluatePrecheck,
+  assertPrecheck,
+  validatePrecheckReport,
+  basePolicy,
+} from "./precheck.js";
+import {
   compileApproval,
   approvalStatus,
   canApprove,
@@ -246,6 +252,9 @@ export function validateEnterprise(state) {
     )
       fail("支付单主体与已复核合同不一致");
     validateSnapshot(p.approval, p.status, "expense");
+    for (const h of p.history)
+      if (h.precheck !== undefined)
+        validatePrecheckReport(h.precheck, "corporate", p.id);
     if (p.ledgerReview !== undefined) {
       validateLedgerReview(p.ledgerReview);
       const i = p.approval.nodes.findIndex((n) => n.stage === "ledger");
@@ -453,11 +462,22 @@ export function actCorporate(
   action,
   { note = "", ledgerReview, payment } = {},
   expenseItems = [],
+  policy = basePolicy,
 ) {
   const old = state.payments.find((p) => p.id === id);
   if (!old) fail("对公支付单不存在");
   if (!str(note, 500, false)) fail("备注不能超过500字");
   let p;
+  const report =
+    action === "withdraw"
+      ? null
+      : evaluatePrecheck(
+          "corporate",
+          old,
+          { enterprise: state, items: expenseItems },
+          policy,
+        );
+  if (action === "approve") assertPrecheck(report, old.status);
   if (action === "withdraw") {
     person(actor, ["员工"]);
     if (
@@ -514,6 +534,8 @@ export function actCorporate(
       p.status,
     ),
   );
+  if (report)
+    p.history[p.history.length - 1] = { ...p.history.at(-1), precheck: report };
   return checked({
     ...state,
     payments: state.payments.map((x) => (x.id === id ? p : x)),

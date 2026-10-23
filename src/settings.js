@@ -1,3 +1,4 @@
+import { validatePrecheck, validatePrecheckReport } from "./precheck.js";
 import { validateEnterprise } from "./enterprise.js";
 import { assertUniqueReference } from "./payment-batch.js";
 import { validateMessageRead } from "./messages.js";
@@ -27,7 +28,11 @@ export function validatePolicy(value) {
     typeof value.checkDuplicate !== "boolean"
   )
     throw new Error("规则配置无效");
+  if (value.precheck !== undefined) validatePrecheck(value.precheck);
   return {
+    ...(value.precheck !== undefined
+      ? { precheck: structuredClone(value.precheck) }
+      : {}),
     limit: value.limit,
     requireReceipt: value.requireReceipt,
     checkDuplicate: value.checkDuplicate,
@@ -91,6 +96,9 @@ export function validateBackup(data) {
     }
     if (x.attachments !== undefined) validateAttachments(x.attachments);
     validateOperationHistory(x.history, "expense");
+    for (const h of x.history)
+      if (h.precheck !== undefined)
+        validatePrecheckReport(h.precheck, "expense", x.id);
     if (
       x.status !== "草稿" &&
       (!x.name.trim() || !x.note.trim() || x.amount <= 0)
