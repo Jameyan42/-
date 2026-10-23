@@ -1,3 +1,5 @@
+import { processedRows, processedCsv } from "./operations.js";
+import { processedView } from "./processed-ui.js";
 import { orgChartView } from "./org-chart.js";
 import { paymentView } from "./payment-ui.js";
 import { canHandleDocument, inboxRows, inboxCsv } from "./inbox.js";
@@ -254,12 +256,56 @@ function canHandleExpense(x) {
 let inboxKind = "all",
   inboxQuery = "",
   inboxOrder = "oldest";
+let inboxMode = "pending",
+  processedResult = "all",
+  processedPage = 0;
+function currentProcessed(options = {}) {
+  return processedRows(items, requests, currentActor(), options);
+}
+function approvalCenterView() {
+  const tabs = `<div class="tabs approval-view-tabs"><button data-inbox-view="pending" class="${inboxMode === "pending" ? "chosen" : ""}">待我处理 (${currentInbox().length})</button><button data-inbox-view="processed" class="${inboxMode === "processed" ? "chosen" : ""}">我已处理 (${currentProcessed().length})</button></div>`;
+  return (
+    tabs +
+    (inboxMode === "processed"
+      ? processedView(
+          currentProcessed(),
+          currentProcessed({
+            kind: inboxKind,
+            query: inboxQuery,
+            result: processedResult,
+            order: inboxOrder,
+          }),
+          currentActor(),
+          inboxKind,
+          inboxQuery,
+          processedResult,
+          inboxOrder,
+          requestStoreHealthy,
+          processedPage,
+        )
+      : inboxView(
+          currentInbox(),
+          currentInbox({
+            kind: inboxKind,
+            query: inboxQuery,
+            order: inboxOrder,
+          }),
+          currentActor(),
+          inboxKind,
+          inboxQuery,
+          inboxOrder,
+          requestStoreHealthy,
+        ))
+  );
+}
 function currentInbox(options = {}) {
   return inboxRows(items, requests, currentActor(), options);
 }
 function resetInboxFilters() {
   inboxKind = "all";
   inboxQuery = "";
+  processedResult = "all";
+  processedPage = 0;
   paymentFilter = "待付款";
   paymentQuery = "";
 }
@@ -356,19 +402,7 @@ ${
   page === "付款工作台"
     ? paymentView(items, currentActor(), paymentFilter, paymentQuery)
     : page === "审批中心"
-      ? inboxView(
-          currentInbox(),
-          currentInbox({
-            kind: inboxKind,
-            query: inboxQuery,
-            order: inboxOrder,
-          }),
-          currentActor(),
-          inboxKind,
-          inboxQuery,
-          inboxOrder,
-          requestStoreHealthy,
-        )
+      ? approvalCenterView()
       : page === "组织架构"
         ? orgChartView(configuration.org, role, orgMode, orgChartState)
         : page === "审批流程"
@@ -629,7 +663,7 @@ function detail(id) {
   const f = flags(x);
   const can = canHandleExpense(x);
   modal(
-    `<div class="modal-title"><div><small>${esc(x.id)}</small><h2>${esc(x.name)}</h2></div><button data-close aria-label="关闭">✕</button></div><div class="detail-amount">${money(x.amount)} <span class="badge">${x.status}</span></div><div class="detail-grid"><p>申请人<b>${esc(x.employee)} · ${esc(x.department)}</b></p><p>费用类型<b>${esc(x.type)}</b></p><p>发票号码<b>${esc(x.invoice || "未填写")}</b></p><p>附件（仅记录名称）<b>${esc(x.receipt || "未提供")}</b></p></div><p>${esc(x.note)}</p><div class="review-box"><h3>✧ 预审说明 · 规则计算</h3>${f.length ? f.map((s) => `<p class="risk">⚑ ${s}</p>`).join("") : '<p class="safe">✓ 未发现超标、缺失附件或重复号码风险</p>'}<small>未进行票据真伪验证；提示不替代人工审核。</small></div>${x.payment ? `<div class="review-box payment-summary"><h3>付款登记信息</h3><p>方式：${esc(x.payment.method)} · 日期：${esc(x.payment.date)}</p><p>参考号：${esc(x.payment.reference)}</p><small>仅作模拟登记，未连接银行或执行转账。</small></div>` : x.status === "已付款" ? '<p class="footnote">历史演示记录未提供付款参考号。</p>' : ""}${x.ocr ? '<p class="footnote">曾使用浏览器 OCR 辅助并由员工核对，识别不代表发票真实或字段准确。</p>' : ""}${x.requestId ? `<div class="review-box"><h3>关联费用申请</h3><p>${esc(requests.find((r) => r.id === x.requestId)?.name || x.requestId)}</p><small>提交时占用申请额度，付款后转为实际支出；未核销余额仍预留。</small></div>` : ""}${x.ledgerReview ? `<div class="review-box ledger-summary"><h3>总账复核记录</h3><p>科目：${esc(x.ledgerReview.account)} · 核算归属：${esc(x.ledgerReview.costCenter)}</p><small>复核时间：${esc(new Date(x.ledgerReview.at).toLocaleString("zh-CN"))}；仅模拟记录，未生成会计凭证。</small></div>` : ""}${approvalTimeline(x)}<h3>流转记录</h3><div class="timeline">${x.history.map((h) => `<p>${esc(h.text)}<small>${esc(h.time)}</small></p>`).join("")}</div>${role === "员工" && x.employee === currentEmployee() && x.status === "待主管审批" && (x.approval?.cursor || 0) === 0 ? '<div class="review-box"><label>撤回原因<textarea id="withdraw-reason" maxlength="200" placeholder="如金额填写有误，需要修改"></textarea></label><button id="withdraw">撤回并修改</button><p>仅主管审批前可撤回，之后需由审核人退回。</p></div>' : ""}${can ? `${x.status === "待付款" ? paymentFields() : x.status === "待总账复核" ? '<div class="review-box"><h3>总账复核信息</h3><label>总账科目<input id="ledger-account" maxlength="100" placeholder="如 6602 管理费用（仅演示）"></label><label>核算归属<input id="ledger-costcenter" maxlength="100" placeholder="如 法报中心 / 示例项目"></label><small>只记录复核信息，不生成会计凭证或自动记账。</small></div>' : ""}<label>处理备注<textarea id="reason" placeholder="退回时必须填写原因"></textarea></label><div class="actions"><button id="reject">退回修改</button><button class="primary" id="approve">${x.status === "待付款" ? "登记付款" : "审核通过"}</button></div>` : role === "员工" && x.employee === currentEmployee() && ["已退回", "草稿", "已撤回"].includes(x.status) ? `<button class="primary" id="edit">${x.status === "草稿" ? "继续填写草稿" : "修改并重新提交"}</button>` : '<p class="footnote">切换到审批路径中指定的角色和具体人员后处理。</p>'}`,
+    `<div class="modal-title"><div><small>${esc(x.id)}</small><h2>${esc(x.name)}</h2></div><button data-close aria-label="关闭">✕</button></div><div class="detail-amount">${money(x.amount)} <span class="badge">${x.status}</span></div><div class="detail-grid"><p>申请人<b>${esc(x.employee)} · ${esc(x.department)}</b></p><p>费用类型<b>${esc(x.type)}</b></p><p>发票号码<b>${esc(x.invoice || "未填写")}</b></p><p>附件（仅记录名称）<b>${esc(x.receipt || "未提供")}</b></p></div><p>${esc(x.note)}</p><div class="review-box"><h3>✧ 预审说明 · 规则计算</h3>${f.length ? f.map((s) => `<p class="risk">⚑ ${s}</p>`).join("") : '<p class="safe">✓ 未发现超标、缺失附件或重复号码风险</p>'}<small>未进行票据真伪验证；提示不替代人工审核。</small></div>${x.payment ? `<div class="review-box payment-summary"><h3>付款登记信息</h3><p>方式：${esc(x.payment.method)} · 日期：${esc(x.payment.date)}</p><p>参考号：${esc(x.payment.reference)}</p><small>仅作模拟登记，未连接银行或执行转账。</small></div>` : x.status === "已付款" ? '<p class="footnote">历史演示记录未提供付款参考号。</p>' : ""}${x.ocr ? '<p class="footnote">曾使用浏览器 OCR 辅助并由员工核对，识别不代表发票真实或字段准确。</p>' : ""}${x.requestId ? `<div class="review-box"><h3>关联费用申请</h3><p>${esc(requests.find((r) => r.id === x.requestId)?.name || x.requestId)}</p><small>提交时占用申请额度，付款后转为实际支出；未核销余额仍预留。</small></div>` : ""}${x.ledgerReview ? `<div class="review-box ledger-summary"><h3>总账复核记录</h3><p>科目：${esc(x.ledgerReview.account)} · 核算归属：${esc(x.ledgerReview.costCenter)}</p><small>复核时间：${esc(new Date(x.ledgerReview.at).toLocaleString("zh-CN"))}；仅模拟记录，未生成会计凭证。</small></div>` : ""}${approvalTimeline(x)}<h3>流转记录</h3><div class="timeline">${x.history.map((h) => `<p>${esc(h.text)}<small>${esc(h.operation ? new Date(h.operation.at).toLocaleString("zh-CN") : h.time)}${h.operation ? " · " + esc(h.operation.actorName) + " · " + (h.operation.flowVersion ? "v" + h.operation.flowVersion : "历史固定流程") : ""}</small></p>`).join("")}</div>${role === "员工" && x.employee === currentEmployee() && x.status === "待主管审批" && (x.approval?.cursor || 0) === 0 ? '<div class="review-box"><label>撤回原因<textarea id="withdraw-reason" maxlength="200" placeholder="如金额填写有误，需要修改"></textarea></label><button id="withdraw">撤回并修改</button><p>仅主管审批前可撤回，之后需由审核人退回。</p></div>' : ""}${can ? `${x.status === "待付款" ? paymentFields() : x.status === "待总账复核" ? '<div class="review-box"><h3>总账复核信息</h3><label>总账科目<input id="ledger-account" maxlength="100" placeholder="如 6602 管理费用（仅演示）"></label><label>核算归属<input id="ledger-costcenter" maxlength="100" placeholder="如 法报中心 / 示例项目"></label><small>只记录复核信息，不生成会计凭证或自动记账。</small></div>' : ""}<label>处理备注<textarea id="reason" placeholder="退回时必须填写原因"></textarea></label><div class="actions"><button id="reject">退回修改</button><button class="primary" id="approve">${x.status === "待付款" ? "登记付款" : "审核通过"}</button></div>` : role === "员工" && x.employee === currentEmployee() && ["已退回", "草稿", "已撤回"].includes(x.status) ? `<button class="primary" id="edit">${x.status === "草稿" ? "继续填写草稿" : "修改并重新提交"}</button>` : '<p class="footnote">切换到审批路径中指定的角色和具体人员后处理。</p>'}`,
   );
   if (can) {
     document.querySelector("#reject").onclick = () => act("reject");
@@ -1065,7 +1099,7 @@ function guideView() {
       "完成从审批到付款的闭环",
       "主管",
       "审批中心",
-      "审批中心集中显示报销、费用申请及付款登记；按类型筛选，选择当前人员查看并处理。财务审核后仍需登记付款，最后查看付款记录。",
+      "审批中心集中处理报销、申请和付款，完成后切到“我已处理”回看本人结果与当时摘要。财务审核后仍需登记付款；切其他人员验证历史记录归属。",
       "设计理由：审批通过和实际付款是不同事件，不能用一个“完成”状态代替。",
     ],
     [
@@ -1254,7 +1288,7 @@ function requestDetail(id) {
       r.employee === currentEmployee() &&
       ["待审批", "已批准"].includes(r.status);
   modal(
-    `<div class="modal-title"><div><small>${esc(r.id)}</small><h2>${esc(r.name)}</h2></div><button data-close aria-label="关闭">✕</button></div><div class="detail-amount">${money(r.amount)} <span class="badge">${r.status}</span></div><p>${esc(r.employee)} · ${esc(r.department)} · ${esc(r.month)} · ${esc(r.type)}</p><p>${esc(r.note)}</p><div class="review-box">已关联 ${money(b.used)} · 剩余额度 ${money(b.remaining)}<p>${r.status === "已批准" ? "余额正在预留预算" : "当前不预留预算"}。${b.unpaid ? "仍有在途报销，不能结束申请。" : "可结束申请并释放尚未使用的余额。"}</p></div><div class="review-box"><h3>部门预算影响</h3><p>月度预算 ${money(departmentBudget.limit)} · 当前可用 ${money(departmentBudget.available)}</p>${r.status === "待审批" ? `<p class="${approvalAvailable < 0 ? "risk" : "safe"}">批准后预计可用 ${money(approvalAvailable)}</p>` : ""}<small>部门预算为软预警，不阻止批准；关联报销不能超过申请本身的批准额度。</small></div><h3>关联报销</h3>${linked.length ? linked.map((x) => `<p>${esc(x.name)} · ${money(x.amount)} · ${x.status}</p>`).join("") : '<p class="muted">暂无关联报销</p>'}${approvalTimeline(r)}<h3>申请流转记录</h3><div class="timeline">${r.history.map((h) => `<p>${esc(h.text)}<small>${esc(h.time)}</small></p>`).join("")}</div>${approval || close ? `<label>处理原因<textarea id="request-reason" maxlength="200" placeholder="驳回或结束时必填"></textarea></label><div class="actions">${approval ? '<button data-request-action="reject">驳回申请</button><button class="primary" data-request-action="approve">批准申请</button>' : '<button data-request-action="close">结束申请并释放余额</button>'}</div>` : '<p class="footnote">切换至当前节点指定人员才能审批；员工可在无在途报销时结束自己的申请。</p>'}`,
+    `<div class="modal-title"><div><small>${esc(r.id)}</small><h2>${esc(r.name)}</h2></div><button data-close aria-label="关闭">✕</button></div><div class="detail-amount">${money(r.amount)} <span class="badge">${r.status}</span></div><p>${esc(r.employee)} · ${esc(r.department)} · ${esc(r.month)} · ${esc(r.type)}</p><p>${esc(r.note)}</p><div class="review-box">已关联 ${money(b.used)} · 剩余额度 ${money(b.remaining)}<p>${r.status === "已批准" ? "余额正在预留预算" : "当前不预留预算"}。${b.unpaid ? "仍有在途报销，不能结束申请。" : "可结束申请并释放尚未使用的余额。"}</p></div><div class="review-box"><h3>部门预算影响</h3><p>月度预算 ${money(departmentBudget.limit)} · 当前可用 ${money(departmentBudget.available)}</p>${r.status === "待审批" ? `<p class="${approvalAvailable < 0 ? "risk" : "safe"}">批准后预计可用 ${money(approvalAvailable)}</p>` : ""}<small>部门预算为软预警，不阻止批准；关联报销不能超过申请本身的批准额度。</small></div><h3>关联报销</h3>${linked.length ? linked.map((x) => `<p>${esc(x.name)} · ${money(x.amount)} · ${x.status}</p>`).join("") : '<p class="muted">暂无关联报销</p>'}${approvalTimeline(r)}<h3>申请流转记录</h3><div class="timeline">${r.history.map((h) => `<p>${esc(h.text)}<small>${esc(h.operation ? new Date(h.operation.at).toLocaleString("zh-CN") : h.time)}${h.operation ? " · " + esc(h.operation.actorName) + " · " + (h.operation.flowVersion ? "v" + h.operation.flowVersion : "历史固定流程") : ""}</small></p>`).join("")}</div>${approval || close ? `<label>处理原因<textarea id="request-reason" maxlength="200" placeholder="驳回或结束时必填"></textarea></label><div class="actions">${approval ? '<button data-request-action="reject">驳回申请</button><button class="primary" data-request-action="approve">批准申请</button>' : '<button data-request-action="close">结束申请并释放余额</button>'}</div>` : '<p class="footnote">切换至当前节点指定人员才能审批；员工可在无在途报销时结束自己的申请。</p>'}`,
   );
   document.querySelectorAll("[data-request-action]").forEach(
     (button) =>
@@ -1690,19 +1724,63 @@ function bindConfiguration() {
 }
 
 function bindInbox() {
+  document.querySelectorAll("[data-processed-page]").forEach(
+    (b) =>
+      (b.onclick = () => {
+        processedPage = Number(b.dataset.processedPage);
+        render();
+      }),
+  );
+  document.querySelectorAll("[data-inbox-view]").forEach(
+    (b) =>
+      (b.onclick = () => {
+        inboxMode = b.dataset.inboxView;
+        resetInboxFilters();
+        inboxOrder = inboxMode === "processed" ? "newest" : "oldest";
+        render();
+      }),
+  );
+  document
+    .querySelector("#processed-result")
+    ?.addEventListener("change", (e) => {
+      processedResult = e.target.value;
+      processedPage = 0;
+      render();
+    });
+  document.querySelector("#processed-export")?.addEventListener("click", () => {
+    if (!requestStoreHealthy)
+      return toast("申请存储异常，不能导出完整处理记录；请先恢复有效备份");
+    downloadFile(
+      processedCsv(
+        currentProcessed({
+          kind: inboxKind,
+          query: inboxQuery,
+          result: processedResult,
+          order: inboxOrder,
+        }),
+      ),
+      "轻报-我的处理记录.csv",
+      "text/csv;charset=utf-8",
+    );
+    toast("已导出当前身份和筛选范围内的处理记录");
+  });
+
   document.querySelectorAll("[data-inbox-kind]").forEach(
     (button) =>
       (button.onclick = () => {
         inboxKind = button.dataset.inboxKind;
+        processedPage = 0;
         render();
       }),
   );
   document.querySelector("#inbox-order")?.addEventListener("change", (e) => {
     inboxOrder = e.target.value;
+    processedPage = 0;
     render();
   });
   document.querySelector("#inbox-search")?.addEventListener("input", (e) => {
     inboxQuery = e.target.value;
+    processedPage = 0;
     const position = e.target.selectionStart;
     render();
     const input = document.querySelector("#inbox-search");

@@ -1,3 +1,4 @@
+import { makeOperation } from "./operations.js";
 import { validateOrg } from "./organization.js";
 export const selectors = ["manager", "departmentHead", "person"];
 export function defaultFlows() {
@@ -247,6 +248,17 @@ export function advanceApproval(
     history: [
       ...doc.history,
       {
+        operation: makeOperation({
+          doc,
+          kind: approval.kind,
+          actor,
+          action,
+          stage: node.stage,
+          label: node.label,
+          toStatus: status,
+          note,
+          accounting,
+        }),
         text: `${actor.name}（${node.label}）${action === "reject" ? "退回/驳回：" + note : "审批通过" + (note ? "：" + note : "")}`,
         time: new Date().toLocaleString("zh-CN"),
       },

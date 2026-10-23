@@ -1,3 +1,4 @@
+import { makeOperation } from "./operations.js";
 import { advanceApproval } from "./approval.js";
 import { defaultPolicy } from "./settings.js";
 import { validatePayment, inactiveStatuses } from "./expenses.js";
@@ -34,6 +35,9 @@ export function transition(
   ledgerReview = null,
 ) {
   if (!["approve", "reject"].includes(action)) throw new Error("未知操作");
+  if (typeof note !== "string" || note.length > 500)
+    throw Error("处理备注不能超过500字");
+  if (actor && actor.role !== role) throw Error("处理身份与角色不一致");
   if (item.approval && item.status !== "待付款")
     return advanceApproval(item, action, actor || {}, note, ledgerReview);
   if (
@@ -72,6 +76,31 @@ export function transition(
     history: [
       ...item.history,
       {
+        ...(actor
+          ? {
+              operation: makeOperation({
+                doc: item,
+                kind: "expense",
+                actor,
+                action: paid ? "pay" : action,
+                stage:
+                  item.status === "待付款"
+                    ? "payment"
+                    : item.status === "待主管审批"
+                      ? "business"
+                      : "finance",
+                label:
+                  item.status === "待付款"
+                    ? "付款登记"
+                    : item.status === "待主管审批"
+                      ? "主管审批"
+                      : "财务审核",
+                toStatus: status,
+                note,
+                payment: paid || undefined,
+              }),
+            }
+          : {}),
         text:
           action === "reject"
             ? `${role}退回：${note}`

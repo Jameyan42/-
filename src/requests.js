@@ -1,3 +1,4 @@
+import { makeOperation, validateOperationHistory } from "./operations.js";
 import { advanceApproval } from "./approval.js";
 const inactive = new Set(["草稿", "已退回", "已撤回"]);
 export const requestStatuses = ["待审批", "已批准", "已驳回", "已关闭"];
@@ -35,6 +36,7 @@ export function validateRequest(request) {
     request.history.some((h) => !h || !str(h.text, 1000) || !str(h.time, 100))
   )
     throw new Error("费用申请数据格式无效");
+  validateOperationHistory(request.history, "request");
   return request;
 }
 export function assertClaimLink(item, requests, items) {
@@ -72,6 +74,7 @@ export function requestAction(
   actor = null,
 ) {
   validateRequest(r);
+  if (actor && actor.role !== role) throw Error("处理身份与角色不一致");
   if (typeof note !== "string" || note.length > 200)
     throw new Error("处理原因不能超过200字");
   if (!["approve", "reject", "close"].includes(action))
@@ -100,6 +103,20 @@ export function requestAction(
     history: [
       ...r.history,
       {
+        ...(actor && action !== "close"
+          ? {
+              operation: makeOperation({
+                doc: r,
+                kind: "request",
+                actor,
+                action,
+                stage: "business",
+                label: "主管审批",
+                toStatus: status,
+                note,
+              }),
+            }
+          : {}),
         text: `${role}${status}${note.trim() ? "：" + note.trim() : ""}`,
         time: new Date().toLocaleString("zh-CN"),
       },

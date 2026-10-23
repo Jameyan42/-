@@ -1,3 +1,4 @@
+import { validateOperationHistory } from "./operations.js";
 import { defaultOrg, assertOrgChange } from "./organization.js";
 import {
   validateFlows,
@@ -78,6 +79,7 @@ export function validateBackup(data) {
       x.history.some((h) => !h || !text(h.text, 1000) || !text(h.time, 100))
     )
       throw new Error("备份中的报销数据不完整或格式无效");
+    validateOperationHistory(x.history, "expense");
     if (
       x.status !== "草稿" &&
       (!x.name.trim() || !x.note.trim() || x.amount <= 0)

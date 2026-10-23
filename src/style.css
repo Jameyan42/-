@@ -1860,7 +1860,7 @@ header .demo-tag::after {
   margin-top: 12px;
 }
 header .demo-tag::after {
-  content: " · v0.10";
+  content: " · v0.11";
 }
 header .header-right {
   gap: 13px;
@@ -2226,4 +2226,23 @@ header .header-right label {
   .chart-toolbar {
     align-items: start;
   }
+}
+
+.approval-view-tabs {
+  margin: 0 0 18px;
+}
+.processed-note {
+  max-width: 220px;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+.processed-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  margin: 16px;
+  flex-wrap: wrap;
+  color: #7a8ba7;
 }
