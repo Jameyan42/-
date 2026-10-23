@@ -1,3 +1,4 @@
+import { advanceApproval } from "./approval.js";
 const inactive = new Set(["草稿", "已退回", "已撤回"]);
 export const requestStatuses = ["待审批", "已批准", "已驳回", "已关闭"];
 const cents = (n) => Math.round(n * 100);
@@ -20,7 +21,7 @@ export function validateRequest(request) {
     !str(request.id, 60) ||
     !str(request.name, 60) ||
     !str(request.employee, 30) ||
-    !["销售部", "产品部", "运营部"].includes(request.department) ||
+    !str(request.department, 30) ||
     !["差旅交通", "业务招待", "办公采购", "其他费用"].includes(request.type) ||
     !Number.isFinite(request.amount) ||
     request.amount < 0.01 ||
@@ -61,12 +62,22 @@ export function assertClaimLink(item, requests, items) {
   if (cents(used) + cents(item.amount) > cents(r.amount))
     throw new Error("报销超过申请剩余额度，请调整金额或另行申请");
 }
-export function requestAction(r, action, role, employee, items, note = "") {
+export function requestAction(
+  r,
+  action,
+  role,
+  employee,
+  items,
+  note = "",
+  actor = null,
+) {
   validateRequest(r);
   if (typeof note !== "string" || note.length > 200)
     throw new Error("处理原因不能超过200字");
   if (!["approve", "reject", "close"].includes(action))
     throw new Error("未知申请操作");
+  if (r.approval && action !== "close")
+    return advanceApproval(r, action, actor || {}, note);
   if (action === "close") {
     if (
       role !== "员工" ||

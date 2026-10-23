@@ -1,3 +1,19 @@
+import { defaultOrg, assertOrgChange } from "./organization.js";
+import {
+  defaultFlows,
+  validateFlows,
+  compileApproval,
+  canApprove,
+  approvalStatus,
+} from "./approval.js";
+import {
+  orgView,
+  flowView,
+  collectFlow,
+  personForm,
+  departmentForm,
+  approvalTimeline,
+} from "./config-ui.js";
 import {
   requestBalance,
   validateRequest,
@@ -29,7 +45,7 @@ try {
 }
 function record(action, target, note = "") {
   audit.unshift({
-    actor: role,
+    actor: `${currentEmployee()}（${role}）`,
     action,
     target,
     note,
@@ -141,6 +157,95 @@ function saveRequests(next = requests) {
   localStorage.setItem("qingbao-requests-v1", JSON.stringify(next));
   requests = next;
 }
+let configuration = { org: defaultOrg(), flows: defaultFlows() },
+  configHealthy = true;
+try {
+  configuration =
+    JSON.parse(localStorage.getItem("qingbao-configuration-v1")) ||
+    configuration;
+  validateFlows(configuration.flows, configuration.org);
+  assertOrgChange(configuration.org, configuration.org, [
+    ...items,
+    ...requests,
+  ]);
+} catch {
+  configuration = { org: defaultOrg(), flows: defaultFlows() };
+  configHealthy = false;
+}
+let flowDraft = structuredClone(configuration.flows),
+  flowTarget = "expense",
+  orgMode = "departments",
+  actorId = "manager-zhao";
+try {
+  const d = JSON.parse(localStorage.getItem("qingbao-flow-draft-v1"));
+  if (
+    d &&
+    ["expense", "request"].every(
+      (k) =>
+        d[k] &&
+        typeof d[k].threshold === "number" &&
+        Number.isFinite(d[k].threshold) &&
+        ["low", "high"].every(
+          (b) =>
+            Array.isArray(d[k][b]) &&
+            d[k][b].length <= 4 &&
+            d[k][b].every(
+              (n) =>
+                n &&
+                ["manager", "departmentHead", "person"].includes(n.selector),
+            ),
+        ),
+    )
+  )
+    flowDraft = d;
+} catch {}
+function currentActor() {
+  const people = configuration.org.people.filter(
+    (p) => p.active && p.role === role,
+  );
+  return (
+    people.find((p) => p.id === actorId) ||
+    people.find(
+      (p) =>
+        p.id ===
+        {
+          员工: "lin",
+          主管: "manager-zhao",
+          财务: "finance-zhou",
+          管理员: "admin-gu",
+        }[role],
+    ) ||
+    people[0]
+  );
+}
+function currentEmployee() {
+  return currentActor()?.name || "";
+}
+function currentDepartment() {
+  return (
+    configuration.org.departments.find(
+      (d) => d.id === currentActor()?.departmentId,
+    )?.name || ""
+  );
+}
+function canHandleExpense(x) {
+  if (x.approval) {
+    if (x.status === "待付款")
+      return x.approval.nodes.at(-1)?.actorId === currentActor()?.id;
+    return canApprove(x, currentActor() || {});
+  }
+  return (
+    (role === "主管" && x.status === "待主管审批") ||
+    (role === "财务" && ["待财务审核", "待付款"].includes(x.status))
+  );
+}
+function saveConfiguration(next) {
+  if (!configHealthy)
+    throw Error("组织/流程存储无法读取，原始数据未改动，请恢复有效配置备份");
+  validateFlows(next.flows, next.org);
+  localStorage.setItem("qingbao-configuration-v1", JSON.stringify(next));
+  configuration = next;
+}
 let role = "主管",
   page = "工作台",
   query = "",
@@ -176,18 +281,14 @@ function toast(s) {
 function visible() {
   return items.filter(
     (x) =>
-      (role !== "员工" || x.employee === "林晓") &&
+      (role !== "员工" || x.employee === currentEmployee()) &&
       (filter === "全部" || x.status === filter) &&
       (!query || [x.name, x.id, x.employee].join(" ").includes(query)) &&
-      (page !== "审批中心" ||
-        (role === "主管"
-          ? x.status === "待主管审批"
-          : role === "财务"
-            ? ["待财务审核", "待付款"].includes(x.status)
-            : true)),
+      (page !== "审批中心" || (role === "员工" ? true : canHandleExpense(x))),
   );
 }
 function render() {
+  actorId = currentActor()?.id || actorId;
   const pending = items.filter((x) =>
     ["待主管审批", "待财务审核", "待付款"].includes(x.status),
   );
@@ -201,6 +302,8 @@ function render() {
     ["预算管理", "▥"],
     ["发票台账", "▧"],
     ["规则配置", "⚙"],
+    ["组织架构", "♧"],
+    ["审批流程", "⌘"],
     ["操作记录", "≡"],
     ["数据管理", "⇅"],
     ["演示指南", "▷"],
@@ -210,37 +313,55 @@ function render() {
   ]
     .map(
       ([p, i]) =>
-        `<button class="nav ${page === p ? "active" : ""}" data-page="${p}"><span>${i}</span>${p}${p === "审批中心" ? `<em>${pending.length}</em>` : ""}</button>`,
+        `<button class="nav ${page === p ? "active" : ""}" data-page="${p}"><span>${i}</span>${p}${p === "审批中心" ? `<em>${items.filter(canHandleExpense).length}</em>` : ""}</button>`,
     )
     .join(
       "",
     )}<div class="sidebar-bottom"><span class="green-dot"></span> 本地演示 · 数据保存在浏览器<p>为 200 人成长型企业设计</p></div></aside>
-<div class="shell"><header><div>工作空间 <span>/</span> ${page}</div><div class="header-right"><span class="demo-tag">产品原型</span><label>体验角色 <select id="role">${["员工", "主管", "财务"].map((r) => `<option ${r === role ? "selected" : ""}>${r}</option>`).join("")}</select></label><div class="avatar">${role === "员工" ? "林" : role === "主管" ? "许" : "周"}</div></div></header>
-<main><div class="page-heading"><div><div class="eyebrow">让每一笔费用，都清晰有序</div><h1>${page === "工作台" ? "工作台" : page}</h1><p>${role === "员工" ? "林晓，你好。提交费用、追踪进度，让报销更轻松。" : role === "主管" ? "许经理，你好。这里是团队费用与审批的最新动态。" : "周会计，你好。集中处理财务审核与付款登记。"}</p></div><button class="primary" id="create">＋ 新建报销</button></div>
+<div class="shell"><header><div>工作空间 <span>/</span> ${page}</div><div class="header-right"><span class="demo-tag">产品原型</span><label>体验角色 <select id="role">${["员工", "主管", "财务", "管理员"].map((r) => `<option ${r === role ? "selected" : ""}>${r}</option>`).join("")}</select></label><label>模拟身份 <select id="actor">${configuration.org.people
+    .filter((p) => p.active && p.role === role)
+    .map(
+      (p) =>
+        `<option value="${esc(p.id)}" ${p.id === actorId ? "selected" : ""}>${esc(p.name)}</option>`,
+    )
+    .join(
+      "",
+    )}</select></label><div class="avatar">${esc(currentEmployee()[0] || "人")}</div></div></header>
+<main><div class="page-heading"><div><div class="eyebrow">让每一笔费用，都清晰有序</div><h1>${page === "工作台" ? "工作台" : page}</h1><p>${esc(currentEmployee())}，你好。${role === "管理员" ? "维护虚构组织与审批配置，查看发布结果。" : role === "员工" ? "提交费用、追踪进度，让报销更轻松。" : "查看待办，按节点分工处理费用。"}</p></div><button class="primary" id="create">＋ 新建报销</button></div>
 ${
-  page === "费用申请"
-    ? requestsView(requests, items, role)
-    : page === "体验测试"
-      ? researchView(role)
-      : page === "项目案例"
-        ? caseStudyView()
-        : page === "产品说明"
-          ? about()
-          : page === "费用洞察"
-            ? insights()
-            : page === "预算管理"
-              ? budgetView()
-              : page === "规则配置"
-                ? policyView()
-                : page === "操作记录"
-                  ? auditView()
-                  : page === "数据管理"
-                    ? dataView()
-                    : page === "发票台账"
-                      ? invoiceView()
-                      : page === "演示指南"
-                        ? guideView()
-                        : `
+  page === "组织架构"
+    ? orgView(configuration.org, role, orgMode)
+    : page === "审批流程"
+      ? flowView(
+          role === "管理员" ? flowDraft : configuration.flows,
+          configuration.flows,
+          configuration.org,
+          role,
+          flowTarget,
+        )
+      : page === "费用申请"
+        ? requestsView(requests, items, role, currentEmployee())
+        : page === "体验测试"
+          ? researchView(role)
+          : page === "项目案例"
+            ? caseStudyView()
+            : page === "产品说明"
+              ? about()
+              : page === "费用洞察"
+                ? insights()
+                : page === "预算管理"
+                  ? budgetView()
+                  : page === "规则配置"
+                    ? policyView()
+                    : page === "操作记录"
+                      ? auditView()
+                      : page === "数据管理"
+                        ? dataView()
+                        : page === "发票台账"
+                          ? invoiceView()
+                          : page === "演示指南"
+                            ? guideView()
+                            : `
 ${
   page === "工作台"
     ? `<section class="stats">${[
@@ -285,14 +406,14 @@ ${
     : ""
 }
 <section class="panel"><div class="panel-title"><div><h3>${page === "审批中心" ? "我的审批待办" : "报销记录"}</h3><span>跟踪每一笔费用的处理进度</span></div><button class="quiet" id="export">↓ 导出 CSV</button></div><div class="toolbar"><div class="tabs">${["全部", "草稿", "待主管审批", "待财务审核", "待付款", "已付款", "已退回", "已撤回"].map((s) => `<button data-filter="${s}" class="${filter === s ? "chosen" : ""}">${s === "待主管审批" ? "待审批" : s === "待财务审核" ? "待审核" : s}</button>`).join("")}</div><input id="search" aria-label="搜索报销" placeholder="⌕ 搜索名称、单号或姓名" value="${esc(query)}"></div><div class="table-wrap"><table><thead><tr><th>报销事项 / 单号</th><th>申请人</th><th>费用类型</th><th class="amount">报销金额</th><th>状态</th><th>预审结果</th><th>操作</th></tr></thead><tbody>${
-                            visible()
-                              .map(
-                                (x) =>
-                                  `<tr><td><strong>${esc(x.name)}</strong><small>${esc(x.id)} · ${x.date}</small></td><td><div class="person"><span>${esc(x.employee[0])}</span><div>${esc(x.employee)}<small>${esc(x.department)}</small></div></div></td><td>${esc(x.type)}</td><td class="amount"><strong>${money(x.amount)}</strong></td><td><span class="badge s${["待主管审批", "待财务审核", "待付款", "已付款", "已退回", "已撤回"].indexOf(x.status)}">${x.status}</span></td><td><span class="${flags(x).length ? "risk" : "safe"}">${flags(x).length ? "⚑ " + flags(x).length + " 项待核查" : "✓ 未发现风险"}</span></td><td><button class="link" data-detail="${esc(x.id)}">查看 →</button></td></tr>`,
-                              )
-                              .join("") ||
-                            '<tr><td colspan="7" class="empty">暂无符合条件的报销记录</td></tr>'
-                          }</tbody></table></div><div class="table-footer">共 ${visible().length} 条记录<span>所有金额均为人民币 CNY</span></div></section><div class="footnote">ⓘ 演示使用虚构人员与票据；预审为规则计算，未接入大模型、发票验真或银行付款。</div>`
+                                visible()
+                                  .map(
+                                    (x) =>
+                                      `<tr><td><strong>${esc(x.name)}</strong><small>${esc(x.id)} · ${x.date}</small></td><td><div class="person"><span>${esc(x.employee[0])}</span><div>${esc(x.employee)}<small>${esc(x.department)}</small></div></div></td><td>${esc(x.type)}</td><td class="amount"><strong>${money(x.amount)}</strong></td><td><span class="badge s${["待主管审批", "待财务审核", "待付款", "已付款", "已退回", "已撤回"].indexOf(x.status)}">${x.status}</span>${x.approval && ["待主管审批", "待财务审核", "待付款"].includes(x.status) ? `<small>待 ${esc((x.approval.nodes[x.approval.cursor] || x.approval.nodes.at(-1)).actorName)} 处理</small>` : ""}</td><td><span class="${flags(x).length ? "risk" : "safe"}">${flags(x).length ? "⚑ " + flags(x).length + " 项待核查" : "✓ 未发现风险"}</span></td><td><button class="link" data-detail="${esc(x.id)}">查看 →</button></td></tr>`,
+                                  )
+                                  .join("") ||
+                                '<tr><td colspan="7" class="empty">暂无符合条件的报销记录</td></tr>'
+                              }</tbody></table></div><div class="table-footer">共 ${visible().length} 条记录<span>所有金额均为人民币 CNY</span></div></section><div class="footnote">ⓘ 演示使用虚构人员与票据；预审为规则计算，未接入大模型、发票验真或银行付款。</div>`
 }</main><footer>轻报 QINGBAO <span>让费用管理回归简单</span><button id="reset">重置演示数据</button></footer></div><div id="overlay"></div>`;
   bind();
 }
@@ -317,6 +438,11 @@ function insights() {
     )}<h3>流程分布</h3><div class="flow">${["待主管审批", "待财务审核", "待付款", "已付款", "已退回", "已撤回"].map((s) => `<div><h2>${items.filter((x) => x.status === s).length}</h2>${s}</div>`).join("")}</div></section>`;
 }
 function bind() {
+  bindConfiguration();
+  document.querySelector("#actor").onchange = (e) => {
+    actorId = e.target.value;
+    render();
+  };
   bindRequests();
   bindMore();
   bindExpenses();
@@ -345,6 +471,11 @@ function bind() {
   document.querySelector("#create").onclick = () => form();
   document.querySelector("#reset").onclick = () => {
     if (confirm("重置后将清除当前浏览器中的演示修改，是否继续？")) {
+      configuration = { org: defaultOrg(), flows: defaultFlows() };
+      configHealthy = true;
+      saveConfiguration(configuration);
+      flowDraft = structuredClone(configuration.flows);
+      localStorage.setItem("qingbao-flow-draft-v1", JSON.stringify(flowDraft));
       requests = [];
       requestStoreHealthy = true;
       saveRequests();
@@ -451,11 +582,9 @@ function detail(id) {
   selected = items.find((x) => x.id === id);
   const x = selected;
   const f = flags(x);
-  const can =
-    (role === "主管" && x.status === "待主管审批") ||
-    (role === "财务" && ["待财务审核", "待付款"].includes(x.status));
+  const can = canHandleExpense(x);
   modal(
-    `<div class="modal-title"><div><small>${esc(x.id)}</small><h2>${esc(x.name)}</h2></div><button data-close aria-label="关闭">✕</button></div><div class="detail-amount">${money(x.amount)} <span class="badge">${x.status}</span></div><div class="detail-grid"><p>申请人<b>${esc(x.employee)} · ${esc(x.department)}</b></p><p>费用类型<b>${esc(x.type)}</b></p><p>发票号码<b>${esc(x.invoice || "未填写")}</b></p><p>附件（仅记录名称）<b>${esc(x.receipt || "未提供")}</b></p></div><p>${esc(x.note)}</p><div class="review-box"><h3>✧ 预审说明 · 规则计算</h3>${f.length ? f.map((s) => `<p class="risk">⚑ ${s}</p>`).join("") : '<p class="safe">✓ 未发现超标、缺失附件或重复号码风险</p>'}<small>未进行票据真伪验证；提示不替代人工审核。</small></div>${x.payment ? `<div class="review-box payment-summary"><h3>付款登记信息</h3><p>方式：${esc(x.payment.method)} · 日期：${esc(x.payment.date)}</p><p>参考号：${esc(x.payment.reference)}</p><small>仅作模拟登记，未连接银行或执行转账。</small></div>` : x.status === "已付款" ? '<p class="footnote">历史演示记录未提供付款参考号。</p>' : ""}${x.ocr ? '<p class="footnote">曾使用浏览器 OCR 辅助并由员工核对，识别不代表发票真实或字段准确。</p>' : ""}${x.requestId ? `<div class="review-box"><h3>关联费用申请</h3><p>${esc(requests.find((r) => r.id === x.requestId)?.name || x.requestId)}</p><small>提交时占用申请额度，付款后转为实际支出；未核销余额仍预留。</small></div>` : ""}<h3>流转记录</h3><div class="timeline">${x.history.map((h) => `<p>${esc(h.text)}<small>${esc(h.time)}</small></p>`).join("")}</div>${role === "员工" && x.employee === "林晓" && x.status === "待主管审批" ? '<div class="review-box"><label>撤回原因<textarea id="withdraw-reason" maxlength="200" placeholder="如金额填写有误，需要修改"></textarea></label><button id="withdraw">撤回并修改</button><p>仅主管审批前可撤回，之后需由审核人退回。</p></div>' : ""}${can ? `${x.status === "待付款" ? paymentFields() : ""}<label>处理备注<textarea id="reason" placeholder="退回时必须填写原因"></textarea></label><div class="actions"><button id="reject">退回修改</button><button class="primary" id="approve">${x.status === "待付款" ? "登记付款" : "审核通过"}</button></div>` : role === "员工" && x.employee === "林晓" && ["已退回", "草稿", "已撤回"].includes(x.status) ? `<button class="primary" id="edit">${x.status === "草稿" ? "继续填写草稿" : "修改并重新提交"}</button>` : '<p class="footnote">切换对应角色，在可处理的阶段执行操作。</p>'}`,
+    `<div class="modal-title"><div><small>${esc(x.id)}</small><h2>${esc(x.name)}</h2></div><button data-close aria-label="关闭">✕</button></div><div class="detail-amount">${money(x.amount)} <span class="badge">${x.status}</span></div><div class="detail-grid"><p>申请人<b>${esc(x.employee)} · ${esc(x.department)}</b></p><p>费用类型<b>${esc(x.type)}</b></p><p>发票号码<b>${esc(x.invoice || "未填写")}</b></p><p>附件（仅记录名称）<b>${esc(x.receipt || "未提供")}</b></p></div><p>${esc(x.note)}</p><div class="review-box"><h3>✧ 预审说明 · 规则计算</h3>${f.length ? f.map((s) => `<p class="risk">⚑ ${s}</p>`).join("") : '<p class="safe">✓ 未发现超标、缺失附件或重复号码风险</p>'}<small>未进行票据真伪验证；提示不替代人工审核。</small></div>${x.payment ? `<div class="review-box payment-summary"><h3>付款登记信息</h3><p>方式：${esc(x.payment.method)} · 日期：${esc(x.payment.date)}</p><p>参考号：${esc(x.payment.reference)}</p><small>仅作模拟登记，未连接银行或执行转账。</small></div>` : x.status === "已付款" ? '<p class="footnote">历史演示记录未提供付款参考号。</p>' : ""}${x.ocr ? '<p class="footnote">曾使用浏览器 OCR 辅助并由员工核对，识别不代表发票真实或字段准确。</p>' : ""}${x.requestId ? `<div class="review-box"><h3>关联费用申请</h3><p>${esc(requests.find((r) => r.id === x.requestId)?.name || x.requestId)}</p><small>提交时占用申请额度，付款后转为实际支出；未核销余额仍预留。</small></div>` : ""}${approvalTimeline(x)}<h3>流转记录</h3><div class="timeline">${x.history.map((h) => `<p>${esc(h.text)}<small>${esc(h.time)}</small></p>`).join("")}</div>${role === "员工" && x.employee === currentEmployee() && x.status === "待主管审批" && (x.approval?.cursor || 0) === 0 ? '<div class="review-box"><label>撤回原因<textarea id="withdraw-reason" maxlength="200" placeholder="如金额填写有误，需要修改"></textarea></label><button id="withdraw">撤回并修改</button><p>仅主管审批前可撤回，之后需由审核人退回。</p></div>' : ""}${can ? `${x.status === "待付款" ? paymentFields() : ""}<label>处理备注<textarea id="reason" placeholder="退回时必须填写原因"></textarea></label><div class="actions"><button id="reject">退回修改</button><button class="primary" id="approve">${x.status === "待付款" ? "登记付款" : "审核通过"}</button></div>` : role === "员工" && x.employee === currentEmployee() && ["已退回", "草稿", "已撤回"].includes(x.status) ? `<button class="primary" id="edit">${x.status === "草稿" ? "继续填写草稿" : "修改并重新提交"}</button>` : '<p class="footnote">切换到审批路径中指定的角色和具体人员后处理。</p>'}`,
   );
   if (can) {
     document.querySelector("#reject").onclick = () => act("reject");
@@ -465,7 +594,7 @@ function detail(id) {
   document.querySelector("#withdraw")?.addEventListener("click", () => {
     try {
       const reason = document.querySelector("#withdraw-reason").value;
-      const next = withdraw(x, "林晓", reason);
+      const next = withdraw(x, currentEmployee(), reason);
       items[items.findIndex((i) => i.id === x.id)] = next;
       record("撤回报销", x.id, reason);
       save();
@@ -492,6 +621,7 @@ function act(action) {
             confirmed: document.querySelector("#payment-confirm").checked,
           }
         : null,
+      currentActor(),
     );
     record(
       action === "reject"
@@ -522,7 +652,7 @@ function form(existing) {
     return;
   }
   modal(
-    `<div class="modal-title"><h2>${existing ? "编辑报销" : "新建报销"}</h2><button data-close aria-label="关闭">✕</button></div><p class="muted">申请人：林晓 · 销售部</p><form id="expense-form"><label>报销事项<input name="name" maxlength="60" required value="${esc(existing?.name || "")}" placeholder="例如：上海客户拜访差旅"></label><div class="form-grid"><label>费用类型<select name="type">${["差旅交通", "业务招待", "办公采购", "其他费用"].map((t) => `<option ${existing?.type === t ? "selected" : ""}>${t}</option>`).join("")}</select></label><label>金额（元）<input name="amount" type="number" min="0.01" max="1000000" step="0.01" required value="${existing?.amount || ""}"></label></div><label>发票号码<input name="invoice" maxlength="40" value="${esc(existing?.invoice || "")}" placeholder="用于重复报销检测"></label><label>票据附件<input name="receipt" type="file" accept=".pdf,.png,.jpg,.jpeg,.webp"><small>图片可在浏览器中识别，不上传原图；保存时仅记录文件名。${existing?.receipt ? "当前：" + esc(existing.receipt) : ""}</small></label>${requestOptions(requests, items, existing, new Date().toLocaleDateString("sv-SE"))}${ocrPanel()}${existing?.receipt ? '<label class="check-line"><input type="checkbox" name="removeReceipt">移除当前附件名称</label>' : ""}<label>业务说明<textarea name="note" maxlength="500" required placeholder="说明费用用途">${esc(existing?.note || "")}</textarea></label><div id="form-review" class="review-box"></div><div class="actions"><button type="button" id="draft">保存草稿</button><button type="submit" class="primary">提交报销 →</button></div></form>`,
+    `<div class="modal-title"><h2>${existing ? "编辑报销" : "新建报销"}</h2><button data-close aria-label="关闭">✕</button></div><p class="muted">申请人：${esc(currentEmployee())} · ${esc(currentDepartment())}</p><form id="expense-form"><label>报销事项<input name="name" maxlength="60" required value="${esc(existing?.name || "")}" placeholder="例如：上海客户拜访差旅"></label><div class="form-grid"><label>费用类型<select name="type">${["差旅交通", "业务招待", "办公采购", "其他费用"].map((t) => `<option ${existing?.type === t ? "selected" : ""}>${t}</option>`).join("")}</select></label><label>金额（元）<input name="amount" type="number" min="0.01" max="1000000" step="0.01" required value="${existing?.amount || ""}"></label></div><label>发票号码<input name="invoice" maxlength="40" value="${esc(existing?.invoice || "")}" placeholder="用于重复报销检测"></label><label>票据附件<input name="receipt" type="file" accept=".pdf,.png,.jpg,.jpeg,.webp"><small>图片可在浏览器中识别，不上传原图；保存时仅记录文件名。${existing?.receipt ? "当前：" + esc(existing.receipt) : ""}</small></label>${requestOptions(requests, items, existing, new Date().toLocaleDateString("sv-SE"), currentEmployee())}${ocrPanel()}${existing?.receipt ? '<label class="check-line"><input type="checkbox" name="removeReceipt">移除当前附件名称</label>' : ""}<label>业务说明<textarea name="note" maxlength="500" required placeholder="说明费用用途">${esc(existing?.note || "")}</textarea></label><div id="form-review" class="review-box"></div><div class="actions"><button type="button" id="draft">保存草稿</button><button type="submit" class="primary">提交报销 →</button></div></form>`,
   );
   const formEl = document.querySelector("#expense-form");
   const collect = () => {
@@ -538,8 +668,8 @@ function form(existing) {
         (d.get("removeReceipt") ? "" : existing?.receipt) ||
         "",
       note: d.get("note").trim(),
-      employee: "林晓",
-      department: "销售部",
+      employee: currentEmployee(),
+      department: currentDepartment(),
       date: existing?.date || new Date().toLocaleDateString("sv-SE"),
       status: "待主管审批",
       history: existing?.history || [],
@@ -605,6 +735,16 @@ function form(existing) {
     x.status = draft ? "草稿" : "待主管审批";
     try {
       assertClaimLink(x, requests, items);
+      if (!draft) {
+        if (!configHealthy) throw Error("组织/流程存储异常，请先恢复有效配置");
+        x.approval = compileApproval(
+          x,
+          "expense",
+          configuration.org,
+          configuration.flows,
+        );
+        x.status = approvalStatus(x.approval);
+      }
     } catch (e) {
       return toast(e.message);
     }
@@ -644,7 +784,7 @@ render();
 
 function budgetView() {
   const rows = budgetRows(items, budgets, budgetMonth, requests);
-  return `<section class="panel prose"><div class="budget-heading"><div><h2>预算有边界，支出有依据</h2><p>部门月度额度 · 已付款 + 在途占用 = 已使用预算</p></div><label>查看月份 <input type="month" id="budget-month" value="${budgetMonth}"></label></div><div class="budget-cards">${rows.map((x) => `<article class="budget-card"><div class="budget-card-title"><h3>${esc(x.department)}</h3><span class="badge ${x.ratio >= 1 ? "s4" : x.ratio >= 0.8 ? "s0" : "s3"}">${x.ratio >= 1 ? "预算已耗尽" : x.ratio >= 0.8 ? "接近额度" : "额度充足"}</span></div><p>月度预算 <b>${money(x.limit)}</b></p><div class="budget-total">${money(x.paid + x.reserved)}<small>已使用 · ${(x.ratio * 100).toFixed(1)}%</small></div><div class="budget-bar"><span style="width:${Math.min(100, x.ratio * 100)}%;background:${x.ratio >= 1 ? "#dd8173" : x.ratio >= 0.8 ? "#e3ad55" : "#6c85e4"}"></span></div><dl><div><dt>已付款</dt><dd>${money(x.paid)}</dd></div><div><dt>报销在途</dt><dd>${money(x.reimbursementReserved)}</dd></div><div><dt>申请剩余预留</dt><dd>${money(x.applicationReserved)}</dd></div><div><dt>${x.available < 0 ? "超出额度" : "可用余额"}</dt><dd class="${x.available < 0 ? "risk" : ""}">${money(Math.abs(x.available))}</dd></div></dl>${role === "财务" ? `<button data-budget="${esc(x.department)}">调整预算额度</button>` : '<small class="muted">切换财务角色可调整额度</small>'}</article>`).join("")}</div><div class="review-box"><h3>预算口径说明</h3>已批准申请按申请月份预留未核销余额，关联报销不重复占用；结束申请释放余额。按报销提交日期归属月份；待审批、待审核和待付款计入在途占用，已付款计入实际支出，退回单释放占用，重提后重新占用。当前额度为各月份共用的演示标准，调整会影响所有月份。预算为软预警，不阻止提交或审批，也未按部门外的费用类型细分。</div></section>`;
+  return `<section class="panel prose"><div class="budget-heading"><div><h2>预算有边界，支出有依据</h2><p>部门月度额度 · 已付款 + 在途占用 = 已使用预算</p></div><label>查看月份 <input type="month" id="budget-month" value="${budgetMonth}"></label></div><div class="budget-cards">${rows.map((x) => `<article class="budget-card"><div class="budget-card-title"><h3>${esc(x.department)}</h3><span class="badge ${x.ratio >= 1 ? "s4" : x.ratio >= 0.8 ? "s0" : "s3"}">${!x.limit ? "未设置额度" : x.ratio >= 1 ? "预算已耗尽" : x.ratio >= 0.8 ? "接近额度" : "额度充足"}</span></div><p>月度预算 <b>${money(x.limit)}</b></p><div class="budget-total">${money(x.paid + x.reserved)}<small>已使用 · ${(x.ratio * 100).toFixed(1)}%</small></div><div class="budget-bar"><span style="width:${Math.min(100, x.ratio * 100)}%;background:${x.ratio >= 1 ? "#dd8173" : x.ratio >= 0.8 ? "#e3ad55" : "#6c85e4"}"></span></div><dl><div><dt>已付款</dt><dd>${money(x.paid)}</dd></div><div><dt>报销在途</dt><dd>${money(x.reimbursementReserved)}</dd></div><div><dt>申请剩余预留</dt><dd>${money(x.applicationReserved)}</dd></div><div><dt>${x.available < 0 ? "超出额度" : "可用余额"}</dt><dd class="${x.available < 0 ? "risk" : ""}">${money(Math.abs(x.available))}</dd></div></dl>${role === "财务" ? `<button data-budget="${esc(x.department)}">调整预算额度</button>` : '<small class="muted">切换财务角色可调整额度</small>'}</article>`).join("")}</div><div class="review-box"><h3>预算口径说明</h3>已批准申请按申请月份预留未核销余额，关联报销不重复占用；结束申请释放余额。按报销提交日期归属月份；待审批、待审核和待付款计入在途占用，已付款计入实际支出，退回单释放占用，重提后重新占用。当前额度为各月份共用的演示标准，调整会影响所有月份。预算为软预警，不阻止提交或审批，也未按部门外的费用类型细分。</div></section>`;
 }
 function editBudget(department) {
   if (role !== "财务") return;
@@ -691,7 +831,7 @@ function auditView() {
   return `<section class="panel"><div class="panel-title"><div><h3>操作记录</h3><span>记录本浏览器中的关键业务动作 · 最新在前 · 最多 1000 条</span></div><span class="badge">${audit.length} 条</span></div><div class="table-wrap"><table><thead><tr><th>时间</th><th>角色</th><th>动作</th><th>对象</th><th>说明</th></tr></thead><tbody>${audit.map((x) => `<tr><td>${esc(x.time)}</td><td>${esc(x.actor)}</td><td>${esc(x.action)}</td><td>${esc(x.target)}</td><td class="wrap-cell">${esc(x.note || "—")}</td></tr>`).join("") || '<tr><td colspan="5" class="empty">暂无记录，创建报销或调整规则后会显示在这里</td></tr>'}</tbody></table></div>${legacy.length ? `<div class="prose"><h3>早期预算调整记录</h3>${legacy.map((x) => `<p>${esc(x.time)} · ${esc(x.department)} · ${money(x.limit)} · ${esc(x.reason)}</p>`).join("")}</div>` : ""}<div class="footnote prose">演示记录保存在浏览器，可随备份迁移；不具备服务端防篡改审计能力。早期报销记录请查看各单据的流转记录。</div></section>`;
 }
 function dataView() {
-  return `<section class="panel prose"><div class="section-intro"><span class="section-mark">⇅</span><div><h2>让演示数据，随作品一起迁移</h2><p>无需真实财务资料。备份用于更换浏览器、设备或演示前留档。</p></div></div><div class="data-cards"><article><h3>导出完整备份</h3><p>包含报销、费用申请、规则、部门预算及操作记录，JSON 格式。角色为演示身份，导出不代表真实数据权限。</p><button id="backup" class="primary">下载数据备份</button></article><article><h3>导入已有备份</h3><p>校验格式后替换当前数据。建议先导出；浏览器会要求你确认覆盖。</p><label>选择轻报 JSON 备份<input id="restore" type="file" accept=".json,application/json"></label></article></div><div class="review-box"><h3>使用范围</h3>所有记录仅在当前浏览器中存储，清理浏览器数据会丢失。不同设备不会同步。本原型不是生产财务系统，请使用虚构票据。</div><h3>面试演示路线</h3><div class="demo-steps"><div><b>01</b><h3>完成一笔报销</h3><p>员工创建 → 主管通过 → 财务审核 → 付款登记。</p></div><div><b>02</b><h3>处理一笔异常</h3><p>发现重复票据 → 退回 → 员工修正 → 重提审批。</p></div><div><b>03</b><h3>解释产品决策</h3><p>调整预算查看预警，配置规则观察变化，在操作记录追踪动作。</p></div></div></section>`;
+  return `<section class="panel prose"><div class="section-intro"><span class="section-mark">⇅</span><div><h2>让演示数据，随作品一起迁移</h2><p>无需真实财务资料。备份用于更换浏览器、设备或演示前留档。</p></div></div><div class="data-cards"><article><h3>导出完整备份</h3><p>包含报销、费用申请、组织架构、已发布审批流程、规则、部门预算及操作记录，JSON 格式。角色为演示身份，导出不代表真实数据权限。</p><button id="backup" class="primary">下载数据备份</button></article><article><h3>导入已有备份</h3><p>校验格式后替换当前数据。建议先导出；浏览器会要求你确认覆盖。</p><label>选择轻报 JSON 备份<input id="restore" type="file" accept=".json,application/json"></label></article></div><div class="review-box"><h3>使用范围</h3>所有记录仅在当前浏览器中存储，清理浏览器数据会丢失。不同设备不会同步。本原型不是生产财务系统，请使用虚构票据。</div><h3>面试演示路线</h3><div class="demo-steps"><div><b>01</b><h3>完成一笔报销</h3><p>员工创建 → 主管通过 → 财务审核 → 付款登记。</p></div><div><b>02</b><h3>处理一笔异常</h3><p>发现重复票据 → 退回 → 员工修正 → 重提审批。</p></div><div><b>03</b><h3>解释产品决策</h3><p>调整预算查看预警，配置规则观察变化，在操作记录追踪动作。</p></div></div></section>`;
 }
 function downloadFile(content, name, type) {
   const blob = new Blob([content], { type });
@@ -747,12 +887,15 @@ function bindMore() {
     }
   });
   document.querySelector("#backup")?.addEventListener("click", () => {
+    if (!configHealthy)
+      return toast("组织/流程存储无法读取，不能导出完整备份；原始数据未改动");
     if (!requestStoreHealthy)
       return toast("费用申请存储无法读取，不能导出完整备份；原始数据未改动");
     const backup = {
       format: "qingbao-backup",
       version: 1,
       exportedAt: new Date().toISOString(),
+      configuration,
       requests,
       items,
       budgets,
@@ -777,22 +920,50 @@ function bindMore() {
         throw new Error(
           "旧备份未包含申请，不能覆盖无法读取的原申请数据；请使用包含申请的有效备份",
         );
+      if (data.configuration === undefined && !configHealthy)
+        throw Error("旧备份未包含组织和流程，不能覆盖未知配置");
+      const nextConfiguration = data.configuration || configuration;
+      validateFlows(nextConfiguration.flows, nextConfiguration.org);
+      assertOrgChange(nextConfiguration.org, nextConfiguration.org, [
+        ...data.items,
+        ...(data.requests || requests),
+      ]);
       const nextRequests =
         data.requests === undefined ? requests : data.requests;
+      if (
+        nextRequests.some(
+          (r) =>
+            !nextConfiguration.org.departments.some(
+              (d) => d.name === r.department,
+            ),
+        )
+      )
+        throw Error("恢复的组织缺少保留申请所属部门，请使用包含完整组织的备份");
       validateRequestSet(nextRequests, data.items);
       if (
         !confirm(
-          `将使用备份中的 ${data.items.length} 笔报销替换当前数据。${data.requests === undefined ? "旧备份不含申请，保留现有费用申请" : `同时替换为 ${nextRequests.length} 笔费用申请`}，继续吗？`,
+          `将使用备份中的 ${data.items.length} 笔报销替换当前数据。${data.requests === undefined ? "旧备份不含申请，保留现有费用申请" : `同时替换为 ${nextRequests.length} 笔费用申请`}；${data.configuration ? "同时恢复组织和已发布流程" : "不含组织/流程，保留现有配置"}，继续吗？`,
         )
       ) {
         input.value = "";
         return;
       }
+      localStorage.setItem(
+        "qingbao-configuration-v1",
+        JSON.stringify(nextConfiguration),
+      );
+      configuration = nextConfiguration;
+      configHealthy = true;
       requests = nextRequests;
       requestStoreHealthy = true;
       saveRequests();
       items = data.items;
-      budgets = data.budgets;
+      budgets = { ...data.budgets };
+      for (const d of configuration.org.departments)
+        if (d.parentId !== null && budgets[d.name] === undefined)
+          budgets[d.name] = 0;
+      flowDraft = structuredClone(configuration.flows);
+      localStorage.setItem("qingbao-flow-draft-v1", JSON.stringify(flowDraft));
       policy = data.policy;
       audit = data.audit;
       save();
@@ -814,7 +985,7 @@ function paymentFields() {
   return `<div class="review-box"><h3>登记线下付款</h3><div class="form-grid"><label>付款日期<input type="date" id="payment-date" value="${new Date().toLocaleDateString("sv-SE")}"></label><label>付款方式<select id="payment-method"><option>银行转账</option><option>其他线下付款</option></select></label></div><label>付款参考号<input id="payment-reference" maxlength="60" placeholder="例如 DEMO-202610-001（仅演示）"></label><label class="check-line"><input id="payment-confirm" type="checkbox">确认仅登记模拟记录，不会实际转账</label></div>`;
 }
 function matchingInvoices() {
-  return invoiceRows(items, role === "员工" ? "林晓" : null).filter(
+  return invoiceRows(items, role === "员工" ? currentEmployee() : null).filter(
     (x) =>
       (invoiceFilter === "全部" || x.duplicate) &&
       [x.invoice, x.receipt, x.employee, x.name]
@@ -824,10 +995,10 @@ function matchingInvoices() {
 }
 function invoiceView() {
   const rows = matchingInvoices();
-  return `<section class="panel"><div class="panel-title"><div><h3>发票与报销，一处追踪</h3><span>关联报销票据索引 · 不存储原文件、不验证发票真伪</span></div><button id="invoice-export">↓ 导出台账</button></div><div class="toolbar"><div class="tabs">${["全部", "重复号码"].map((t) => `<button data-invoice-filter="${t}" class="${invoiceFilter === t ? "chosen" : ""}">${t}</button>`).join("")}</div><input id="invoice-search" aria-label="搜索发票台账" value="${esc(invoiceQuery)}" placeholder="搜索号码、附件、姓名或事项"></div><div class="table-wrap"><table><thead><tr><th>发票号码 / 附件名称</th><th>关联报销</th><th>申请人</th><th class="amount">关联报销金额</th><th>报销状态</th><th>号码检查</th><th>操作</th></tr></thead><tbody>${rows.map((x) => `<tr><td><strong>${esc(x.invoice || "未填写号码")}</strong><small>${esc(x.receipt || "未提供附件")}</small></td><td><strong>${esc(x.name)}</strong><small>${esc(x.id)}</small></td><td>${esc(x.employee)}</td><td class="amount">${money(x.amount)}</td><td><span class="badge">${x.status}</span></td><td><span class="${x.duplicate ? "risk" : "safe"}">${x.duplicate ? "⚑ 疑似重复" : !x.invoice ? "未填写号码" : ["已退回", "已撤回"].includes(x.status) ? "不参与查重" : "✓ 未发现重复"}</span></td><td><button class="link" data-detail="${esc(x.id)}">查看报销 →</button></td></tr>`).join("") || '<tr><td colspan="7" class="empty">没有符合条件的关联票据</td></tr>'}</tbody></table></div><div class="table-footer">共 ${rows.length} 条关联记录<span>金额为报销金额，并非独立票面金额</span></div><p class="footnote prose">同一号码的有效报销将同时标记。草稿不展示；退回、撤回单保留索引，但不占用号码。预审规则关闭查重后，此台账仍展示号码重复情况，供人工核对。</p></section>`;
+  return `<section class="panel"><div class="panel-title"><div><h3>发票与报销，一处追踪</h3><span>关联报销票据索引 · 不存储原文件、不验证发票真伪</span></div><button id="invoice-export">↓ 导出台账</button></div><div class="toolbar"><div class="tabs">${["全部", "重复号码"].map((t) => `<button data-invoice-filter="${t}" class="${invoiceFilter === t ? "chosen" : ""}">${t}</button>`).join("")}</div><input id="invoice-search" aria-label="搜索发票台账" value="${esc(invoiceQuery)}" placeholder="搜索号码、附件、姓名或事项"></div><div class="table-wrap"><table><thead><tr><th>发票号码 / 附件名称</th><th>关联报销</th><th>申请人</th><th class="amount">关联报销金额</th><th>报销状态</th><th>号码检查</th><th>操作</th></tr></thead><tbody>${rows.map((x) => `<tr><td><strong>${esc(x.invoice || "未填写号码")}</strong><small>${esc(x.receipt || "未提供附件")}</small></td><td><strong>${esc(x.name)}</strong><small>${esc(x.id)}</small></td><td>${esc(x.employee)}</td><td class="amount">${money(x.amount)}</td><td><span class="badge">${x.status}</span>${x.approval && ["待主管审批", "待财务审核", "待付款"].includes(x.status) ? `<small>待 ${esc((x.approval.nodes[x.approval.cursor] || x.approval.nodes.at(-1)).actorName)} 处理</small>` : ""}</td><td><span class="${x.duplicate ? "risk" : "safe"}">${x.duplicate ? "⚑ 疑似重复" : !x.invoice ? "未填写号码" : ["已退回", "已撤回"].includes(x.status) ? "不参与查重" : "✓ 未发现重复"}</span></td><td><button class="link" data-detail="${esc(x.id)}">查看报销 →</button></td></tr>`).join("") || '<tr><td colspan="7" class="empty">没有符合条件的关联票据</td></tr>'}</tbody></table></div><div class="table-footer">共 ${rows.length} 条关联记录<span>金额为报销金额，并非独立票面金额</span></div><p class="footnote prose">同一号码的有效报销将同时标记。草稿不展示；退回、撤回单保留索引，但不占用号码。预审规则关闭查重后，此台账仍展示号码重复情况，供人工核对。</p></section>`;
 }
 function guideView() {
-  return `<section class="panel prose"><div class="section-intro"><span class="section-mark">▷</span><div><h2>五分钟，讲清一个产品闭环</h2><p>按场景操作，展示问题、方案与取舍。所有样例均为虚构数据。</p></div></div><div class="guide-grid">${[
+  return `<section class="panel prose"><div class="section-intro"><span class="section-mark">▷</span><div><h2>按场景，讲清产品设计与闭环</h2><p>按场景操作，展示问题、方案与取舍。所有样例均为虚构数据。</p></div></div><div class="guide-grid">${[
     [
       "01",
       "员工提交与纠错",
@@ -863,6 +1034,24 @@ function guideView() {
       "规则配置",
       "调整单笔上限并填写原因，到操作记录查看变化。用数据管理导出备份，保留演示现场。",
       "设计理由：配置要可追踪；当前仍需验证真实用户理解程度，不能把测试通过说成业务效果提升。",
+    ],
+    [
+      "05",
+      "组织与审批树",
+      "验证配置和在途流程的关系",
+      "管理员",
+      "审批流程",
+      "查看组织架构中的部门树和汇报树；回到审批流程，用林晓、4000 元试算路径，观察赵航 → 许明 → 周宁。修改条件后先存草稿，再填写原因发布。",
+      "设计理由：按人员而非只有角色授权，提交时保留流程快照，避免组织变化打乱在途单据。",
+    ],
+    [
+      "06",
+      "事前申请与多级审批",
+      "演示费用计划如何预留预算",
+      "员工",
+      "费用申请",
+      "林晓提交 4000 元申请，主管身份依次选择赵航、许明通过；批准后查看预算预留，再关联报销并结束计划。当前流程修改过时先用试算确认审批人。",
+      "设计理由：最后一位审批人通过后才批准并预留；申请额度硬校验，部门预算保持软预警。",
     ],
   ]
     .map(
@@ -947,7 +1136,7 @@ function newRequest() {
   if (!requestStoreHealthy)
     return toast("费用申请存储无法读取，原数据未改动，请恢复有效备份");
   modal(
-    `<div class="modal-title"><h2>新建费用申请</h2><button data-close aria-label="关闭">✕</button></div><p class="muted">林晓 · 销售部 · 尚未批准前不占用预算</p><form id="request-form"><label>申请事项<input name="name" maxlength="60" required placeholder="例如：华东客户拜访"></label><div class="form-grid"><label>计划月份<input type="month" name="month" required value="${new Date().toLocaleDateString("sv-SE").slice(0, 7)}"></label><label>申请额度（元）<input type="number" name="amount" min="0.01" max="1000000" step="0.01" required></label></div><label>费用类型<select name="type">${["差旅交通", "业务招待", "办公采购", "其他费用"].map((t) => `<option>${t}</option>`).join("")}</select></label><label>用途说明<textarea name="note" required maxlength="500" placeholder="说明业务必要性、预计费用和使用范围"></textarea></label><div class="actions"><button type="submit" class="primary">提交申请</button></div></form>`,
+    `<div class="modal-title"><h2>新建费用申请</h2><button data-close aria-label="关闭">✕</button></div><p class="muted">${esc(currentEmployee())} · ${esc(currentDepartment())} · 尚未批准前不占用预算</p><form id="request-form"><label>申请事项<input name="name" maxlength="60" required placeholder="例如：华东客户拜访"></label><div class="form-grid"><label>计划月份<input type="month" name="month" required value="${new Date().toLocaleDateString("sv-SE").slice(0, 7)}"></label><label>申请额度（元）<input type="number" name="amount" min="0.01" max="1000000" step="0.01" required></label></div><label>费用类型<select name="type">${["差旅交通", "业务招待", "办公采购", "其他费用"].map((t) => `<option>${t}</option>`).join("")}</select></label><label>用途说明<textarea name="note" required maxlength="500" placeholder="说明业务必要性、预计费用和使用范围"></textarea></label><div class="actions"><button type="submit" class="primary">提交申请</button></div></form>`,
   );
   const f = document.querySelector("#request-form");
   f.addEventListener("input", () => (f.dataset.dirty = "true"));
@@ -962,8 +1151,8 @@ function newRequest() {
         amount: Number(d.get("amount")),
         type: d.get("type"),
         note: d.get("note").trim(),
-        employee: "林晓",
-        department: "销售部",
+        employee: currentEmployee(),
+        department: currentDepartment(),
         status: "待审批",
         history: [
           {
@@ -972,6 +1161,13 @@ function newRequest() {
           },
         ],
       });
+      if (!configHealthy) throw Error("组织/流程存储异常，请先恢复有效配置");
+      r.approval = compileApproval(
+        r,
+        "request",
+        configuration.org,
+        configuration.flows,
+      );
       if (requests.length >= 1000) throw Error("费用申请已达 1000 条上限");
       saveRequests([r, ...requests]);
       record("提交费用申请", r.id, r.name);
@@ -987,18 +1183,20 @@ function requestDetail(id) {
   if (!r) return;
   const departmentBudget = budgetRows(items, budgets, r.month, requests).find(
     (b) => b.department === r.department,
-  );
+  ) || { limit: 0, available: 0 };
   const approvalAvailable =
     departmentBudget.available - (r.status === "待审批" ? r.amount : 0);
   const b = requestBalance(r, items),
     linked = items.filter((x) => x.requestId === r.id);
-  const approval = role === "主管" && r.status === "待审批",
+  const approval = r.approval
+      ? canApprove(r, currentActor() || {})
+      : role === "主管" && r.status === "待审批",
     close =
       role === "员工" &&
-      r.employee === "林晓" &&
+      r.employee === currentEmployee() &&
       ["待审批", "已批准"].includes(r.status);
   modal(
-    `<div class="modal-title"><div><small>${esc(r.id)}</small><h2>${esc(r.name)}</h2></div><button data-close aria-label="关闭">✕</button></div><div class="detail-amount">${money(r.amount)} <span class="badge">${r.status}</span></div><p>${esc(r.employee)} · ${esc(r.department)} · ${esc(r.month)} · ${esc(r.type)}</p><p>${esc(r.note)}</p><div class="review-box">已关联 ${money(b.used)} · 剩余额度 ${money(b.remaining)}<p>${r.status === "已批准" ? "余额正在预留预算" : "当前不预留预算"}。${b.unpaid ? "仍有在途报销，不能结束申请。" : "可结束申请并释放尚未使用的余额。"}</p></div><div class="review-box"><h3>部门预算影响</h3><p>月度预算 ${money(departmentBudget.limit)} · 当前可用 ${money(departmentBudget.available)}</p>${r.status === "待审批" ? `<p class="${approvalAvailable < 0 ? "risk" : "safe"}">批准后预计可用 ${money(approvalAvailable)}</p>` : ""}<small>部门预算为软预警，不阻止批准；关联报销不能超过申请本身的批准额度。</small></div><h3>关联报销</h3>${linked.length ? linked.map((x) => `<p>${esc(x.name)} · ${money(x.amount)} · ${x.status}</p>`).join("") : '<p class="muted">暂无关联报销</p>'}<h3>申请流转记录</h3><div class="timeline">${r.history.map((h) => `<p>${esc(h.text)}<small>${esc(h.time)}</small></p>`).join("")}</div>${approval || close ? `<label>处理原因<textarea id="request-reason" maxlength="200" placeholder="驳回或结束时必填"></textarea></label><div class="actions">${approval ? '<button data-request-action="reject">驳回申请</button><button class="primary" data-request-action="approve">批准申请</button>' : '<button data-request-action="close">结束申请并释放余额</button>'}</div>` : '<p class="footnote">审批由主管处理；员工可在无在途报销时结束自己的申请。</p>'}`,
+    `<div class="modal-title"><div><small>${esc(r.id)}</small><h2>${esc(r.name)}</h2></div><button data-close aria-label="关闭">✕</button></div><div class="detail-amount">${money(r.amount)} <span class="badge">${r.status}</span></div><p>${esc(r.employee)} · ${esc(r.department)} · ${esc(r.month)} · ${esc(r.type)}</p><p>${esc(r.note)}</p><div class="review-box">已关联 ${money(b.used)} · 剩余额度 ${money(b.remaining)}<p>${r.status === "已批准" ? "余额正在预留预算" : "当前不预留预算"}。${b.unpaid ? "仍有在途报销，不能结束申请。" : "可结束申请并释放尚未使用的余额。"}</p></div><div class="review-box"><h3>部门预算影响</h3><p>月度预算 ${money(departmentBudget.limit)} · 当前可用 ${money(departmentBudget.available)}</p>${r.status === "待审批" ? `<p class="${approvalAvailable < 0 ? "risk" : "safe"}">批准后预计可用 ${money(approvalAvailable)}</p>` : ""}<small>部门预算为软预警，不阻止批准；关联报销不能超过申请本身的批准额度。</small></div><h3>关联报销</h3>${linked.length ? linked.map((x) => `<p>${esc(x.name)} · ${money(x.amount)} · ${x.status}</p>`).join("") : '<p class="muted">暂无关联报销</p>'}${approvalTimeline(r)}<h3>申请流转记录</h3><div class="timeline">${r.history.map((h) => `<p>${esc(h.text)}<small>${esc(h.time)}</small></p>`).join("")}</div>${approval || close ? `<label>处理原因<textarea id="request-reason" maxlength="200" placeholder="驳回或结束时必填"></textarea></label><div class="actions">${approval ? '<button data-request-action="reject">驳回申请</button><button class="primary" data-request-action="approve">批准申请</button>' : '<button data-request-action="close">结束申请并释放余额</button>'}</div>` : '<p class="footnote">切换至当前节点指定人员才能审批；员工可在无在途报销时结束自己的申请。</p>'}`,
   );
   document.querySelectorAll("[data-request-action]").forEach(
     (button) =>
@@ -1008,9 +1206,10 @@ function requestDetail(id) {
             r,
             button.dataset.requestAction,
             role,
-            "林晓",
+            currentEmployee(),
             items,
             document.querySelector("#request-reason").value,
+            currentActor(),
           );
           saveRequests(requests.map((x) => (x.id === r.id ? next : x)));
           record(
@@ -1025,4 +1224,230 @@ function requestDetail(id) {
         }
       }),
   );
+}
+function bindConfiguration() {
+  const admin = () => {
+    if (role !== "管理员") throw Error("只有管理员可修改组织与流程");
+    if (!configHealthy)
+      throw Error("配置存储异常，原数据未改动，请恢复有效备份");
+  };
+  const updateOrg = (next) => {
+    admin();
+    assertOrgChange(configuration.org, next, [...items, ...requests]);
+    const nextConfiguration = { ...configuration, org: next };
+    validateFlows(nextConfiguration.flows, next);
+    const newBudgets = { ...budgets };
+    for (const d of next.departments)
+      if (d.parentId !== null && newBudgets[d.name] === undefined)
+        newBudgets[d.name] = 0;
+    saveConfiguration(nextConfiguration);
+    budgets = newBudgets;
+    localStorage.setItem("qingbao-budgets", JSON.stringify(budgets));
+    record("调整组织架构", "组织配置", "保留历史名称与在途审批快照");
+    render();
+    toast("组织已保存，后续提交按新组织解析");
+  };
+  const editPerson = (id) => {
+    try {
+      admin();
+      const old = configuration.org.people.find((p) => p.id === id);
+      modal(personForm(configuration.org, id));
+      const form = document.querySelector("#person-form");
+      form.addEventListener("input", () => (form.dataset.dirty = "true"));
+      form.onsubmit = (e) => {
+        e.preventDefault();
+        try {
+          const d = new FormData(form),
+            p = {
+              id: old?.id || "P" + crypto.randomUUID(),
+              name: old?.name || d.get("name").trim(),
+              departmentId: d.get("departmentId"),
+              role: d.get("role"),
+              managerId: d.get("managerId") || null,
+              active: d.has("active"),
+            };
+          const next = structuredClone(configuration.org);
+          if (old) next.people[next.people.findIndex((x) => x.id === id)] = p;
+          else next.people.push(p);
+          updateOrg(next);
+        } catch (e) {
+          toast(e.message);
+        }
+      };
+    } catch (e) {
+      toast(e.message);
+    }
+  };
+  const editDepartment = (id) => {
+    try {
+      admin();
+      const old = configuration.org.departments.find((d) => d.id === id);
+      modal(departmentForm(configuration.org, id));
+      const form = document.querySelector("#department-form");
+      form.addEventListener("input", () => (form.dataset.dirty = "true"));
+      form.onsubmit = (e) => {
+        e.preventDefault();
+        try {
+          const d = new FormData(form),
+            department = {
+              id: old?.id || "D" + crypto.randomUUID(),
+              name: old?.name || d.get("name").trim(),
+              parentId: d.get("parentId") || null,
+              headId: d.get("headId") || null,
+            };
+          const next = structuredClone(configuration.org);
+          if (old)
+            next.departments[next.departments.findIndex((x) => x.id === id)] =
+              department;
+          else next.departments.push(department);
+          updateOrg(next);
+        } catch (e) {
+          toast(e.message);
+        }
+      };
+    } catch (e) {
+      toast(e.message);
+    }
+  };
+  document
+    .querySelector("#add-person")
+    ?.addEventListener("click", () => editPerson());
+  document
+    .querySelectorAll("[data-edit-person]")
+    .forEach((b) => (b.onclick = () => editPerson(b.dataset.editPerson)));
+  document
+    .querySelector("#add-department")
+    ?.addEventListener("click", () => editDepartment());
+  document
+    .querySelectorAll("[data-edit-department]")
+    .forEach(
+      (b) => (b.onclick = () => editDepartment(b.dataset.editDepartment)),
+    );
+  document.querySelectorAll("[data-org-mode]").forEach(
+    (b) =>
+      (b.onclick = () => {
+        orgMode = b.dataset.orgMode;
+        render();
+      }),
+  );
+  const form = document.querySelector("#flow-form");
+  const read = () =>
+    form
+      ? collectFlow(form, flowDraft, flowTarget)
+      : structuredClone(flowDraft);
+  document.querySelectorAll("[data-flow-target]").forEach(
+    (b) =>
+      (b.onclick = () => {
+        flowDraft = read();
+        flowTarget = b.dataset.flowTarget;
+        render();
+      }),
+  );
+  if (form) {
+    form.onsubmit = (e) => e.preventDefault();
+    form.addEventListener("input", () => {
+      flowDraft = read();
+    });
+    form.querySelectorAll("[data-selector]").forEach(
+      (select) =>
+        (select.onchange = () => {
+          flowDraft = read();
+          render();
+        }),
+    );
+    document.querySelectorAll("[data-add-node]").forEach(
+      (b) =>
+        (b.onclick = () => {
+          try {
+            admin();
+            const next = read(),
+              branch = next[flowTarget][b.dataset.addNode];
+            if (branch.length >= 4) throw Error("每个分支最多4个顺序审批节点");
+            branch.push({ selector: "manager" });
+            flowDraft = next;
+            render();
+          } catch (e) {
+            toast(e.message);
+          }
+        }),
+    );
+    document.querySelectorAll("[data-remove-node]").forEach(
+      (b) =>
+        (b.onclick = () => {
+          try {
+            admin();
+            const [branch, index] = b.dataset.removeNode.split("-"),
+              next = read();
+            next[flowTarget][branch].splice(Number(index), 1);
+            flowDraft = next;
+            render();
+          } catch (e) {
+            toast(e.message);
+          }
+        }),
+    );
+    document
+      .querySelector("#save-flow-draft")
+      ?.addEventListener("click", () => {
+        try {
+          admin();
+          flowDraft = read();
+          localStorage.setItem(
+            "qingbao-flow-draft-v1",
+            JSON.stringify(flowDraft),
+          );
+          toast("草稿已保存，尚未影响运行中的流程");
+        } catch (e) {
+          toast(e.message);
+        }
+      });
+    document.querySelector("#publish-flow")?.addEventListener("click", () => {
+      try {
+        admin();
+        const reason = form.elements.publishReason.value.trim();
+        if (!reason) throw Error("请填写流程发布原因");
+        const next = read();
+        next.version = configuration.flows.version + 1;
+        validateFlows(next, configuration.org);
+        saveConfiguration({ ...configuration, flows: next });
+        flowDraft = structuredClone(next);
+        localStorage.setItem(
+          "qingbao-flow-draft-v1",
+          JSON.stringify(flowDraft),
+        );
+        record("发布审批流程", "v" + next.version, reason);
+        render();
+        toast("流程校验通过，已发布 v" + next.version + "，在途快照保持不变");
+      } catch (e) {
+        toast(e.message);
+      }
+    });
+  }
+  document.querySelector("#test-route")?.addEventListener("click", () => {
+    const out = document.querySelector("#route-output");
+    try {
+      const person = configuration.org.people.find(
+          (p) => p.id === document.querySelector("#route-applicant").value,
+        ),
+        amount = Number(document.querySelector("#route-amount").value);
+      if (!Number.isFinite(amount) || amount <= 0 || amount > 1000000)
+        throw Error("请输入0～1000000之间的正金额");
+      const a = compileApproval(
+        {
+          employee: person.name,
+          department: configuration.org.departments.find(
+            (d) => d.id === person.departmentId,
+          ).name,
+          amount,
+          type: document.querySelector("#route-type").value,
+        },
+        flowTarget,
+        configuration.org,
+        role === "管理员" ? read() : configuration.flows,
+      );
+      out.innerHTML = `<div class="review-box">${a.branch === "high" ? "条件分支" : "默认分支"}：${a.nodes.map((n) => esc(n.actorName) + "（" + esc(n.label) + "）").join(" → ")} → ${flowTarget === "expense" ? "付款登记" : "申请批准"}</div>`;
+    } catch (e) {
+      out.textContent = "试算未通过：" + e.message;
+    }
+  });
 }

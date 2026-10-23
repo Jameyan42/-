@@ -1,3 +1,4 @@
+import { advanceApproval } from "./approval.js";
 import { defaultPolicy } from "./settings.js";
 import { validatePayment, inactiveStatuses } from "./expenses.js";
 export const stages = ["待主管审批", "待财务审核", "待付款", "已付款"];
@@ -23,8 +24,24 @@ export function review(item, all = [], policy = defaultPolicy) {
     flags.push("发票号码与历史报销重复，请核对");
   return flags;
 }
-export function transition(item, action, role, note = "", payment = null) {
+export function transition(
+  item,
+  action,
+  role,
+  note = "",
+  payment = null,
+  actor = null,
+) {
   if (!["approve", "reject"].includes(action)) throw new Error("未知操作");
+  if (item.approval && item.status !== "待付款")
+    return advanceApproval(item, action, actor || {}, note);
+  if (
+    item.approval &&
+    (!actor ||
+      item.approval.nodes.at(-1).actorId !== actor.id ||
+      item.approval.nodes.at(-1).role !== actor.role)
+  )
+    throw Error("仅快照中的财务人员可登记付款或退回");
   const allowed =
     (role === "主管" && item.status === stages[0]) ||
     (role === "财务" && [stages[1], stages[2]].includes(item.status));

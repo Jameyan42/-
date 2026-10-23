@@ -185,7 +185,7 @@ test("付款必须确认，完成后详情保留参考信息", async ({ page }) 
 });
 test("演示指南切换角色与目标场景，新模块移动端可用", async ({ page }) => {
   await navigate(page, "演示指南");
-  await expect(page.locator(".guide-card")).toHaveCount(4);
+  await expect(page.locator(".guide-card")).toHaveCount(6);
   await page.locator('[data-guide-page="发票台账"]').click();
   await expect(page.locator("#role")).toHaveValue("财务");
   await expect(page.locator("h1")).toHaveText("发票台账");

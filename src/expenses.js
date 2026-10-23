@@ -1,6 +1,10 @@
 export const inactiveStatuses = ["草稿", "已退回", "已撤回"];
 export function withdraw(item, employee, reason) {
-  if (item.employee !== employee || item.status !== "待主管审批")
+  if (
+    item.employee !== employee ||
+    item.status !== "待主管审批" ||
+    (item.approval?.cursor || 0) > 0
+  )
     throw new Error("仅可撤回本人尚未通过主管审批的报销");
   if (
     typeof reason !== "string" ||

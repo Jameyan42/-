@@ -1,3 +1,5 @@
+import { defaultOrg, assertOrgChange } from "./organization.js";
+import { validateFlows, validateSnapshot } from "./approval.js";
 import { validateRequestSet } from "./requests.js";
 import { validatePayment } from "./expenses.js";
 export const defaultPolicy = {
@@ -30,6 +32,11 @@ export function validateBackup(data) {
     data.items.length > 1000
   )
     throw new Error("不是有效的轻报备份文件（最多 1000 笔报销）");
+  const org = data.configuration?.org || defaultOrg();
+  if (data.configuration) {
+    validateFlows(data.configuration.flows, org);
+  }
+  const departments = org.departments.map((d) => d.name);
   const text = (s, max = 500) => typeof s === "string" && s.length <= max;
   const statuses = [
     "草稿",
@@ -50,7 +57,7 @@ export function validateBackup(data) {
       !text(x.name, 60) ||
       !text(x.employee, 30) ||
       !x.employee ||
-      !["销售部", "产品部", "运营部"].includes(x.department) ||
+      !departments.includes(x.department) ||
       !["差旅交通", "业务招待", "办公采购", "其他费用"].includes(x.type) ||
       !Number.isFinite(x.amount) ||
       x.amount < 0 ||
@@ -88,19 +95,28 @@ export function validateBackup(data) {
         x.ocr.fields.some((f) => !["invoice", "amount"].includes(f)))
     )
       throw new Error("OCR 核对记录格式无效");
+    if (x.approval !== undefined) {
+      validateSnapshot(x.approval, x.status, "expense");
+      if (x.status === "已付款" && !x.payment)
+        throw Error("快照单据付款信息缺失");
+    }
     ids.add(x.id);
   }
   if (
     !data.budgets ||
-    Object.keys(data.budgets).length !== 3 ||
-    !["销售部", "产品部", "运营部"].every(
-      (k) =>
-        Number.isFinite(data.budgets[k]) &&
-        data.budgets[k] > 0 &&
-        data.budgets[k] <= 10000000,
+    typeof data.budgets !== "object" ||
+    Array.isArray(data.budgets) ||
+    !Object.keys(data.budgets).length ||
+    Object.keys(data.budgets).length > 50 ||
+    Object.entries(data.budgets).some(
+      ([k, v]) =>
+        !departments.includes(k) ||
+        !Number.isFinite(v) ||
+        v < 0 ||
+        v > 10000000,
     )
   )
-    throw new Error("备份中的预算配置无效");
+    throw Error("备份中的预算配置无效");
   validatePolicy(data.policy);
   if (
     !Array.isArray(data.audit) ||
@@ -108,7 +124,7 @@ export function validateBackup(data) {
     data.audit.some(
       (x) =>
         !x ||
-        !text(x.actor, 30) ||
+        !text(x.actor, 60) ||
         !text(x.action, 60) ||
         !text(x.target, 100) ||
         !text(x.note, 1000) ||
@@ -120,5 +136,12 @@ export function validateBackup(data) {
     data.requests === undefined ? [] : data.requests,
     data.items,
   );
+  for (const r of data.requests || []) {
+    if (!departments.includes(r.department)) throw Error("申请部门不在组织中");
+    if (r.approval !== undefined)
+      validateSnapshot(r.approval, r.status, "request");
+  }
+  if (data.configuration)
+    assertOrgChange(org, org, [...data.items, ...(data.requests || [])]);
   return data;
 }

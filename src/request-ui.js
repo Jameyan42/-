@@ -9,22 +9,30 @@ const esc = (s) =>
   );
 const money = (n) =>
   "¥ " + Number(n).toLocaleString("zh-CN", { minimumFractionDigits: 2 });
-export function requestsView(requests, items, role) {
-  const rows = requests.filter((r) => role !== "员工" || r.employee === "林晓");
+export function requestsView(requests, items, role, employee = "林晓") {
+  const rows = requests.filter(
+    (r) => role !== "员工" || r.employee === employee,
+  );
   return `<section class="panel"><div class="panel-title"><div><h3>先申请，再支出</h3><span>员工提交 → 主管审批 → 预留预算 → 关联报销 → 结束释放余额</span></div><button id="new-request" class="primary">＋ 新建费用申请</button></div><div class="table-wrap"><table><thead><tr><th>事项 / 月份</th><th>申请人</th><th>申请额度</th><th>已关联金额</th><th>剩余额度</th><th>状态</th><th>操作</th></tr></thead><tbody>${
     rows
       .map((r) => {
         const b = requestBalance(r, items);
-        return `<tr><td><strong>${esc(r.name)}</strong><small>${esc(r.month)} · ${esc(r.type)}</small></td><td>${esc(r.employee)}<small>${esc(r.department)}</small></td><td>${money(r.amount)}</td><td>${money(b.used)}</td><td>${money(b.remaining)}<small>${r.status === "已批准" ? "预留中" : "未预留"}</small></td><td><span class="badge">${r.status}</span></td><td><button class="link" data-request="${esc(r.id)}">查看 →</button></td></tr>`;
+        return `<tr><td><strong>${esc(r.name)}</strong><small>${esc(r.month)} · ${esc(r.type)}</small></td><td>${esc(r.employee)}<small>${esc(r.department)}</small></td><td>${money(r.amount)}</td><td>${money(b.used)}</td><td>${money(b.remaining)}<small>${r.status === "已批准" ? "预留中" : "未预留"}</small></td><td><span class="badge">${r.status}</span>${r.approval && r.status === "待审批" ? `<small>待 ${esc(r.approval.nodes[r.approval.cursor]?.actorName || "处理")}</small>` : ""}</td><td><button class="link" data-request="${esc(r.id)}">查看 →</button></td></tr>`;
       })
       .join("") ||
     '<tr><td colspan="7" class="empty">暂无费用申请。切换员工后，可创建第一笔事前申请。</td></tr>'
   }</tbody></table></div><div class="review-box request-notice"><h3>额度与预算口径</h3>只有批准后才预留预算。关联报销占用申请额度，未核销余额继续预留，避免重复计入。退回/撤回释放报销占用并回到申请余额；结束申请才释放未使用预算。仍有在途报销不能结束。只支持同员工、部门、月份和类型；一个申请可分多笔报销，合计不得超过申请额度。部门预算仍为软预警。</div></section>`;
 }
-export function requestOptions(requests, items, existing, today) {
+export function requestOptions(
+  requests,
+  items,
+  existing,
+  today,
+  employee = "林晓",
+) {
   const rows = requests.filter(
     (r) =>
-      r.employee === "林晓" &&
+      r.employee === employee &&
       r.status === "已批准" &&
       r.month === (existing?.date || today).slice(0, 7),
   );

@@ -36,7 +36,7 @@ export function budgetRows(items, limits, month, requests = []) {
       reimbursementReserved,
       applicationReserved,
       available: limit - paid - reserved,
-      ratio: limit ? (paid + reserved) / limit : rows.length ? 1 : 0,
+      ratio: limit ? (paid + reserved) / limit : paid + reserved > 0 ? 1 : 0,
     };
   });
 }
