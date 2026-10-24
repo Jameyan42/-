@@ -849,7 +849,7 @@ ${
   document.querySelector("aside").scrollTop = navigationScroll;
 }
 function about() {
-  return `<section class="panel prose"><h2>用 AI 辅助构建，让产品思考可见</h2><p>轻报面向 200 人成长型企业的费控演示作品，覆盖员工差旅与对公支付两条业务线。产品假设和自动化测试不代表真实用户研究或生产效果。</p><h3>员工费用闭环</h3><p>费用申请与出差行程 → 多项费用明细及酒店水单等附件 → 报销提交 → 具名审批 → 财务审核 → 总账复核 → 模拟付款。管理员先发布财务分工模板，新单按版本生成审批快照；旧单保留原路径。</p><h3>对公支付闭环</h3><p>管理员维护供应商和虚构收款账户 → 员工提交合同 → 本地规则初筛 → 财务或管理员阅读全文并复核 → 员工按本人已复核合同发起对公支付单 → 部门业务节点、财务、总账、指定付款人员逐级办理。合同在途与已付共同占用额度，退回或撤回释放；供应商变更不改写已提交单据收款快照。</p><h3>报销与对公规则预审</h3><p>可配置14条补充规则、阈值及提醒/拦截，展示触发依据、关联单号和核对建议。当前规则在财务、总账和付款时重新检查，主管仍可转交财务；每次处理保留规则参数与结果，历史不随当前配置改写。处理人可对每项疑点记录已核对、待补充或建议退回，保留说明与材料名称；单据、原件、规则或重提变化后提示重新核对，核对说明不解除拦截。它不是AI、发票验真或自动审批。</p><h3>票面结构化与自动比对</h3><p>报销和对公支持每单最多5张票面数据，浏览器OCR提取候选后人工修正并确认，记录购销方、税号、号码、日期及金额税额。财务统一抬头基准，系统比对购买方、多票合计、金额税额和跨单重复；票面金额不自动改写申请金额。报销与对公可上传并关联发票原件，从已存图片识别，审核人从字段卡片预览或下载；仅选图识别仍不保留原件。关联不代表官方验真。</p><h3>合同审查范围</h3><p>支持粘贴正文与UTF-8 TXT导入，对主体、付款、验收、发票、违约及争议条款做透明规则初筛，显示片段与人工核对建议。不是大模型或法律意见；真实 AI 尚未连接，PDF/DOCX正文提取尚未提供。</p><h3>存储与使用范围</h3><p>数据与报销、对公附件原文件保存在本浏览器，可下载备份后迁移。浏览器OCR不上传图片，发票识别不等于验真。角色选择是演示机制，没有生产鉴权、后端并发或跨设备实时同步。只使用虚构资料，模拟付款不执行转账。</p><h3>当前模块边界</h3><p>对公任务已接入审批中心、已处理记录与消息中心，可从统一入口直接办理；对公批量付款尚未纳入报销付款工作台。对公合同额度与部门预算分别统计。部门预算支持按月独立额度、软预警/新增占用拦截及明细下钻；已预留申请核销、付款不重复扣减。对公支持发票、验收单等履约材料；发票验真、真实银行支付、总账凭证、真实 AI 待后续接入。</p></section>`;
+  return `<section class="panel prose"><h2>用 AI 辅助构建，让产品思考可见</h2><p>轻报面向 200 人成长型企业的费控演示作品，覆盖员工差旅与对公支付两条业务线。产品假设和自动化测试不代表真实用户研究或生产效果。</p><h3>员工费用闭环</h3><p>费用申请与出差行程 → 多项费用明细及酒店水单等附件 → 报销提交 → 具名审批 → 财务审核 → 总账复核 → 模拟付款。管理员先发布财务分工模板，新单按版本生成审批快照；旧单保留原路径。</p><h3>对公支付闭环</h3><p>管理员维护供应商和虚构收款账户 → 员工提交合同 → 本地规则初筛 → 财务或管理员阅读全文并复核 → 员工按本人已复核合同发起对公支付单 → 部门业务节点、财务、总账、指定付款人员逐级办理。合同在途与已付共同占用额度，退回或撤回释放；供应商变更不改写已提交单据收款快照。</p><h3>报销与对公规则预审</h3><p>可配置14条补充规则、阈值及提醒/拦截，展示触发依据、关联单号和核对建议。当前规则在财务、总账和付款时重新检查，主管仍可转交财务；每次处理保留规则参数与结果，历史不随当前配置改写。处理人可对每项疑点记录已核对、待补充或建议退回，保留说明与材料名称；单据、原件、规则或重提变化后提示重新核对，核对说明不解除拦截。它不是AI、发票验真或自动审批。</p><h3>票面结构化与自动比对</h3><p>报销和对公支持每单最多5张票面数据，浏览器OCR提取候选后人工修正并确认，记录购销方、税号、号码、日期及金额税额。财务统一抬头基准，系统比对购买方、多票合计、金额税额和跨单重复；票面金额不自动改写申请金额。报销与对公可上传并关联发票原件，从已存图片或PDF选页识别，审核人从字段卡片预览或下载；仅选图识别仍不保留原件。关联不代表官方验真。</p><h3>合同审查范围</h3><p>支持粘贴正文与UTF-8 TXT导入，对主体、付款、验收、发票、违约及争议条款做透明规则初筛，显示片段与人工核对建议。不是大模型或法律意见；真实 AI 尚未连接，PDF/DOCX正文提取尚未提供。</p><h3>存储与使用范围</h3><p>数据与报销、对公附件原文件保存在本浏览器，可下载备份后迁移。浏览器OCR不上传文件，发票识别不等于验真。角色选择是演示机制，没有生产鉴权、后端并发或跨设备实时同步。只使用虚构资料，模拟付款不执行转账。</p><h3>当前模块边界</h3><p>对公任务已接入审批中心、已处理记录与消息中心，可从统一入口直接办理；对公批量付款尚未纳入报销付款工作台。对公合同额度与部门预算分别统计。部门预算支持按月独立额度、软预警/新增占用拦截及明细下钻；已预留申请核销、付款不重复扣减。对公支持发票、验收单等履约材料；发票验真、真实银行支付、总账凭证、真实 AI 待后续接入。</p></section>`;
 }
 function insights() {
   const groups = {};
@@ -1443,7 +1443,7 @@ function form(existing) {
     return;
   }
   modal(
-    `<div class="modal-title"><h2>${existing ? "编辑报销" : "新建报销"}</h2><button data-close aria-label="关闭">✕</button></div><p class="muted">申请人：${esc(currentEmployee())} · ${esc(currentDepartment())}</p><form id="expense-form"><label>报销事项<input name="name" maxlength="60" required value="${esc(existing?.name || "")}" placeholder="例如：上海客户拜访差旅"></label><div class="form-grid"><label>费用类型<select name="type">${["差旅交通", "业务招待", "办公采购", "其他费用"].map((t) => `<option ${existing?.type === t ? "selected" : ""}>${t}</option>`).join("")}</select></label><label>金额（元）<input name="amount" type="number" min="0.01" max="1000000" step="0.01" required value="${existing?.amount || ""}"></label></div><label>发票号码<input name="invoice" maxlength="40" value="${esc(existing?.invoice || "")}" placeholder="用于重复报销检测"></label><label>发票OCR / 原票据名称<input name="receipt" type="file" accept=".pdf,.png,.jpg,.jpeg,.webp"><small>图片可在浏览器中识别，不上传原图；此旧入口仅记录文件名；要保留原文件，请使用下方“报销附件”。${existing?.receipt ? "当前：" + esc(existing.receipt) : ""}</small></label>${attachmentEditor()}${requestOptions(requests, items, existing, new Date().toLocaleDateString("sv-SE"), currentEmployee())}${travelForm("expense", existing?.travel)}${ocrPanel()}${invoiceEditor()}${existing?.receipt ? '<label class="check-line"><input type="checkbox" name="removeReceipt">移除当前附件名称</label>' : ""}<label>业务说明<textarea name="note" maxlength="500" required placeholder="说明费用用途">${esc(existing?.note || "")}</textarea></label><div id="form-review" class="review-box"></div><div class="actions"><button type="button" id="draft">保存草稿</button><button type="submit" class="primary">提交报销 →</button></div></form>`,
+    `<div class="modal-title"><h2>${existing ? "编辑报销" : "新建报销"}</h2><button data-close aria-label="关闭">✕</button></div><p class="muted">申请人：${esc(currentEmployee())} · ${esc(currentDepartment())}</p><form id="expense-form"><label>报销事项<input name="name" maxlength="60" required value="${esc(existing?.name || "")}" placeholder="例如：上海客户拜访差旅"></label><div class="form-grid"><label>费用类型<select name="type">${["差旅交通", "业务招待", "办公采购", "其他费用"].map((t) => `<option ${existing?.type === t ? "selected" : ""}>${t}</option>`).join("")}</select></label><label>金额（元）<input name="amount" type="number" min="0.01" max="1000000" step="0.01" required value="${existing?.amount || ""}"></label></div><label>发票号码<input name="invoice" maxlength="40" value="${esc(existing?.invoice || "")}" placeholder="用于重复报销检测"></label><label>发票OCR / 原票据名称<input name="receipt" type="file" accept=".pdf,.png,.jpg,.jpeg,.webp"><small>图片/PDF可在浏览器中识别，不上传原文件；此旧入口仅记录文件名；要保留原文件，请使用下方“报销附件”。${existing?.receipt ? "当前：" + esc(existing.receipt) : ""}</small></label>${attachmentEditor()}${requestOptions(requests, items, existing, new Date().toLocaleDateString("sv-SE"), currentEmployee())}${travelForm("expense", existing?.travel)}${ocrPanel()}${invoiceEditor()}${existing?.receipt ? '<label class="check-line"><input type="checkbox" name="removeReceipt">移除当前附件名称</label>' : ""}<label>业务说明<textarea name="note" maxlength="500" required placeholder="说明费用用途">${esc(existing?.note || "")}</textarea></label><div id="form-review" class="review-box"></div><div class="actions"><button type="button" id="draft">保存草稿</button><button type="submit" class="primary">提交报销 →</button></div></form>`,
   );
   const formEl = document.querySelector("#expense-form");
   const collect = () => {
@@ -1530,7 +1530,7 @@ function form(existing) {
     onInvalidate: () => {
       ocrEvidence = null;
     },
-    onApply: ({ invoice, amount, structured }) => {
+    onApply: ({ invoice, amount, structured, sourceName }) => {
       ocrEvidence = {
         engine: "Tesseract.js",
         confirmed: true,
@@ -1544,7 +1544,7 @@ function form(existing) {
         try {
           invoiceCapture.addFromOcr(
             structured,
-            formEl.elements.receipt.files[0]?.name || "快速OCR",
+            sourceName || formEl.elements.receipt.files[0]?.name || "快速OCR",
           );
         } catch (e) {
           toast("旧字段已填入；结构化采集未完成：" + e.message);
@@ -2038,7 +2038,7 @@ function guideView() {
       "体验如何减少返工",
       "员工",
       "报销管理",
-      "可先用旧快速OCR核对单票后填入；也可在结构化发票采集载入新虚构样票，人工确认购销方、日期和金额后加入多票清单，票面合计与申请金额分别显示。财务在规则配置统一抬头与税号基准，详情提示差异，发票台账可导出票面字段；可先在附件区保留发票原件，再在票面采集选择关联并从图片识别，审核人可从字段卡片核对原件。在报销附件区上传酒店水单、行程单等材料，保存草稿并补充用途后提交；审核人可预览图片或下载原文件。发现错误可在主管审批前撤回再修改；到报销进度查看当前待处理人，退回后在“待我完善”核对原因并重提。审批人可在详情对预审疑点填写核对依据、关联材料，保存说明后再明确处理；即使记录“已核对”，原有拦截仍生效，重提或规则变化需重新核对。差旅场景可先申请行程，再关联住宿/餐补等明细自动合计，到差旅标准查看超标口径；申请进度可查看当前审批人、额度占用和本人关联报销。",
+      "可先用旧快速OCR核对单票后填入；也可在结构化发票采集载入新虚构样票，人工确认购销方、日期和金额后加入多票清单，票面合计与申请金额分别显示。财务在规则配置统一抬头与税号基准，详情提示差异，发票台账可导出票面字段；可先在附件区保留发票原件，再在票面采集选择关联并从图片或PDF选页识别，审核人可从字段卡片核对原件。在报销附件区上传酒店水单、行程单等材料，保存草稿并补充用途后提交；审核人可预览图片或下载原文件。发现错误可在主管审批前撤回再修改；到报销进度查看当前待处理人，退回后在“待我完善”核对原因并重提。审批人可在详情对预审疑点填写核对依据、关联材料，保存说明后再明确处理；即使记录“已核对”，原有拦截仍生效，重提或规则变化需重新核对。差旅场景可先申请行程，再关联住宿/餐补等明细自动合计，到差旅标准查看超标口径；申请进度可查看当前审批人、额度占用和本人关联报销。",
       "设计理由：区分草稿、撤回和退回，既降低输入成本，也保持审批状态清晰。",
     ],
     [
@@ -2111,7 +2111,7 @@ function guideView() {
     )
     .join(
       "",
-    )}</div><div class="review-box"><h3>如实介绍 AI 的作用</h3>可以表述为：“我负责定位、范围和业务流程，借助 AI 完成原型开发与场景验证。”产品内预审目前为确定性规则，图片 OCR 已可在浏览器运行；预审没有调用大模型，也没有真实财务数据或转账能力。首次体验建议使用已有样例；如需重置，可先在数据管理中导出备份。</div></section>`;
+    )}</div><div class="review-box"><h3>如实介绍 AI 的作用</h3>可以表述为：“我负责定位、范围和业务流程，借助 AI 完成原型开发与场景验证。”产品内预审目前为确定性规则，图片及PDF选页 OCR 已可在浏览器运行；预审没有调用大模型，也没有真实财务数据或转账能力。首次体验建议使用已有样例；如需重置，可先在数据管理中导出备份。</div></section>`;
 }
 function bindExpenses() {
   document

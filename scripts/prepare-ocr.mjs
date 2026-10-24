@@ -1,4 +1,10 @@
-import { mkdir, copyFile, readFile, writeFile } from "node:fs/promises";
+import {
+  mkdir,
+  copyFile,
+  readFile,
+  writeFile,
+  readdir,
+} from "node:fs/promises";
 import { resolve } from "node:path";
 import { createHash } from "node:crypto";
 const root = resolve(import.meta.dirname, ".."),
@@ -16,11 +22,30 @@ const files = [
     `${x}.traineddata.gz`,
   ]),
 ];
+async function copyPdfFolder(folder) {
+  const source = resolve(root, "node_modules/pdfjs-dist", folder);
+  for (const entry of await readdir(source, { withFileTypes: true })) {
+    if (entry.isDirectory()) await copyPdfFolder(folder + "/" + entry.name);
+    else
+      files.push([
+        "pdfjs-dist/" + folder + "/" + entry.name,
+        "pdfjs/" + folder + "/" + entry.name,
+      ]);
+  }
+}
+files.push(
+  ["pdfjs-dist/build/pdf.mjs", "pdfjs/pdf.mjs"],
+  ["pdfjs-dist/build/pdf.worker.mjs", "pdfjs/pdf.worker.mjs"],
+  ["pdfjs-dist/LICENSE", "pdfjs/LICENSE"],
+);
+for (const folder of ["cmaps", "standard_fonts", "wasm"])
+  await copyPdfFolder(folder);
 for (const name of ["Apache-2.0.txt", "tessdata-Apache-2.0.txt"])
   await copyFile(resolve(root, "docs/licenses", name), resolve(target, name));
 const manifest = [];
 for (const [from, name] of files) {
   const path = resolve(root, "node_modules", from);
+  await mkdir(resolve(target, name, ".."), { recursive: true });
   await copyFile(path, resolve(target, name));
   const data = await readFile(path);
   manifest.push({
@@ -31,6 +56,7 @@ for (const [from, name] of files) {
 }
 const packages = [];
 for (const name of [
+  "pdfjs-dist",
   "tesseract.js",
   "tesseract.js-core",
   "@tesseract.js-data/chi_sim",

@@ -1,3 +1,4 @@
+import { isPdf, startPdfRender, pdfPageControl } from "./pdf-tools.js";
 import { checkOcrFile, startRecognition } from "./ocr.js";
 import { renderInvoiceImage, defaultImageSettings } from "./image-tools.js";
 const escape = (s) =>
@@ -9,7 +10,7 @@ const escape = (s) =>
       ],
   );
 export const ocrPanel = () =>
-  `<section class="ocr-panel" aria-label="发票图片识别"><div class="ocr-title"><span>✧ 发票图片 OCR</span><span class="badge s1">浏览器本地识别</span></div><p>PNG / JPG / WebP，最大 6 MB；图片不上传。先旋转、裁去无关边缘，再识别并人工核对。首次需下载约 10 MB 资源，不是发票验真。</p><div class="ocr-buttons"><button type="button" id="ocr-start">识别所选图片</button><button type="button" id="ocr-sample">载入虚构样票</button><button type="button" id="ocr-cancel" hidden>取消识别</button></div><p id="ocr-status" role="status" aria-live="polite">选择图片后可预览和调整，也可以直接体验虚构样票。</p><progress id="ocr-progress" max="100" value="0" hidden aria-label="识别进度"></progress><div id="ocr-editor" hidden><div class="image-toolbar"><button type="button" id="image-left" aria-label="向左旋转90度">↶ 左转 90°</button><button type="button" id="image-right" aria-label="向右旋转90度">↷ 右转 90°</button><button type="button" id="image-reset">恢复原图</button><span id="image-angle"></span></div><canvas id="ocr-canvas" aria-label="旋转裁剪后的识别范围预览" role="img"></canvas><details class="crop-tools"><summary>裁剪无关边缘（按旋转后的图片计算）</summary><div class="crop-grid">${[
+  `<section class="ocr-panel" aria-label="发票图片与PDF识别"><div class="ocr-title"><span>✧ 发票图片 / PDF OCR</span><span class="badge s1">浏览器本地识别</span></div><p>PNG / JPG / WebP / PDF，最大 6 MB；文件不上传。PDF先选页，扫描件和电子票均转图识别。先旋转、裁去无关边缘，再识别并人工核对。首次需下载约 10 MB 资源，不是发票验真。</p><p><a href="./samples/demo-invoice.pdf" download="轻报虚构PDF样票.pdf">下载虚构PDF样票（第2页为发票）</a></p>${pdfPageControl("ocr")}<div class="ocr-buttons"><button type="button" id="ocr-start">识别所选文件</button><button type="button" id="ocr-sample">载入虚构样票</button><button type="button" id="ocr-cancel" hidden>取消识别</button></div><p id="ocr-status" role="status" aria-live="polite">选择图片后可预览和调整，也可以直接体验虚构样票。</p><progress id="ocr-progress" max="100" value="0" hidden aria-label="识别进度"></progress><div id="ocr-editor" hidden><div class="image-toolbar"><button type="button" id="image-left" aria-label="向左旋转90度">↶ 左转 90°</button><button type="button" id="image-right" aria-label="向右旋转90度">↷ 右转 90°</button><button type="button" id="image-reset">恢复原图</button><span id="image-angle"></span></div><canvas id="ocr-canvas" aria-label="旋转裁剪后的识别范围预览" role="img"></canvas><details class="crop-tools"><summary>裁剪无关边缘（按旋转后的图片计算）</summary><div class="crop-grid">${[
     ["left", "左"],
     ["top", "上"],
     ["right", "右"],
@@ -33,7 +34,8 @@ export function mountOcr(
     generation = 0,
     previewVersion = 0,
     previewTimer = null,
-    sampleFetch = null;
+    sampleFetch = null,
+    pdfPreview = null;
   const panel = form.querySelector(".ocr-panel"),
     input = form.querySelector("[name=receipt]"),
     status = form.querySelector("#ocr-status"),
@@ -50,6 +52,7 @@ export function mountOcr(
     sample.disabled = state || localFile;
     cancel.hidden = !state;
     progress.hidden = !state;
+    form.querySelector("#ocr-pdf-page").disabled = state;
     editor
       .querySelectorAll("button,input")
       .forEach((el) => (el.disabled = state));
@@ -64,6 +67,8 @@ export function mountOcr(
   };
   const resetPreview = () => {
     previewVersion++;
+    pdfPreview?.cancel();
+    pdfPreview = null;
     clearTimeout(previewTimer);
     canvas.width = 1;
     canvas.height = 1;
@@ -81,7 +86,25 @@ export function mountOcr(
   const preview = async () => {
     const current = ++previewVersion;
     try {
-      const rendered = await renderInvoiceImage(source, settings, 1200);
+      pdfPreview?.cancel();
+      let rendered;
+      if (isPdf(source)) {
+        pdfPreview = startPdfRender(
+          source,
+          {
+            ...settings,
+            pdfPage: Number(form.querySelector("#ocr-pdf-page").value),
+          },
+          1200,
+        );
+        const pdf = await pdfPreview.promise;
+        rendered = pdf.canvas;
+        if (current === previewVersion) {
+          form.querySelector("#ocr-pdf-page").max = pdf.numPages;
+          form.querySelector("#ocr-pdf-info").textContent =
+            `共${pdf.numPages}页，当前第${pdf.page}页；仅识别这一页。多票请拆分后留存原件。`;
+        }
+      } else rendered = await renderInvoiceImage(source, settings, 1200);
       if (disposed || current !== previewVersion) {
         rendered.width = 1;
         rendered.height = 1;
@@ -105,16 +128,26 @@ export function mountOcr(
   const select = async (file) => {
     invalidate();
     resetPreview();
+    const selectedGeneration = generation;
     source = file;
     settings = defaultImageSettings();
+    form.querySelector("#ocr-pdf-page").value = 1;
+    form.querySelector("#ocr-pdf-page").max = 20;
+    form.querySelector("#ocr-pdf-controls").hidden = !isPdf(file);
     syncControls();
     try {
       checkOcrFile(source);
       status.textContent = localFile
         ? "本地单文件不支持 OCR，请用在线版；仍可手工填写。"
-        : "图片已就绪，可旋转、裁剪后识别，或直接识别";
+        : isPdf(source)
+          ? "PDF已选择，正在读取第一页预览…"
+          : "图片已就绪，可旋转、裁剪后识别，或直接识别";
       await preview();
+      if (disposed || selectedGeneration !== generation) return;
+      if (isPdf(source) && !editor.hidden)
+        status.textContent = "PDF预览已就绪，请选页并核对后识别";
     } catch (e) {
+      if (disposed || selectedGeneration !== generation) return;
       status.textContent = e.message;
     }
     form.dataset.dirty = "true";
@@ -131,6 +164,11 @@ export function mountOcr(
     previewVersion++;
     previewTimer = setTimeout(() => void preview(), 120);
     form.dataset.dirty = "true";
+  };
+  form.querySelector("#ocr-pdf-page").oninput = () => {
+    changeImage();
+    status.textContent =
+      "PDF页码已变化，请核对新预览并重新识别；原表单保持不变";
   };
   form.querySelector("#image-left").onclick = () => {
     settings.rotation = (settings.rotation + 270) % 360;
@@ -177,12 +215,12 @@ export function mountOcr(
       )
       .join(
         "",
-      )}</div><small>文本置信度 ${Math.round(data.confidence || 0)} / 100（参考值，不代表字段准确率）。空字段不覆盖表单；未提取到不等于无效发票。</small><details><summary>查看识别原文</summary><pre>${escape(data.text || "未识别到文字")}</pre></details><label class="check-line"><input type="checkbox" id="ocr-confirm">我已对照图片核对，确认替换表单中的非空候选字段</label><button type="button" id="ocr-apply">确认并填入报销单</button></div>`;
+      )}</div><small>文本置信度 ${Math.round(data.confidence || 0)} / 100（参考值，不代表字段准确率）。空字段不覆盖表单；未提取到不等于无效发票。</small><details><summary>查看识别原文</summary><pre>${escape(data.text || "未识别到文字")}</pre></details><label class="check-line"><input type="checkbox" id="ocr-confirm">我已对照原件核对，确认替换表单中的非空候选字段</label><button type="button" id="ocr-apply">确认并填入报销单</button></div>`;
     result.querySelector("#ocr-apply").onclick = () => {
       const invoice = result.querySelector("#ocr-invoice").value.trim(),
         amount = result.querySelector("#ocr-amount").value;
       if (!result.querySelector("#ocr-confirm").checked) {
-        status.textContent = "请先对照图片核对并勾选确认";
+        status.textContent = "请先对照原件核对并勾选确认";
         return;
       }
       if (!invoice && !amount) {
@@ -212,7 +250,12 @@ export function mountOcr(
         "taxAmount",
       ])
         structured[key] = result.querySelector("#ocr-" + key).value.trim();
-      onApply({ invoice: !!invoice, amount: !!amount, structured });
+      onApply({
+        invoice: !!invoice,
+        amount: !!amount,
+        structured,
+        sourceName: data.sourceName,
+      });
       form.dispatchEvent(new Event("input", { bubbles: true }));
       status.textContent = "已填入核对后的字段，仍需填写用途并手工提交";
       result.innerHTML = "";
@@ -221,6 +264,9 @@ export function mountOcr(
   const run = async () => {
     invalidate();
     const current = generation;
+    pdfPreview?.cancel();
+    clearTimeout(previewTimer);
+    previewVersion++;
     try {
       source = input.files?.[0] || source;
       checkOcrFile(source);
@@ -235,12 +281,23 @@ export function mountOcr(
           progress.value = text ? Math.round(m.progress * 100) : 0;
           status.textContent = text
             ? `正在识别文字 ${Math.round(m.progress * 100)}%`
-            : "正在准备引擎与语言数据，首次加载较慢…";
+            : m.status === "reading pdf"
+              ? `正在读取PDF第${m.page}页…`
+              : "正在准备引擎与语言数据，首次加载较慢…";
         },
-        structuredClone(settings),
+        {
+          ...structuredClone(settings),
+          pdfPage: Number(form.querySelector("#ocr-pdf-page").value),
+        },
       );
       const data = await job.promise;
-      if (!disposed && current === generation) renderResult(data);
+      if (!disposed && current === generation)
+        renderResult({
+          ...data,
+          sourceName: isPdf(source)
+            ? `${source.name.slice(0, 100)}（PDF第${form.querySelector("#ocr-pdf-page").value}页）`
+            : source.name,
+        });
     } catch (e) {
       if (!disposed && current === generation) {
         status.textContent =
@@ -297,6 +354,7 @@ export function mountOcr(
     previewVersion++;
     clearTimeout(previewTimer);
     sampleFetch?.abort();
+    pdfPreview?.cancel();
     job?.cancel();
     canvas.width = 1;
     canvas.height = 1;

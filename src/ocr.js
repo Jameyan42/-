@@ -1,3 +1,4 @@
+import { isPdf, startPdfRender, validatePdfPage } from "./pdf-tools.js";
 import { extractInvoiceDetails } from "./invoice-extract.js";
 import { createWorker } from "tesseract.js";
 import { renderInvoiceImage, defaultImageSettings } from "./image-tools.js";
@@ -54,12 +55,16 @@ export function extractInvoiceFields(text) {
   return { invoice, amount };
 }
 export function checkOcrFile(file) {
-  if (!file) throw new Error("请先选择一张发票图片");
-  if (!["image/png", "image/jpeg", "image/webp"].includes(file.type))
-    throw new Error("识别支持 PNG、JPG 和 WebP；PDF 请手工填写，或先转为图片");
+  if (!file) throw new Error("请先选择发票图片或PDF");
+  if (
+    !["image/png", "image/jpeg", "image/webp", "application/pdf"].includes(
+      file.type,
+    )
+  )
+    throw new Error("识别支持 PNG、JPG、WebP 和 PDF");
   if (file.size > 6 * 1024 * 1024)
-    throw new Error("图片不能超过 6 MB，请先压缩后重试");
-  if (!file.size) throw new Error("图片为空，请重新选择");
+    throw new Error("文件不能超过 6 MB，请先压缩后重试");
+  if (!file.size) throw new Error("文件为空，请重新选择");
 }
 export function startRecognition(
   file,
@@ -67,6 +72,7 @@ export function startRecognition(
   settings = defaultImageSettings(),
 ) {
   let worker,
+    pdfJob,
     canvas,
     cancelled = false,
     rejectCancel,
@@ -82,6 +88,7 @@ export function startRecognition(
       canvas.width = 1;
       canvas.height = 1;
     }
+    pdfJob?.cancel();
     if (worker) void worker.terminate();
     rejectCancel(new Error(message));
   };
@@ -89,8 +96,13 @@ export function startRecognition(
     checkOcrFile(file);
     if (location.protocol === "file:")
       throw new Error("本地单文件无法加载 OCR 引擎，请打开在线版，或手工填写");
-    canvas = await renderInvoiceImage(file, settings);
     try {
+      if (isPdf(file)) {
+        validatePdfPage(settings.pdfPage ?? 1);
+        onProgress({ status: "reading pdf", page: settings.pdfPage ?? 1 });
+        pdfJob = startPdfRender(file, settings);
+        canvas = (await pdfJob.promise).canvas;
+      } else canvas = await renderInvoiceImage(file, settings);
       if (cancelled) throw new Error("已取消识别");
       const base = new URL("./ocr/", document.baseURI).href;
       worker = await createWorker(["chi_sim", "eng"], 1, {
@@ -118,13 +130,15 @@ export function startRecognition(
         ...fields,
       };
     } finally {
-      canvas.width = 1;
-      canvas.height = 1;
+      if (canvas) canvas.width = canvas.height = 1;
       if (worker) await worker.terminate();
     }
   })();
   timer = setTimeout(
-    () => cancel("识别超过 90 秒，已停止等待。可压缩图片后重试或手工填写"),
+    () =>
+      cancel(
+        "识别超过 90 秒，已停止等待。可压缩文件或选择单页后重试或手工填写",
+      ),
     90000,
   );
   return {

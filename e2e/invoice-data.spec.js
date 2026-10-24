@@ -475,7 +475,7 @@ test("对公发票与验收材料、PDF关联和容量失败重试，审核人�
   await p.locator("#invoice-attachment").selectOption({ label: "发票.pdf" });
   await p.locator("#invoice-attachment-read").click();
   await expect(p.locator("#invoice-data-status")).toContainText(
-    "PDF请下载核对",
+    "PDF文件无效或已损坏",
   );
   await add(p, values());
   const before = await p.evaluate(() =>

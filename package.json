@@ -20,6 +20,7 @@
   "dependencies": {
     "@tesseract.js-data/chi_sim": "^1.0.0",
     "@tesseract.js-data/eng": "^1.0.0",
+    "pdfjs-dist": "5.4.624",
     "tesseract.js": "^7.0.0"
   }
 }

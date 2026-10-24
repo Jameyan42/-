@@ -1,3 +1,9 @@
+import {
+  isPdf,
+  startPdfRender,
+  pdfPageControl,
+  pdfSourceName,
+} from "./pdf-tools.js";
 import { fileCard, bindAttachmentDetails } from "./attachments-ui.js";
 import { startRecognition, checkOcrFile } from "./ocr.js";
 import {
@@ -32,7 +38,7 @@ function recordHTML(r, buyer, editable = false, attachments = []) {
   return `<article class="invoice-data-card"><h4>发票 ${esc(r.number)}</h4><div class="invoice-data-grid"><p>购买方<b>${esc(r.buyerName || "未采集")}</b><small>${esc(r.buyerTaxId || "税号未采集")}</small></p><p>销售方<b>${esc(r.sellerName || "未采集")}</b><small>${esc(r.sellerTaxId || "税号未采集")}</small></p><p>开票日期<b>${esc(r.date || "未采集")}</b><small>代码 ${esc(r.code || "未采集")}</small></p><p>价税合计<b>${money(r.amount)}</b><small>不含税 ${money(r.netAmount)} / 税额 ${money(r.taxAmount)}</small></p></div><p class="${match.name === "抬头一致" ? "safe" : "risk"}">${esc(match.name)} · ${esc(match.tax)}</p><small>${r.capture.method === "ocr-assisted" ? "OCR辅助后人工核对" : "手工核对录入"} · ${esc(r.capture.at)}<br>来源 ${esc(r.capture.sourceName || "手工输入")}；不代表税务验真。</small>${original ? `<div class="invoice-original"><b>关联原件：${esc(original.name)}</b>${editable ? "" : fileCard(original)}</div>` : `<p class="footnote">${r.attachmentId ? "原件引用异常，请恢复有效备份" : "未关联原件；来源名称不等于原文件已留存"}</p>`}${editable ? `<div class="enterprise-buttons"><button type="button" data-invoice-edit="${esc(r.id)}">编辑票面字段</button><button type="button" data-invoice-remove="${esc(r.id)}">移除此票据</button></div>` : ""}</article>`;
 }
 export function invoiceEditor() {
-  return `<section class="review-box invoice-data-editor"><h3>结构化发票采集（报销 / 对公）</h3><p>每单最多5张，仅人民币正数发票；红票和外币暂不支持。图片在本浏览器OCR，人工核对后存字段；也可手工录入。PDF暂不读取，可手工填写。要保留原件，请先在上方附件区上传并分类为“发票”，再在下方选择关联。直接选图识别仅存字段。每个原件限关联一张票面，多票PDF请拆分后上传。</p><p id="invoice-buyer-basis"></p><div class="enterprise-buttons"><label>本次发票图片<input id="invoice-image-input" type="file" accept=".png,.jpg,.jpeg,.webp"></label><button type="button" id="invoice-image-read">识别票面字段</button><button type="button" id="invoice-image-sample">载入结构化虚构样票</button><button type="button" id="invoice-image-cancel" hidden>取消识别</button></div><label>关联本单已保留的发票原件<select id="invoice-attachment"><option value="">不关联（仅保存字段）</option></select></label><button type="button" id="invoice-attachment-read">从关联原件识别票面</button><p class="footnote">关联图片可在本地识别；PDF可关联并下载核对，暂不自动识别。</p><p id="invoice-data-status" role="status" aria-live="polite"></p><details id="invoice-candidate-editor" open><summary>待人工核对的票面字段</summary><div class="form-grid">${fields.map(([key, label, max]) => `<label>${label}<input data-invoice-field="${key}" maxlength="${max}" ${["amount", "netAmount", "taxAmount"].includes(key) ? 'type="number" min="0" max="1000000" step="0.01"' : key === "date" ? 'type="date"' : 'type="text"'}></label>`).join("")}</div><p id="invoice-candidate-check"></p><details><summary>本次OCR原文（关闭后不保存）</summary><pre id="invoice-raw-text" class="contract-text"></pre></details><label class="check-line"><input type="checkbox" id="invoice-data-confirm">我已对照发票核对这些字段；识别及一致性比对不代表真伪核验</label><div class="enterprise-buttons"><button type="button" id="invoice-data-add">确认并加入票据清单</button><button type="button" id="invoice-data-clear">清空本次候选</button></div></details><p id="invoice-data-summary"></p><div id="invoice-data-records"></div></section>`;
+  return `<section class="review-box invoice-data-editor"><h3>结构化发票采集（报销 / 对公）</h3><p>每单最多5张，仅人民币正数发票；红票和外币暂不支持。图片和PDF在本浏览器OCR，人工核对后存字段；也可手工录入。PDF支持预览、选页后识别，最多20页、6 MB，扫描版与电子版均可；每次仅识别所选一页。要保留原件，请先在上方附件区上传并分类为“发票”，再在下方选择关联。直接选文件识别仅存字段；附件留存仍限单份1 MB。每个原件限关联一张票面，多票PDF请拆分后上传。</p><p id="invoice-buyer-basis"></p><div class="enterprise-buttons"><label>本次发票图片 / PDF<input id="invoice-image-input" type="file" accept=".pdf,.png,.jpg,.jpeg,.webp"></label><button type="button" id="invoice-image-read">识别票面字段</button><button type="button" id="invoice-image-sample">载入结构化虚构样票</button><button type="button" id="invoice-image-cancel" hidden>取消识别</button></div><p><a href="./samples/demo-invoice.pdf" download="轻报虚构PDF样票.pdf">下载虚构PDF样票（第2页为发票）</a></p>${pdfPageControl("invoice")}<canvas id="invoice-pdf-canvas" hidden aria-label="所选PDF页预览" role="img" style="max-width:100%;height:auto"></canvas><label>关联本单已保留的发票原件<select id="invoice-attachment"><option value="">不关联（仅保存字段）</option></select></label><button type="button" id="invoice-attachment-read">从关联原件识别票面</button><p class="footnote">关联图片及PDF均可在本地识别，原文件不上传。PDF按所选页采集；每个原件仍限一张票面，多票文件请拆分。</p><p id="invoice-data-status" role="status" aria-live="polite"></p><details id="invoice-candidate-editor" open><summary>待人工核对的票面字段</summary><div class="form-grid">${fields.map(([key, label, max]) => `<label>${label}<input data-invoice-field="${key}" maxlength="${max}" ${["amount", "netAmount", "taxAmount"].includes(key) ? 'type="number" min="0" max="1000000" step="0.01"' : key === "date" ? 'type="date"' : 'type="text"'}></label>`).join("")}</div><p id="invoice-candidate-check"></p><details><summary>本次OCR原文（关闭后不保存）</summary><pre id="invoice-raw-text" class="contract-text"></pre></details><label class="check-line"><input type="checkbox" id="invoice-data-confirm">我已对照发票核对这些字段；识别及一致性比对不代表真伪核验</label><div class="enterprise-buttons"><button type="button" id="invoice-data-add">确认并加入票据清单</button><button type="button" id="invoice-data-clear">清空本次候选</button></div></details><p id="invoice-data-summary"></p><div id="invoice-data-records"></div></section>`;
 }
 export function mountInvoiceEditor(
   form,
@@ -47,7 +53,9 @@ export function mountInvoiceEditor(
     editing = "",
     method = "manual",
     sourceName = "",
-    sampleFetch = null;
+    sampleFetch = null,
+    pdfFile = null,
+    pdfAttachmentId = "";
   validateInvoices(bundle);
   const buyer = effectiveInvoiceBuyer(policy),
     root = form.querySelector(".invoice-data-editor"),
@@ -101,6 +109,7 @@ export function mountInvoiceEditor(
     root.querySelector("#invoice-image-cancel").hidden = true;
     root.querySelector("#invoice-image-read").disabled = false;
     root.querySelector("#invoice-image-sample").disabled = false;
+    root.querySelector("#invoice-pdf-page").disabled = false;
   };
   const clear = () => {
     inputs.forEach((i) => (i.value = ""));
@@ -157,6 +166,7 @@ export function mountInvoiceEditor(
   root.querySelector("#invoice-data-clear").onclick = () => {
     cancel();
     clear();
+    void previewPdf(null);
     status.textContent = "已清空本次未保存候选，已确认清单保留。";
   };
   list.onclick = (e) => {
@@ -164,6 +174,7 @@ export function mountInvoiceEditor(
       remove = e.target.closest("[data-invoice-remove]");
     if (edit) {
       cancel();
+      void previewPdf(null);
       root.querySelector("#invoice-raw-text").textContent = "";
       const r = bundle.records.find((r) => r.id === edit.dataset.invoiceEdit);
       inputs.forEach((i) => (i.value = r[i.dataset.invoiceField] ?? ""));
@@ -194,6 +205,55 @@ export function mountInvoiceEditor(
       changed();
     }
   };
+  const pdfPage = root.querySelector("#invoice-pdf-page"),
+    pdfCanvas = root.querySelector("#invoice-pdf-canvas"),
+    pdfControls = root.querySelector("#invoice-pdf-controls");
+  async function previewPdf(file, attachmentId = "", resetPage = true) {
+    cancel();
+    pdfFile = isPdf(file) ? file : null;
+    pdfAttachmentId = attachmentId;
+    pdfControls.hidden = !pdfFile;
+    pdfCanvas.hidden = true;
+    pdfCanvas.width = pdfCanvas.height = 1;
+    if (resetPage) {
+      pdfPage.value = 1;
+      pdfPage.max = 20;
+    }
+    if (!pdfFile) return;
+    const token = generation;
+    try {
+      checkOcrFile(file);
+      status.textContent = "正在读取PDF预览…";
+      job = startPdfRender(file, { pdfPage: Number(pdfPage.value) }, 1200);
+      const pdf = await job.promise;
+      if (token !== generation || !root.isConnected) {
+        pdf.canvas.width = pdf.canvas.height = 1;
+        return;
+      }
+      pdfCanvas.width = pdf.canvas.width;
+      pdfCanvas.height = pdf.canvas.height;
+      pdfCanvas.getContext("2d").drawImage(pdf.canvas, 0, 0);
+      pdf.canvas.width = pdf.canvas.height = 1;
+      pdfCanvas.hidden = false;
+      pdfPage.max = pdf.numPages;
+      root.querySelector("#invoice-pdf-info").textContent =
+        `共${pdf.numPages}页，当前第${pdf.page}页；每次识别这一页，不合并金额。`;
+      status.textContent = "PDF预览已就绪，请核对页码后点击识别。";
+    } catch (e) {
+      if (token === generation && root.isConnected)
+        status.textContent = "PDF预览未完成：" + e.message + "；可手工填写。";
+    } finally {
+      if (token === generation) job = null;
+    }
+  }
+  pdfPage.oninput = () => {
+    const file = pdfFile,
+      id = pdfAttachmentId;
+    clear();
+    original.value = id;
+    void previewPdf(file, id, false);
+    form.dataset.dirty = "true";
+  };
   async function recognize(file, attachmentId = "") {
     cancel();
     const token = generation;
@@ -203,14 +263,21 @@ export function mountInvoiceEditor(
       root.querySelector("#invoice-image-cancel").hidden = false;
       root.querySelector("#invoice-image-read").disabled = true;
       root.querySelector("#invoice-image-sample").disabled = true;
+      pdfPage.disabled = true;
       status.textContent = "正在加载本地OCR，请等待…";
-      job = startRecognition(file, (m) => {
-        if (token === generation && root.isConnected)
-          status.textContent =
-            m.status === "recognizing text"
-              ? `正在识别 ${Math.round(m.progress * 100)}%`
-              : "正在准备本地引擎与语言资源…";
-      });
+      job = startRecognition(
+        file,
+        (m) => {
+          if (token === generation && root.isConnected)
+            status.textContent =
+              m.status === "recognizing text"
+                ? `正在识别 ${Math.round(m.progress * 100)}%`
+                : m.status === "reading pdf"
+                  ? `正在读取PDF第${m.page}页…`
+                  : "正在准备本地引擎与语言资源…";
+        },
+        { pdfPage: Number(pdfPage.value) },
+      );
       const result = await job.promise;
       if (token !== generation || !root.isConnected) return;
       clear();
@@ -218,13 +285,13 @@ export function mountInvoiceEditor(
         (i) => (i.value = result.structured?.[i.dataset.invoiceField] ?? ""),
       );
       method = "ocr-assisted";
-      sourceName = file.name;
+      sourceName = pdfSourceName(file, Number(pdfPage.value));
       original.value = attachmentId;
       root.querySelector("#invoice-raw-text").textContent = result.text;
       root.querySelector("#invoice-candidate-editor").open = true;
       candidate();
       status.textContent =
-        "识别完成。请对照原图补齐/修正候选并确认；空字段表示未可靠提取，不表示核验通过。";
+        "识别完成。请对照原件补齐/修正候选并确认；空字段表示未可靠提取，不表示核验通过。";
       form.dataset.dirty = "true";
     } catch (e) {
       if (token === generation && root.isConnected)
@@ -236,6 +303,7 @@ export function mountInvoiceEditor(
         root.querySelector("#invoice-image-cancel").hidden = true;
         root.querySelector("#invoice-image-read").disabled = false;
         root.querySelector("#invoice-image-sample").disabled = false;
+        pdfPage.disabled = false;
       }
     }
   }
@@ -247,25 +315,32 @@ export function mountInvoiceEditor(
     root.querySelector("#invoice-raw-text").textContent = "";
     root.querySelector("#invoice-data-confirm").checked = false;
     form.dataset.dirty = "true";
+    const f = getAttachments().find((f) => f.id === original.value);
+    const file = f ? attachmentFile(f) : null;
+    void previewPdf(file, f?.id || "");
   };
+  function attachmentFile(f) {
+    const bytes = Uint8Array.from(atob(f.data.split(",")[1]), (c) =>
+      c.charCodeAt(0),
+    );
+    return new File([bytes], f.name, { type: f.type });
+  }
   root.querySelector("#invoice-attachment-read").onclick = () => {
     const f = getAttachments().find(
       (f) => f.id === original.value && f.kind === "发票",
     );
-    if (!f || !f.type.startsWith("image/")) {
-      status.textContent = "请选择已保留的发票图片；PDF请下载核对后手工填写。";
+    if (!f) {
+      status.textContent = "请选择本单已保留且分类为发票的图片或PDF。";
       return;
     }
-    const bytes = Uint8Array.from(atob(f.data.split(",")[1]), (c) =>
-      c.charCodeAt(0),
-    );
-    void recognize(new File([bytes], f.name, { type: f.type }), f.id);
+    void recognize(attachmentFile(f), f.id);
   };
   image.onchange = () => {
     cancel();
     clear();
     candidate();
-    status.textContent = "图片已选择，点击识别；也可直接手工录入。";
+    status.textContent = "文件已选择，点击识别；也可直接手工录入。";
+    void previewPdf(image.files[0]);
   };
   root.querySelector("#invoice-image-read").onclick = () =>
     void recognize(image.files[0]);
@@ -301,6 +376,7 @@ export function mountInvoiceEditor(
     if (!root.isConnected) {
       cancel();
       sampleFetch?.abort();
+      pdfCanvas.width = pdfCanvas.height = 1;
       observer.disconnect();
     }
   });

@@ -53,6 +53,17 @@ export async function renderInvoiceImage(
   maxEdge = 2200,
 ) {
   const bitmap = await createImageBitmap(file);
+  try {
+    return renderInvoiceBitmap(bitmap, settings, maxEdge);
+  } finally {
+    bitmap.close();
+  }
+}
+export function renderInvoiceBitmap(
+  bitmap,
+  settings = defaultImageSettings(),
+  maxEdge = 2200,
+) {
   let rotated;
   try {
     const g = imageGeometry(bitmap.width, bitmap.height, settings, maxEdge);
@@ -74,7 +85,6 @@ export async function renderInvoiceImage(
     target.drawImage(rotated, g.sx, g.sy, g.sw, g.sh, 0, 0, g.width, g.height);
     return output;
   } finally {
-    bitmap.close();
     if (rotated) {
       rotated.width = 1;
       rotated.height = 1;

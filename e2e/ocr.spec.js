@@ -54,7 +54,7 @@ test("真实本地OCR识别样票，核对前不覆盖，确认后保存来源",
   ).toBe(true);
   expect(errors).toEqual([]);
 });
-test("不支持PDF和损坏图片时可继续手工报销", async ({ page }) => {
+test("损坏PDF和图片时可继续手工报销", async ({ page }) => {
   await openForm(page);
   await page.locator("[name=receipt]").setInputFiles({
     name: "sample.pdf",

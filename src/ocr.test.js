@@ -27,9 +27,10 @@ test("无标签、歧义金额和无法确认的号码保持空，不凭空补�
   assert.equal(extractInvoiceFields("发票号码 123\n合计金额 0.00").invoice, "");
   assert.equal(extractInvoiceFields("总金额 1000001.00").amount, "");
 });
-test("拒绝PDF、空图和超限图片，支持PNG和JPG", () => {
+test("支持PDF和图片，拒绝空文件、超限及不支持格式", () => {
   assert.throws(() => checkOcrFile(null));
-  assert.throws(() => checkOcrFile({ type: "application/pdf", size: 10 }));
+  assert.doesNotThrow(() => checkOcrFile({ type: "application/pdf", size: 10 }));
+  assert.throws(() => checkOcrFile({ type: "text/plain", size: 10 }));
   assert.throws(() =>
     checkOcrFile({ type: "image/png", size: 7 * 1024 * 1024 }),
   );

@@ -1865,7 +1865,7 @@ header .demo-tag::after {
   margin-top: 12px;
 }
 header .demo-tag::after {
-  content: " · v0.26";
+  content: " · v0.27";
 }
 header .header-right {
   gap: 13px;
