@@ -1,3 +1,4 @@
+import { validateRiskReviews } from "./risk-reviews.js";
 import {
   validateInvoices,
   validateInvoiceBuyer,
@@ -107,6 +108,7 @@ export function validateBackup(data) {
     if (x.attachments !== undefined) validateAttachments(x.attachments);
     if (x.invoices !== undefined) validateInvoices(x.invoices);
     validateInvoiceAttachments(x.invoices, x.attachments);
+    validateRiskReviews(x.riskReviews, "expense", x.id);
     validateOperationHistory(x.history, "expense");
     for (const h of x.history)
       if (h.precheck !== undefined)

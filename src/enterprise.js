@@ -1,3 +1,4 @@
+import { validateRiskReviews } from "./risk-reviews.js";
 import { makeOperation, validateOperationHistory } from "./operations.js";
 import { validateAttachments, MAX_ITEMS_CHARS } from "./attachments.js";
 import {
@@ -262,6 +263,7 @@ export function validateEnterprise(state) {
     if (p.attachments !== undefined) validateAttachments(p.attachments);
     validateInvoiceAttachments(p.invoices, p.attachments);
     validateSnapshot(p.approval, p.status, "expense");
+    validateRiskReviews(p.riskReviews, "corporate", p.id);
     validateOperationHistory(p.history, "corporate");
     for (const h of p.history) {
       const o = h.operation;
@@ -478,6 +480,9 @@ export function submitCorporate(state, input, actor, org, flows, id = "") {
       : old?.attachments
         ? { attachments: structuredClone(old.attachments) }
         : {}),
+    ...(old?.riskReviews
+      ? { riskReviews: structuredClone(old.riskReviews) }
+      : {}),
     contractId: c.id,
     contractVersion: c.version,
     supplierId: s.id,

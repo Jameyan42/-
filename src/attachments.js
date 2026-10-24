@@ -1,3 +1,4 @@
+import { validateRiskReviews } from "./risk-reviews.js";
 import {
   validateInvoices,
   validateInvoiceAttachments,
@@ -128,8 +129,12 @@ export function serializeExpenseItems(next) {
   for (const x of next)
     if (x.invoices !== undefined) validateInvoices(x.invoices);
   for (const x of next) validateInvoiceAttachments(x.invoices, x.attachments);
+  for (const x of next) validateRiskReviews(x.riskReviews, "expense", x.id);
   const json = JSON.stringify(next);
-  if (json.length > MAX_ITEMS_CHARS && next.some((x) => x.attachments?.length))
+  if (
+    json.length > MAX_ITEMS_CHARS &&
+    next.some((x) => x.attachments?.length || x.riskReviews?.length)
+  )
     throw Error("浏览器附件容量不足，请减少本次附件或先下载备份；原报销未改动");
   return json;
 }

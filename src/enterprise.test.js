@@ -532,3 +532,58 @@ test("对公二进制容量与合同元数据分别限额，不因文件突破�
   metadata.extra = "x".repeat(800000);
   assert.throws(() => validateEnterprise(metadata), /缩短合同正文/);
 });
+
+test("对公风险核对不流转，随退回重提/审批保留且旧依据失效", async () => {
+  const { appendRiskReview, riskReviewRows } =
+    await import("./risk-reviews.js");
+  const { evaluatePrecheck, defaultPrecheck } = await import("./precheck.js");
+  const p = { ...defaultPolicy, precheck: defaultPrecheck() };
+  p.precheck.rules.find((r) => r.id === "corporate-amount").threshold = 50;
+  let s = submit(setup(), 100),
+    doc = s.payments[0];
+  const reviewed = await appendRiskReview(
+    doc,
+    "corporate",
+    who(doc.approval.nodes[0].actorId),
+    evaluatePrecheck("corporate", doc, { enterprise: s }, p),
+    {
+      ruleId: "corporate-amount",
+      decision: "待补充",
+      note: "需补充验收依据并核对合同付款条件",
+    },
+  );
+  s = { ...s, payments: [reviewed] };
+  validateEnterprise(s);
+  assert.equal(s.payments[0].status, "待主管审批");
+  assert.deepEqual(s.payments[0].history, doc.history);
+  assert.equal(
+    (
+      await riskReviewRows(
+        reviewed,
+        "corporate",
+        evaluatePrecheck("corporate", reviewed, { enterprise: s }, p),
+      )
+    )[0].current,
+    true,
+  );
+  s = actCorporate(s, doc.id, who(doc.approval.nodes[0].actorId), "reject", {
+    note: "补充验收材料",
+  });
+  s = submit(s, 200, doc.id);
+  assert.equal(s.payments[0].riskReviews.length, 1);
+  assert.equal(
+    (
+      await riskReviewRows(
+        s.payments[0],
+        "corporate",
+        evaluatePrecheck("corporate", s.payments[0], { enterprise: s }, p),
+      )
+    )[0].current,
+    false,
+  );
+  s = toPayment(s);
+  assert.equal(
+    s.payments[0].riskReviews[0].actorId,
+    reviewed.riskReviews[0].actorId,
+  );
+});

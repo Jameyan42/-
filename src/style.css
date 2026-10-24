@@ -1865,7 +1865,7 @@ header .demo-tag::after {
   margin-top: 12px;
 }
 header .demo-tag::after {
-  content: " · v0.24";
+  content: " · v0.25";
 }
 header .header-right {
   gap: 13px;
@@ -2822,4 +2822,34 @@ header .header-right label {
   padding-top: 12px;
   border-top: 1px solid #e5eaf1;
   overflow-wrap: anywhere;
+}
+
+.risk-review-panel {
+  overflow-wrap: anywhere;
+}
+.risk-review-item,
+.risk-review-record {
+  background: #fff;
+  border: 1px solid #e4eaf3;
+  border-radius: 10px;
+  padding: 14px;
+  margin: 12px 0;
+}
+.risk-review-editor {
+  display: grid;
+  gap: 12px;
+  border-top: 1px solid #e4eaf3;
+  padding-top: 16px;
+  margin-top: 16px;
+}
+.risk-review-editor select,
+.risk-review-editor textarea {
+  width: 100%;
+  min-width: 0;
+}
+.risk-review-editor textarea {
+  min-height: 96px;
+}
+.risk-review-history {
+  margin: 16px 0;
 }
