@@ -30,7 +30,7 @@ def main():
     git('fetch', 'origin', 'refs/heads/gh-pages')
     parent = git('rev-parse', 'FETCH_HEAD')
     existing = set(git('ls-tree', '-r', '--name-only', parent).splitlines())
-    if not {'.nojekyll','index.html'}.issubset(existing) or any(name not in {'.nojekyll','index.html','r001.html'} and not name.startswith(('ocr/','samples/')) for name in existing):
+    if not {'.nojekyll','index.html'}.issubset(existing) or any(name not in {'.nojekyll','index.html','r001.html','r002.html'} and not name.startswith(('ocr/','samples/')) for name in existing):
         raise SystemExit('Unexpected files in gh-pages; inspect before replacing the site')
     fd, index = tempfile.mkstemp(prefix='qingbao-pages-index-', dir='/tmp')
     os.close(fd)
@@ -43,7 +43,10 @@ def main():
         r001 = ROOT / 'deliverables/r001-住宿审核.html'
         if not r001.is_file():
             raise SystemExit('Missing R001 standalone page; run npm run export:demo')
-        assets=[('index.html',blob),('r001.html',git('hash-object','-w',str(r001))),('.nojekyll',empty)]
+        r002 = ROOT / 'deliverables/r002-发票查重.html'
+        if not r002.is_file():
+            raise SystemExit('Missing R002 standalone page; run npm run export:demo')
+        assets=[('index.html',blob),('r001.html',git('hash-object','-w',str(r001))),('r002.html',git('hash-object','-w',str(r002))),('.nojekyll',empty)]
         for folder in ['ocr','samples']:
             source=ROOT/'dist'/folder
             if not source.is_dir():

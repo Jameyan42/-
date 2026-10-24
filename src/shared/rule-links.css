@@ -1,0 +1,36 @@
+.rule-links {
+  display: grid;
+  gap: 6px;
+  padding: 0 10px;
+  margin: -17px 0 17px;
+}
+.rule-links a {
+  font-size: 10px;
+  padding: 6px 8px;
+  border-radius: 5px;
+  color: #7b8fa4;
+  border: 1px solid transparent;
+}
+.rule-links a:hover {
+  background: #f1f5fa;
+}
+.rule-links a[aria-current="page"] {
+  border-color: #dce7f2;
+  color: #345f86;
+  background: #f4f8fc;
+}
+@media (max-width: 720px) {
+  .rule-links {
+    display: flex;
+    gap: 9px;
+    margin: 15px 0 0;
+    padding: 0;
+  }
+  .rule-links a {
+    font-size: 10px;
+    padding: 6px 8px;
+  }
+  .sidebar nav {
+    margin-top: 10px;
+  }
+}
