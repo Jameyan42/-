@@ -282,7 +282,8 @@ try {
 } catch {
   messageReadHealthy = false;
 }
-let messageType = "all",
+let messageKind = "all",
+  messageType = "all",
   messageUnread = "all",
   messageQuery = "",
   messagePage = 0;
@@ -293,6 +294,7 @@ function currentMessages() {
     currentActor(),
     configuration.org,
     messageRead,
+    enterpriseHealthy ? enterprise.payments : [],
   );
 }
 function markVisibleMessages(keys) {
@@ -421,7 +423,10 @@ function filteredProcessed() {
   return processedRangeError() ? [] : currentProcessed(processedOptions());
 }
 function currentProcessed(options = {}) {
-  return processedRows(items, requests, currentActor(), options);
+  return processedRows(items, requests, currentActor(), {
+    ...options,
+    payments: enterpriseHealthy ? enterprise.payments : [],
+  });
 }
 function approvalCenterView() {
   const tabs = `<div class="tabs approval-view-tabs"><button data-inbox-view="pending" class="${inboxMode === "pending" ? "chosen" : ""}">待我处理 (${currentInbox().length})</button><button data-inbox-view="processed" class="${inboxMode === "processed" ? "chosen" : ""}">我已处理 (${currentProcessed().length})</button></div>`;
@@ -445,6 +450,7 @@ function approvalCenterView() {
             error: processedRangeError(),
             timeZone: processingTimeZone(),
           },
+          enterpriseHealthy,
         )
       : inboxView(
           currentInbox(),
@@ -458,13 +464,19 @@ function approvalCenterView() {
           inboxQuery,
           inboxOrder,
           requestStoreHealthy,
+          enterpriseHealthy,
+          processedPage,
         ))
   );
 }
 function currentInbox(options = {}) {
-  return inboxRows(items, requests, currentActor(), options);
+  return inboxRows(items, requests, currentActor(), {
+    ...options,
+    payments: enterpriseHealthy ? enterprise.payments : [],
+  });
 }
 function resetInboxFilters() {
+  messageKind = "all";
   messageType = "all";
   messageUnread = "all";
   messageQuery = "";
@@ -590,7 +602,7 @@ function render() {
   ]
     .map(
       ([p, i]) =>
-        `<button class="nav ${page === p ? "active" : ""}" data-page="${p}"><span>${i}</span>${p}${p === "审批中心" ? `<em>${currentInbox().length}</em>` : p === "消息中心" ? `<em>${messageReadHealthy && requestStoreHealthy ? currentMessages().filter((r) => r.unread).length : "?"}</em>` : ""}</button>`,
+        `<button class="nav ${page === p ? "active" : ""}" data-page="${p}"><span>${i}</span>${p}${p === "审批中心" ? `<em>${requestStoreHealthy && enterpriseHealthy ? currentInbox().length : "?"}</em>` : p === "消息中心" ? `<em>${messageReadHealthy && requestStoreHealthy && enterpriseHealthy ? currentMessages().filter((r) => r.unread).length : "?"}</em>` : ""}</button>`,
     )
     .join(
       "",
@@ -622,6 +634,7 @@ ${
           currentMessages(),
           currentActor(),
           {
+            kind: messageKind,
             type: messageType,
             unread: messageUnread,
             query: messageQuery,
@@ -629,6 +642,7 @@ ${
           },
           messageReadHealthy,
           requestStoreHealthy,
+          enterpriseHealthy,
         )
       : page === "申请进度"
         ? requestProgressView(
@@ -757,7 +771,7 @@ ${
   document.querySelector("aside").scrollTop = navigationScroll;
 }
 function about() {
-  return `<section class="panel prose"><h2>用 AI 辅助构建，让产品思考可见</h2><p>轻报面向 200 人成长型企业的费控演示作品，覆盖员工差旅与对公支付两条业务线。产品假设和自动化测试不代表真实用户研究或生产效果。</p><h3>员工费用闭环</h3><p>费用申请与出差行程 → 多项费用明细及酒店水单等附件 → 报销提交 → 具名审批 → 财务审核 → 总账复核 → 模拟付款。管理员先发布财务分工模板，新单按版本生成审批快照；旧单保留原路径。</p><h3>对公支付闭环</h3><p>管理员维护供应商和虚构收款账户 → 员工提交合同 → 本地规则初筛 → 财务或管理员阅读全文并复核 → 员工按本人已复核合同发起对公支付单 → 部门业务节点、财务、总账、指定付款人员逐级办理。合同在途与已付共同占用额度，退回或撤回释放；供应商变更不改写已提交单据收款快照。</p><h3>报销与对公规则预审</h3><p>可配置14条补充规则、阈值及提醒/拦截，展示触发依据、关联单号和核对建议。当前规则在财务、总账和付款时重新检查，主管仍可转交财务；每次处理保留规则参数与结果，历史不随当前配置改写。它不是AI、发票验真或自动审批。</p><h3>票面结构化与自动比对</h3><p>报销和对公支持每单最多5张票面数据，浏览器OCR提取候选后人工修正并确认，记录购销方、税号、号码、日期及金额税额。财务统一抬头基准，系统比对购买方、多票合计、金额税额和跨单重复；票面金额不自动改写申请金额。报销与对公可上传并关联发票原件，从已存图片识别，审核人从字段卡片预览或下载；仅选图识别仍不保留原件。关联不代表官方验真。</p><h3>合同审查范围</h3><p>支持粘贴正文与UTF-8 TXT导入，对主体、付款、验收、发票、违约及争议条款做透明规则初筛，显示片段与人工核对建议。不是大模型或法律意见；真实 AI 尚未连接，PDF/DOCX正文提取尚未提供。</p><h3>存储与使用范围</h3><p>数据与报销、对公附件原文件保存在本浏览器，可下载备份后迁移。浏览器OCR不上传图片，发票识别不等于验真。角色选择是演示机制，没有生产鉴权、后端并发或跨设备实时同步。只使用虚构资料，模拟付款不执行转账。</p><h3>当前模块边界</h3><p>对公任务在对公支付单办理，尚未统一到原审批中心、消息中心和报销付款工作台；对公合同额度与原部门报销预算分别统计。对公支持发票、验收单等履约材料；发票验真、真实银行支付、总账凭证、真实 AI 待后续接入。</p></section>`;
+  return `<section class="panel prose"><h2>用 AI 辅助构建，让产品思考可见</h2><p>轻报面向 200 人成长型企业的费控演示作品，覆盖员工差旅与对公支付两条业务线。产品假设和自动化测试不代表真实用户研究或生产效果。</p><h3>员工费用闭环</h3><p>费用申请与出差行程 → 多项费用明细及酒店水单等附件 → 报销提交 → 具名审批 → 财务审核 → 总账复核 → 模拟付款。管理员先发布财务分工模板，新单按版本生成审批快照；旧单保留原路径。</p><h3>对公支付闭环</h3><p>管理员维护供应商和虚构收款账户 → 员工提交合同 → 本地规则初筛 → 财务或管理员阅读全文并复核 → 员工按本人已复核合同发起对公支付单 → 部门业务节点、财务、总账、指定付款人员逐级办理。合同在途与已付共同占用额度，退回或撤回释放；供应商变更不改写已提交单据收款快照。</p><h3>报销与对公规则预审</h3><p>可配置14条补充规则、阈值及提醒/拦截，展示触发依据、关联单号和核对建议。当前规则在财务、总账和付款时重新检查，主管仍可转交财务；每次处理保留规则参数与结果，历史不随当前配置改写。它不是AI、发票验真或自动审批。</p><h3>票面结构化与自动比对</h3><p>报销和对公支持每单最多5张票面数据，浏览器OCR提取候选后人工修正并确认，记录购销方、税号、号码、日期及金额税额。财务统一抬头基准，系统比对购买方、多票合计、金额税额和跨单重复；票面金额不自动改写申请金额。报销与对公可上传并关联发票原件，从已存图片识别，审核人从字段卡片预览或下载；仅选图识别仍不保留原件。关联不代表官方验真。</p><h3>合同审查范围</h3><p>支持粘贴正文与UTF-8 TXT导入，对主体、付款、验收、发票、违约及争议条款做透明规则初筛，显示片段与人工核对建议。不是大模型或法律意见；真实 AI 尚未连接，PDF/DOCX正文提取尚未提供。</p><h3>存储与使用范围</h3><p>数据与报销、对公附件原文件保存在本浏览器，可下载备份后迁移。浏览器OCR不上传图片，发票识别不等于验真。角色选择是演示机制，没有生产鉴权、后端并发或跨设备实时同步。只使用虚构资料，模拟付款不执行转账。</p><h3>当前模块边界</h3><p>对公任务已接入审批中心、已处理记录与消息中心，可从统一入口直接办理；对公批量付款尚未纳入报销付款工作台。对公合同额度与原部门报销预算分别统计。对公支持发票、验收单等履约材料；发票验真、真实银行支付、总账凭证、真实 AI 待后续接入。</p></section>`;
 }
 function insights() {
   const groups = {};
@@ -805,7 +819,11 @@ function bind() {
       render();
     },
   });
+  document.querySelectorAll("[data-corporate]").forEach((b) => {
+    b.onclick = () => enterpriseController?.openPayment(b.dataset.corporate);
+  });
   for (const [id, set] of [
+    ["message-kind", (v) => (messageKind = v)],
     ["message-type", (v) => (messageType = v)],
     ["message-unread", (v) => (messageUnread = v)],
   ])
@@ -831,6 +849,7 @@ function bind() {
       }),
   );
   document.querySelector("#message-clear")?.addEventListener("click", () => {
+    messageKind = "all";
     messageType = "all";
     messageUnread = "all";
     messageQuery = "";
@@ -854,6 +873,7 @@ function bind() {
       try {
         markVisibleMessages(
           filterMessages(currentMessages(), {
+            kind: messageKind,
             type: messageType,
             unread: messageUnread,
             query: messageQuery,
@@ -880,7 +900,8 @@ function bind() {
         } catch (e) {
           toast(e.message);
         }
-        if (r.kind === "expense") detail(r.doc.id);
+        if (r.kind === "corporate") enterpriseController?.openPayment(r.doc.id);
+        else if (r.kind === "expense") detail(r.doc.id);
         else requestDetail(r.doc.id);
       }),
   );
@@ -1814,7 +1835,7 @@ function guideView() {
       "展示供应商、规则初筛与合同额度",
       "管理员",
       "供应商管理",
-      "新增远帆服务有限公司（虚构），统一代码 DEMO-CREDIT-001，户名与全称一致，开户行演示银行，账号 DEMO-SUPPLIER-001。先在审批流程载入并发布财务分工模板；切员工林晓到合同审查提交 HT-DEMO-001、10000元并载入虚构正文。切财务周宁阅读全文、填意见和确认后通过；林晓新建4000元对公单，上传发票和验收单，关联发票原件并人工核对票面字段；按页面指定人依次切主管许明、财务周宁、总账高璇（填科目/归属）、付款杜川（填参考号并确认模拟）办理。在合同查看在途转已付、可用6000元。",
+      "新增远帆服务有限公司（虚构），统一代码 DEMO-CREDIT-001，户名与全称一致，开户行演示银行，账号 DEMO-SUPPLIER-001。先在审批流程载入并发布财务分工模板；切员工林晓到合同审查提交 HT-DEMO-001、10000元并载入虚构正文。切财务周宁阅读全文、填意见和确认后通过；林晓新建4000元对公单，上传发票和验收单，关联发票原件并人工核对票面字段；按页面指定人依次切主管许明、财务周宁、总账高璇（填科目/归属）、付款杜川（填参考号并确认模拟），从审批中心“对公支付”页签或消息中心打开办理；已处理可按日期筛选并导出。在合同查看在途转已付、可用6000元。",
       "设计理由：对公收款人为供应商；独立单据保留合同版本、账户及路径快照。规则初筛不等于 AI 或法律意见，真实 AI 暂缓。",
     ],
   ]
@@ -2502,6 +2523,12 @@ function bindConfiguration() {
 }
 
 function bindInbox() {
+  document.querySelectorAll("[data-inbox-page]").forEach((b) => {
+    b.onclick = () => {
+      processedPage = Number(b.dataset.inboxPage);
+      render();
+    };
+  });
   document.querySelectorAll("[data-date-preset]").forEach(
     (b) =>
       (b.onclick = () => {
@@ -2548,6 +2575,8 @@ function bindInbox() {
   document.querySelector("#processed-export")?.addEventListener("click", () => {
     if (!requestStoreHealthy)
       return toast("申请存储异常，不能导出完整处理记录；请先恢复有效备份");
+    if (!enterpriseHealthy)
+      return toast("对公存储异常，不能导出完整处理记录；请先恢复有效备份");
     if (processedRangeError()) return toast(processedRangeError());
     downloadFile(
       processedCsv(currentProcessed(processedOptions()), {
@@ -2589,6 +2618,8 @@ function bindInbox() {
   document.querySelector("#inbox-export")?.addEventListener("click", () => {
     if (!requestStoreHealthy)
       return toast("申请存储异常，不能导出完整统一待办；请先恢复有效备份");
+    if (!enterpriseHealthy)
+      return toast("对公存储异常，不能导出完整统一待办；请先恢复有效备份");
     downloadFile(
       inboxCsv(
         currentInbox({ kind: inboxKind, query: inboxQuery, order: inboxOrder }),

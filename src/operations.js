@@ -36,9 +36,9 @@ export function validateOperation(o, kind) {
   const s = o.summary;
   if (
     !s ||
-    !text(s.name, 60) ||
+    !text(s.name, kind === "corporate" ? 100 : 60) ||
     !text(s.employee, 30) ||
-    !text(s.department, 30) ||
+    !text(s.department, kind === "corporate" ? 60 : 30) ||
     !["差旅交通", "业务招待", "办公采购", "其他费用"].includes(s.type) ||
     !Number.isFinite(s.amount) ||
     s.amount < 0 ||
@@ -64,7 +64,7 @@ export function validateOperation(o, kind) {
         : ["待审批", "已批准"].includes(to))
     )
       throw Error("申请处理记录流转无效");
-  } else if (kind === "expense") {
+  } else if (["expense", "corporate"].includes(kind)) {
     const before = {
       business: "待主管审批",
       finance: "待财务审核",
@@ -164,6 +164,7 @@ export function processedRows(
     order = "newest",
     from = "",
     to = "",
+    payments = [],
   } = {},
 ) {
   const range = validateDateRange(from, to);
@@ -172,6 +173,7 @@ export function processedRows(
   return [
     ...items.map((doc) => ({ doc, kind: "expense" })),
     ...requests.map((doc) => ({ doc, kind: "request" })),
+    ...payments.map((doc) => ({ doc, kind: "corporate" })),
   ]
     .flatMap((row) =>
       row.doc.history.flatMap((h, index) => {
@@ -251,7 +253,11 @@ export function processedCsv(rows, range = { from: "", to: "" }) {
         "日期筛选时区",
       ],
       ...rows.map(({ doc, kind, operation: o }) => [
-        kind === "expense" ? "报销" : "费用申请",
+        kind === "corporate"
+          ? "对公支付"
+          : kind === "expense"
+            ? "报销"
+            : "费用申请",
         doc.id,
         o.summary.name,
         o.summary.employee,

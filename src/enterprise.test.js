@@ -109,8 +109,10 @@ test("企业业务正常闭环、独立记录与合同额度分币合计", () =>
   assert.equal(s.payments[0].status, "已付款");
   assert.equal(s.payments[0].history.at(-1).action, "模拟付款登记");
   assert.equal(
-    s.payments[0].history.some((h) => h.operation),
-    false,
+    s.payments[0].history
+      .filter((h) => h.operation)
+      .every((h) => h.operation.kind === "corporate"),
+    true,
   );
   assert.equal(contractBalance(s, s.contracts[0].id).paid, 4000.01);
   assert.equal(

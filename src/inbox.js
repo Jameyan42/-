@@ -4,11 +4,18 @@ export function canHandleDocument(doc, kind, actor) {
   if (
     !actor ||
     actor.active === false ||
-    !["expense", "request"].includes(kind)
+    !["expense", "request", "corporate"].includes(kind)
+  )
+    return false;
+  if (
+    kind === "corporate" &&
+    (actor.active !== true ||
+      doc.approval?.schema !== 2 ||
+      doc.approval?.kind !== "expense")
   )
     return false;
   if (doc.approval) {
-    if (kind === "expense" && doc.status === "待付款") {
+    if (["expense", "corporate"].includes(kind) && doc.status === "待付款") {
       const finance = doc.approval.paymentActor || doc.approval.nodes.at(-1);
       return (
         ["finance", "payment"].includes(finance?.stage) &&
@@ -17,8 +24,12 @@ export function canHandleDocument(doc, kind, actor) {
         finance.actorId === actor.id
       );
     }
-    return doc.approval.kind === kind && canApprove(doc, actor);
+    return (
+      doc.approval.kind === (kind === "corporate" ? "expense" : kind) &&
+      canApprove(doc, actor)
+    );
   }
+  if (kind === "corporate") return false; // Corporate documents always need a named snapshot.
   // Existing documents retain the role-based responsibility they had before snapshots.
   return kind === "request"
     ? actor.role === "主管" && doc.status === "待审批"
@@ -31,12 +42,13 @@ export function inboxRows(
   items,
   requests,
   actor,
-  { kind = "all", query = "", order = "oldest" } = {},
+  { kind = "all", query = "", order = "oldest", payments = [] } = {},
 ) {
   const term = query.trim().toLocaleLowerCase();
   return [
     ...items.map((doc) => ({ kind: "expense", doc })),
     ...requests.map((doc) => ({ kind: "request", doc })),
+    ...payments.map((doc) => ({ kind: "corporate", doc })),
   ]
     .filter((row) => canHandleDocument(row.doc, row.kind, actor))
     .map((row) => {
@@ -110,7 +122,11 @@ export function inboxCsv(rows) {
         "提交时间",
       ],
       ...rows.map((r) => [
-        r.kind === "expense" ? "报销" : "费用申请",
+        r.kind === "corporate"
+          ? "对公支付"
+          : r.kind === "expense"
+            ? "报销"
+            : "费用申请",
         r.doc.id,
         r.doc.name,
         r.doc.employee,

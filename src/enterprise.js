@@ -1,3 +1,4 @@
+import { makeOperation, validateOperationHistory } from "./operations.js";
 import { validateAttachments, MAX_ITEMS_CHARS } from "./attachments.js";
 import {
   validateInvoices,
@@ -154,6 +155,7 @@ export function visibleCorporate(p, actor) {
     !!actor?.active &&
     (actor.role === "管理员" ||
       p.createdBy === actor.id ||
+      p.history?.some((h) => h.operation?.actorId === actor.id) ||
       p.approval.nodes.some((n) => n.actorId === actor.id) ||
       p.approval.paymentActor.actorId === actor.id)
   );
@@ -260,6 +262,25 @@ export function validateEnterprise(state) {
     if (p.attachments !== undefined) validateAttachments(p.attachments);
     validateInvoiceAttachments(p.invoices, p.attachments);
     validateSnapshot(p.approval, p.status, "expense");
+    validateOperationHistory(p.history, "corporate");
+    for (const h of p.history) {
+      const o = h.operation;
+      if (
+        o &&
+        (o.actorId !== h.actorId ||
+          o.actorName !== h.actorName ||
+          o.role !== h.role ||
+          o.at !== h.at ||
+          o.note !== h.note ||
+          o.fromStatus !== h.from ||
+          o.toStatus !== h.to ||
+          h.action !==
+            { approve: "审批通过", reject: "退回", pay: "模拟付款登记" }[
+              o.action
+            ])
+      )
+        fail("对公具名记录与流转记录不一致");
+    }
     for (const h of p.history)
       if (h.precheck !== undefined)
         validatePrecheckReport(h.precheck, "corporate", p.id);
@@ -563,8 +584,36 @@ export function actCorporate(
       p.status,
     ),
   );
-  if (report)
-    p.history[p.history.length - 1] = { ...p.history.at(-1), precheck: report };
+  if (report) {
+    const node = paymentHandler(old);
+    const operation = makeOperation({
+      doc: old,
+      kind: "corporate",
+      actor,
+      action:
+        action === "reject"
+          ? "reject"
+          : old.status === "待付款"
+            ? "pay"
+            : "approve",
+      stage: node.stage,
+      label: node.label,
+      toStatus: p.status,
+      note,
+      ...(action === "approve" && node.stage === "ledger"
+        ? { accounting: p.ledgerReview }
+        : {}),
+      ...(action === "approve" && old.status === "待付款"
+        ? { payment: p.payment }
+        : {}),
+    });
+    p.history[p.history.length - 1] = {
+      ...p.history.at(-1),
+      at: operation.at,
+      operation,
+      precheck: report,
+    };
+  }
   return checked({
     ...state,
     payments: state.payments.map((x) => (x.id === id ? p : x)),

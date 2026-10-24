@@ -51,6 +51,7 @@ export function businessMessages(
   actor,
   org,
   readState = emptyMessageRead(),
+  payments = [],
 ) {
   if (!actor?.id || !actor.active) return [];
   const read = new Set(
@@ -61,13 +62,22 @@ export function businessMessages(
   return [
     ...items.map((doc) => ({ doc, kind: "expense" })),
     ...requests.map((doc) => ({ doc, kind: "request" })),
+    ...payments.map((doc) => ({ doc, kind: "corporate" })),
   ]
     .flatMap(({ doc, kind }) => {
       const todo = canHandleDocument(doc, kind, actor),
-        own = ownsExpense(doc, actor, org);
+        own =
+          kind === "corporate"
+            ? doc.createdBy === actor.id
+            : ownsExpense(doc, actor, org);
       const relevant =
-        kind === "expense"
-          ? ["已退回", "待付款", "已付款"]
+        kind !== "request"
+          ? [
+              "已退回",
+              "待付款",
+              "已付款",
+              ...(kind === "corporate" ? ["已撤回"] : []),
+            ]
           : ["已批准", "已驳回", "已关闭"];
       if (!todo && !(own && relevant.includes(doc.status))) return [];
       const a = doc.approval,
@@ -81,22 +91,32 @@ export function businessMessages(
         a?.submittedAt || "",
         a?.cursor ?? null,
         doc.history?.length || 0,
-        operation?.at || last?.time || "",
+        operation?.at || (kind === "corporate" ? last?.at : last?.time) || "",
       ]);
-      const at = operation?.at || (todo ? a?.submittedAt : null);
+      const at =
+        operation?.at ||
+        (kind === "corporate" ? last?.at : null) ||
+        (todo ? a?.submittedAt : null);
       const time = at && Number.isFinite(Date.parse(at)) ? at : null;
       const node =
         doc.status === "待付款"
           ? a?.paymentActor || a?.nodes.at(-1)
           : a?.nodes[a.cursor];
+      const label =
+        kind === "corporate"
+          ? "对公支付单"
+          : kind === "expense"
+            ? "报销"
+            : "费用申请";
       const title = todo
         ? doc.status === "待付款"
-          ? "有一笔报销等待你登记模拟付款"
-          : "有一笔" + (kind === "expense" ? "报销" : "费用申请") + "等待你处理"
+          ? `有一笔${label}等待你登记模拟付款`
+          : `有一笔${label}等待你处理`
         : {
-            已退回: "报销已退回，请核对并修改",
-            待付款: "报销审批已完成，等待模拟付款",
-            已付款: "报销已完成模拟付款登记",
+            已退回: `${label}已退回，请核对并修改`,
+            待付款: `${label}审批已完成，等待模拟付款`,
+            已付款: `${label}已完成模拟付款登记`,
+            已撤回: `${label}已撤回，可修改后重提`,
             已批准: "费用申请已批准，可查看额度",
             已驳回: "费用申请已驳回，请核对原因",
             已关闭: "费用申请已结束",
@@ -107,6 +127,7 @@ export function businessMessages(
             .find(
               (h) =>
                 h.operation?.action === "reject" ||
+                (kind === "corporate" && h.action === "退回") ||
                 (!h.operation && /退回|驳回/.test(h.text)),
             )
         : null;
@@ -133,7 +154,10 @@ export function businessMessages(
               : doc.status === "已关闭"
                 ? "未使用额度当前不预留，不能再关联新报销。"
                 : "查看单据和流转记录了解详情。",
-          reason: reason?.operation?.note || reason?.text || "",
+          reason:
+            reason?.operation?.note ||
+            (kind === "corporate" ? reason?.note : reason?.text) ||
+            "",
         },
       ];
     })
@@ -154,12 +178,13 @@ export function businessMessages(
 }
 export function filterMessages(
   rows,
-  { type = "all", unread = "all", query = "" } = {},
+  { type = "all", unread = "all", query = "", kind = "all" } = {},
 ) {
   const q = query.trim().toLocaleLowerCase();
   return rows.filter(
     (r) =>
       (type === "all" || r.type === type) &&
+      (kind === "all" || r.kind === kind) &&
       (unread === "all" || r.unread) &&
       (!q ||
         [

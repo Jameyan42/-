@@ -58,7 +58,7 @@ const noteField = `<label>处理意见<textarea name="note" maxlength="500" plac
 const errorBox = `<p id="enterprise-error" class="risk" role="alert"></p>`;
 const footer = (label) =>
   `${errorBox}<div class="modal-actions"><button type="submit" class="primary">${label}</button></div>`;
-const localNotice = `<p class="footnote">仅本浏览器的虚构数据演示；角色选择不是真实鉴权。对公单独立于员工报销，当前在本页面办理，尚未纳入原消息中心、付款工作台和部门报销预算。</p>`;
+const localNotice = `<p class="footnote">仅本浏览器的虚构数据演示；角色选择不是真实鉴权。对公单独立于员工报销，支持从审批中心与消息中心打开办理；尚未纳入报销付款工作台和部门报销预算。</p>`;
 let query = "",
   status = "全部",
   offset = 0,
@@ -180,7 +180,7 @@ export function mountEnterprise({
   go,
   download,
 }) {
-  if (!enterprisePages.includes(page) || !healthy) return;
+  if (!healthy) return;
   const modal = (html) =>
     openModal(
       `<button data-close class="enterprise-close" aria-label="关闭">✕</button>${html}`,
@@ -412,6 +412,7 @@ export function mountEnterprise({
       .querySelector("#corporate-edit")
       ?.addEventListener("click", () => paymentForm(id));
   }
+  if (!enterprisePages.includes(page)) return { openPayment: paymentDetail };
   document
     .querySelector("#enterprise-create")
     ?.addEventListener("click", () =>
