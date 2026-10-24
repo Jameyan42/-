@@ -1865,7 +1865,7 @@ header .demo-tag::after {
   margin-top: 12px;
 }
 header .demo-tag::after {
-  content: " · v0.25";
+  content: " · v0.26";
 }
 header .header-right {
   gap: 13px;
@@ -2852,4 +2852,23 @@ header .header-right label {
 }
 .risk-review-history {
   margin: 16px 0;
+}
+
+.interview-question {
+  border-bottom: 1px solid #e4eaf3;
+  padding: 15px 0;
+}
+.interview-question summary {
+  cursor: pointer;
+  font-weight: 600;
+}
+.interview-steps {
+  display: grid;
+  gap: 12px;
+}
+@media print {
+  .interview-prep .actions,
+  .interview-prep [data-practice-page] {
+    display: none !important;
+  }
 }

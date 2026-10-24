@@ -1,3 +1,7 @@
+import {
+  validateBudgetLimits,
+  validateBudgetControl,
+} from "./budget-control.js";
 import { validateRiskReviews } from "./risk-reviews.js";
 import {
   validateInvoices,
@@ -176,6 +180,9 @@ export function validateBackup(data) {
     )
   )
     throw Error("备份中的预算配置无效");
+  validateBudgetLimits(data.budgets);
+  if (data.budgetControl !== undefined)
+    validateBudgetControl(data.budgetControl, data.budgets);
   validatePolicy(data.policy);
   if (
     !Array.isArray(data.audit) ||

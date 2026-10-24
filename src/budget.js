@@ -8,12 +8,14 @@ export function budgetRows(items, limits, month, requests = []) {
         x.date.startsWith(month) &&
         !["已退回", "草稿", "已撤回"].includes(x.status),
     );
-    const paid = rows
-      .filter((x) => x.status === "已付款")
-      .reduce((s, x) => s + x.amount, 0);
-    const reimbursementReserved = rows
-      .filter((x) => x.status !== "已付款")
-      .reduce((s, x) => s + x.amount, 0);
+    const paid =
+      rows
+        .filter((x) => x.status === "已付款")
+        .reduce((s, x) => s + Math.round(x.amount * 100), 0) / 100;
+    const reimbursementReserved =
+      rows
+        .filter((x) => x.status !== "已付款")
+        .reduce((s, x) => s + Math.round(x.amount * 100), 0) / 100;
     const applicationReserved =
       requests
         .filter(
@@ -35,7 +37,11 @@ export function budgetRows(items, limits, month, requests = []) {
       reserved,
       reimbursementReserved,
       applicationReserved,
-      available: limit - paid - reserved,
+      available:
+        (Math.round(limit * 100) -
+          Math.round(paid * 100) -
+          Math.round(reserved * 100)) /
+        100,
       ratio: limit ? (paid + reserved) / limit : paid + reserved > 0 ? 1 : 0,
     };
   });
