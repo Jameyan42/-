@@ -1,4 +1,7 @@
 Qingbao browser OCR dependencies
+pdfjs-dist 5.4.624 — Apache-2.0
+git+https://github.com/mozilla/pdf.js.git
+
 tesseract.js 7.0.0 — Apache-2.0
 https://github.com/naptha/tesseract.js.git
 
