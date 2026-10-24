@@ -88,8 +88,16 @@ export function replaceRecord(
   state: R001State,
   record: AuditRecord,
 ): R001State {
-  if (!state.records.some((r) => r.id === record.id))
-    throw Error("单据不存在，未保存复核");
+  const previous = state.records.find((r) => r.id === record.id);
+  if (!previous) throw Error("单据不存在，未保存复核");
+  if (previous.humanReview || !record.humanReview)
+    throw Error("复核必须首次明确提交，已完成的记录不得覆盖");
+  if (
+    stable(previous.input) !== stable(record.input) ||
+    stable(previous.automatic) !== stable(record.automatic) ||
+    previous.auditedAt !== record.auditedAt
+  )
+    throw Error("人工复核不得覆盖原始输入、自动审核结果或审核时间");
   return {
     ...state,
     records: state.records.map((r) => (r.id === record.id ? record : r)),

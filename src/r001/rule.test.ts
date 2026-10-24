@@ -170,6 +170,14 @@ test("人工通过/驳回均保留自动结果、原因和操作时间，不能�
     assert.equal(original.humanReview, null);
     assert.equal(reviewed.humanReview?.decision, decision);
     assert.equal(reviewed.humanReview?.at, later);
+    assert.throws(
+      () =>
+        replaceRecord(
+          appendRecord({ ...createExampleState(), records: [] }, original),
+          { ...reviewed, automatic: { ...reviewed.automatic, excessCents: 0 } },
+        ),
+      /不得覆盖原始/,
+    );
     validateState(
       replaceRecord(
         appendRecord({ ...createExampleState(), records: [] }, original),
