@@ -6,14 +6,20 @@
     "dev": "vite --host 0.0.0.0",
     "build": "vite build",
     "preview": "vite preview --host 0.0.0.0",
-    "test": "node --test src/*.test.js",
+    "test": "node --test src/*.test.js && npm run test:r001",
     "test:e2e": "playwright test",
     "export:demo": "npm run build && python3 scripts/export_demo.py",
     "predev": "node scripts/prepare-ocr.mjs",
-    "prebuild": "node scripts/prepare-ocr.mjs"
+    "prebuild": "node scripts/prepare-ocr.mjs",
+    "test:r001": "npm run typecheck:r001 && tsx --test src/r001/*.test.ts",
+    "typecheck:r001": "tsc --noEmit -p tsconfig.r001.json",
+    "dev:r001": "vite --host 0.0.0.0 --open /r001.html"
   },
   "devDependencies": {
     "@playwright/test": "^1.64.1",
+    "@types/node": "22.19.7",
+    "tsx": "4.20.6",
+    "typescript": "5.9.3",
     "vite": "^7.1.0"
   },
   "type": "module",
