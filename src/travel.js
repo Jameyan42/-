@@ -1,3 +1,9 @@
+import {
+  validateTravelStandard,
+  travelChecks,
+  travelLevels,
+  employeeGrades,
+} from "./travel-policy.js";
 import { validateDateRange } from "./processing-dates.js";
 export const travelPolicyVersion = "travel-demo-2026-01";
 export const travelCategories = [
@@ -7,8 +13,8 @@ export const travelCategories = [
   "市内交通",
   "其他",
 ];
-export const cityLevels = ["重点城市", "其他城市"];
-export const travelGrades = ["普通员工", "管理人员"];
+export const cityLevels = travelLevels;
+export const travelGrades = employeeGrades;
 const day = (n) => Date.parse(n + "T00:00:00Z") / 86400000;
 const cents = (n) => Math.round(n * 100);
 export function validateTrip(t, month = null) {
@@ -67,6 +73,7 @@ export function validateTravel(v, amount, type) {
   )
     throw Error("差旅明细需为差旅交通类型，包含1～20行及有效标准版本");
   validateTrip(v.trip);
+  if (v.standard !== undefined) validateTravelStandard(v.standard, v.trip);
   const allocated = { 住宿: new Set(), 餐补: new Set() };
   let total = 0;
   for (const l of v.lines) {
@@ -112,6 +119,13 @@ export function validateTravel(v, amount, type) {
   return v;
 }
 export function travelWarnings(v) {
+  if (v.standard)
+    return travelChecks(v)
+      .filter((x) => x.excess > 0)
+      .map(
+        (x) =>
+          `${x.index ? "第" + x.index + "行" : x.date + "合计"}${x.category} ${x.actual.toFixed(2)}元，超过${x.rate}元/${x.unit} × ${x.units} 的差旅标准；超额${x.excess.toFixed(2)}元`,
+      );
   const rates = travelRates(v.trip);
   return v.lines.flatMap((l, i) => {
     const cap =

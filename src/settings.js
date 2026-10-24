@@ -1,3 +1,4 @@
+import { validateTravelRules } from "./travel-policy.js";
 import {
   validateBudgetLimits,
   validateBudgetControl,
@@ -41,7 +42,11 @@ export function validatePolicy(value) {
   if (value.invoiceBuyer !== undefined)
     validateInvoiceBuyer(value.invoiceBuyer);
   if (value.precheck !== undefined) validatePrecheck(value.precheck);
+  if (value.travelRules !== undefined) validateTravelRules(value.travelRules);
   return {
+    ...(value.travelRules !== undefined
+      ? { travelRules: structuredClone(value.travelRules) }
+      : {}),
     ...(value.invoiceBuyer !== undefined
       ? { invoiceBuyer: structuredClone(value.invoiceBuyer) }
       : {}),
@@ -106,6 +111,12 @@ export function validateBackup(data) {
       throw new Error("备份中的报销数据不完整或格式无效");
     if (x.travel !== undefined) {
       validateTravel(x.travel, x.amount, x.type);
+      if (
+        x.travel.standard &&
+        (x.travel.standard.actorName !== x.employee ||
+          (x.approval && x.travel.standard.actorId !== x.approval.applicantId))
+      )
+        throw Error("差旅职级标准与申请人不一致");
       if (x.status !== "草稿")
         assertTravelSubmission(x.travel, x.amount, x.type);
     }

@@ -47,6 +47,8 @@ export function validateRequest(request) {
 }
 export function assertClaimLink(item, requests, items) {
   if (!item.requestId) return;
+  if (item.travel?.standard)
+    validateTravel(item.travel, item.amount, item.type);
   if (
     !Number.isFinite(item.amount) ||
     Math.abs(cents(item.amount) / 100 - item.amount) > 1e-8
@@ -60,7 +62,17 @@ export function assertClaimLink(item, requests, items) {
   if (
     r.trip &&
     !inactive.has(item.status) &&
-    (!item.travel || !sameTrip(r.trip, item.travel.trip))
+    (!item.travel ||
+      !sameTrip(
+        item.travel.standard
+          ? {
+              ...r.trip,
+              cityLevel: item.travel.trip.cityLevel,
+              grade: item.travel.trip.grade,
+            }
+          : r.trip,
+        item.travel.trip,
+      ))
   )
     throw Error("差旅报销行程必须与批准的出差申请一致，请载入申请行程");
   if (inactive.has(item.status)) return;

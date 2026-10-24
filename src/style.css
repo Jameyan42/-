@@ -1865,7 +1865,7 @@ header .demo-tag::after {
   margin-top: 12px;
 }
 header .demo-tag::after {
-  content: " · v0.27";
+  content: " · v0.28";
 }
 header .header-right {
   gap: 13px;
@@ -2872,3 +2872,7 @@ header .header-right label {
     display: none !important;
   }
 }
+
+.travel-policy fieldset { border: 0; padding: 0; min-width: 0; }
+.travel-policy .form-grid select { width: 100%; }
+.travel-assessment { margin: 18px 0; }

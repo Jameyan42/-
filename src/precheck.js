@@ -1,9 +1,10 @@
+import { validateTravelStandard, travelChecks } from "./travel-policy.js";
 import {
   invoiceEvidence,
   effectiveInvoiceBuyer,
   validateInvoiceBuyer,
 } from "./invoice-data.js";
-import { assertTravelSubmission } from "./travel.js";
+import { assertTravelSubmission, validateTravel } from "./travel.js";
 // Fixed rule catalog, no eval, external model, invoice verification or arbitrary user code.
 export const ruleCatalog = [
   {
@@ -294,6 +295,84 @@ export function evaluatePrecheck(
           "退回核对行程、明细合计及超标说明。",
         );
       }
+    if (doc.travel) {
+      try {
+        validateTravel(doc.travel, doc.amount, doc.type);
+        const standard = doc.travel.standard;
+        if (!standard)
+          add(
+            "travel-legacy",
+            "warn",
+            "旧差旅单未保存财务城市/人员职级标准快照",
+            "仅按原手选示例档位复核，未按当前制度追溯改写",
+            "人工核对原适用制度；退回重提时按财务维护标准生成新快照。",
+          );
+        else {
+          report.policy.travelStandard = structuredClone(standard);
+          if (!standard.cityMatched)
+            add(
+              "travel-city",
+              "warn",
+              "目的地未维护城市档",
+              `${standard.city}未匹配；暂按其他城市标准，不能视作已核定城市`,
+              "财务核实目的地，维护城市目录后必要时退回重提。",
+            );
+          if (!standard.gradeMatched)
+            add(
+              "travel-grade",
+              "warn",
+              "申请人尚未维护职级",
+              `${standard.actorName} / ${standard.actorId}，暂按普通员工标准，非已核定职级`,
+              "财务在差旅标准维护人员职级，必要时退回重提；不允许员工自行选高档。",
+            );
+          for (const [key, label] of [
+            ["hotel", "住宿"],
+            ["meal", "餐补"],
+            ["local", "市内交通"],
+          ]) {
+            const hits = travelChecks(doc.travel).filter(
+              (x) => x.key === key && x.excess > 0,
+            );
+            if (hits.length)
+              add(
+                "travel-" + key,
+                standard.effects[key],
+                `${label}超过城市/职级差旅标准`,
+                `制度v${standard.version}；${standard.city} / ${standard.grade}；` +
+                  hits
+                    .slice(0, 3)
+                    .map(
+                      (x) =>
+                        `${x.index ? "第" + x.index + "行" : x.date + "当日合计"}：${x.actual.toFixed(2)}元 > ${x.rate}元/${x.unit} × ${x.units}，超额${x.excess.toFixed(2)}元`,
+                    )
+                    .join("；"),
+                "核对真实发生金额、天数/晚数及超标说明；说明或核对留痕不自动解除拦截。",
+              );
+          }
+          if (
+            doc.travel.lines.some((l) => l.category === "住宿") &&
+            !doc.attachments?.some((f) => f.kind === "酒店水单")
+          )
+            add(
+              "travel-hotel-folio",
+              standard.effects.hotelFolio,
+              "住宿缺少酒店水单",
+              "存在住宿明细，未留存分类为酒店水单的附件；发票不自动替代水单",
+              "补充酒店水单，核对入住人、日期及实际住宿晚数；系统只检查材料分类，不读取内容真实性。",
+            );
+          if (!doc.requestId)
+            add(
+              "travel-request",
+              standard.effects.tripRequest,
+              "差旅报销未关联事前费用申请",
+              "单据未关联出差/费用申请；不代表业务不真实",
+              "核对企业是否要求事前申请及补批依据；关联仍须通过申请额度、本人和行程校验。",
+            );
+        }
+      } catch {
+        /* The fixed travel-integrity finding above reports malformed data. */
+      }
+    }
     if (doc.amount > legacy.limit)
       add(
         "legacy-limit",
@@ -491,6 +570,14 @@ export function validatePrecheckReport(r, kind, docId) {
   const known = new Set([
     ...ruleCatalog.map((x) => x.id),
     "travel-integrity",
+    "travel-legacy",
+    "travel-city",
+    "travel-grade",
+    "travel-hotel",
+    "travel-meal",
+    "travel-local",
+    "travel-hotel-folio",
+    "travel-request",
     "legacy-limit",
     "legacy-receipt",
     "legacy-duplicate",
@@ -524,6 +611,8 @@ export function validatePrecheckReport(r, kind, docId) {
   )
     throw Error("预审结果快照格式无效");
   validatePrecheck(r.policy.precheck);
+  if (r.policy.travelStandard !== undefined)
+    validateTravelStandard(r.policy.travelStandard);
   if (r.policy.invoiceBuyer !== undefined)
     validateInvoiceBuyer(r.policy.invoiceBuyer);
   const ids = new Set();

@@ -1,3 +1,5 @@
+import { nextTravelRules, captureTravel } from "./travel-policy.js";
+import { bindTravelPolicyRows } from "./travel-policy-ui.js";
 import { interviewGuideView, interviewMarkdown } from "./interview-guide.js";
 import {
   budgetControlKey,
@@ -737,7 +739,12 @@ ${
               requestStoreHealthy,
             )
           : page === "差旅标准"
-            ? travelStandardsView()
+            ? travelStandardsView(
+                policy,
+                configuration.org,
+                role === "财务",
+                policyHealthy && configHealthy,
+              )
             : page === "报销进度"
               ? expenseProgressView(items, currentActor(), configuration.org, {
                   group: progressGroup,
@@ -869,6 +876,11 @@ function insights() {
     )}<h3>流程分布</h3><div class="flow">${["待主管审批", "待财务审核", "待总账复核", "待付款", "已付款", "已退回", "已撤回"].map((s) => `<div><h2>${items.filter((x) => x.status === s).length}</h2>${s}</div>`).join("")}</div></section>`;
 }
 function canLeaveOrgEditor() {
+  if (
+    document.querySelector("#travel-policy-form")?.dataset.dirty === "true" &&
+    !confirm("差旅制度修改尚未发布，是否放弃修改并切换？")
+  )
+    return false;
   return (
     !document.querySelector("#org-inspector-form")?.dataset.dirty ||
     confirm("节点修改尚未保存，是否放弃修改并切换？")
@@ -1504,7 +1516,10 @@ function form(existing) {
     },
     { isLinked: (id) => invoiceCapture.isLinked(id) },
   );
-  const travelEditor = mountTravelForm(formEl, () => preview());
+  const travelEditor = mountTravelForm(formEl, () => preview(), {
+    policy,
+    actor: currentActor(),
+  });
   const invoiceCapture = mountInvoiceEditor(
     formEl,
     existing?.invoices,
@@ -1584,6 +1599,11 @@ function form(existing) {
     x.status = draft ? "草稿" : "待主管审批";
     try {
       if (x.travel) {
+        if (!policyHealthy || !configHealthy)
+          throw Error(
+            "制度或组织存储异常，差旅提交/草稿暂停；原数据未改动，请恢复有效备份",
+          );
+        x.travel = captureTravel(x.travel, policy, currentActor());
         validateTravel(x.travel, x.amount, x.type);
         if (!draft) assertTravelSubmission(x.travel, x.amount, x.type);
       }
@@ -1763,6 +1783,48 @@ function downloadFile(content, name, type) {
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 function bindMore() {
+  const travelPolicyForm = document.querySelector("#travel-policy-form");
+  if (travelPolicyForm) {
+    const collect = bindTravelPolicyRows(travelPolicyForm, policy);
+    travelPolicyForm.onsubmit = (e) => {
+      e.preventDefault();
+      try {
+        if (!policyHealthy || !configHealthy)
+          throw Error("规则或组织存储异常，原值已保留，请恢复有效备份");
+        const next = validatePolicy({
+          ...policy,
+          travelRules: nextTravelRules(
+            policy,
+            collect(),
+            currentActor(),
+            travelPolicyForm.elements.travelReason.value,
+          ),
+        });
+        try {
+          localStorage.setItem("qingbao-policy", JSON.stringify(next));
+        } catch {
+          throw Error("差旅制度保存失败或容量不足，原制度未改动，填写内容保留");
+        }
+        policy = next;
+        let warning = "";
+        try {
+          record(
+            "发布差旅制度",
+            `差旅v${next.travelRules.version}`,
+            next.travelRules.change.reason,
+          );
+        } catch {
+          warning = "；操作日志未保存，请及时备份";
+        }
+        travelPolicyForm.dataset.dirty = "false";
+        render();
+        toast("差旅制度已发布，新单/重提使用新标准，在途快照保持" + warning);
+      } catch (error) {
+        toast(error.message);
+      }
+    };
+  }
+
   document
     .querySelector("#research-export")
     ?.addEventListener("click", () =>
@@ -1787,6 +1849,7 @@ function bindMore() {
       if (!policyHealthy)
         throw Error("预审规则存储异常，原值已保留，请恢复有效备份");
       const next = validatePolicy({
+        ...(policy.travelRules ? { travelRules: policy.travelRules } : {}),
         limit: Number(d.get("limit")),
         requireReceipt: d.has("requireReceipt"),
         checkDuplicate: d.has("checkDuplicate"),
@@ -1922,12 +1985,18 @@ function bindMore() {
       validateRequestSet(nextRequests, data.items);
       if (
         !confirm(
-          `将使用备份中的 ${data.items.length} 笔报销替换当前数据。${data.requests === undefined ? "旧备份不含申请，保留现有费用申请" : `同时替换为 ${nextRequests.length} 笔费用申请`}；${data.configuration ? "同时恢复组织和已发布流程" : "不含组织/流程，保留现有配置"}；${data.enterprise ? "同时替换供应商、合同和对公单" : "旧备份不含企业业务，保留已有记录"}；${data.budgetControl ? "恢复月度预算配置" : "旧备份不含月度预算，保留当前配置"}，继续吗？`,
+          `将使用备份中的 ${data.items.length} 笔报销替换当前数据。${data.requests === undefined ? "旧备份不含申请，保留现有费用申请" : `同时替换为 ${nextRequests.length} 笔费用申请`}；${data.configuration ? "同时恢复组织和已发布流程" : "不含组织/流程，保留现有配置"}；${data.enterprise ? "同时替换供应商、合同和对公单" : "旧备份不含企业业务，保留已有记录"}；${data.policy.travelRules ? "恢复差旅制度" : "旧备份缺差旅制度，保留当前制度"}；${data.budgetControl ? "恢复月度预算配置" : "旧备份不含月度预算，保留当前配置"}，继续吗？`,
         )
       ) {
         input.value = "";
         return;
       }
+      const nextPolicy = validatePolicy({
+        ...data.policy,
+        ...(data.policy.travelRules === undefined && policy.travelRules
+          ? { travelRules: policy.travelRules }
+          : {}),
+      });
       const nextBudgets = { ...data.budgets };
       for (const d of nextConfiguration.org.departments)
         if (d.parentId !== null && nextBudgets[d.name] === undefined)
@@ -1951,7 +2020,7 @@ function bindMore() {
         ["qingbao-requests-v1", JSON.stringify(nextRequests)],
         ["qingbao-budgets", JSON.stringify(nextBudgets)],
         [budgetControlKey, JSON.stringify(nextControl)],
-        ["qingbao-policy", JSON.stringify(data.policy)],
+        ["qingbao-policy", JSON.stringify(nextPolicy)],
         ["qingbao-flow-draft-v1", JSON.stringify(nextDraft)],
         ["qingbao-audit", JSON.stringify(nextAudit)],
         ["qingbao-budget-audit", null],
@@ -1971,7 +2040,7 @@ function bindMore() {
       budgetControl = nextControl;
       budgetControlHealthy = true;
       flowDraft = nextDraft;
-      policy = validatePolicy(data.policy);
+      policy = nextPolicy;
       policyHealthy = true;
       audit = nextAudit;
       if (data.messageRead !== undefined) {
@@ -2214,12 +2283,17 @@ function newRequest() {
     `<div class="modal-title"><h2>新建费用申请</h2><button data-close aria-label="关闭">✕</button></div><p class="muted">${esc(currentEmployee())} · ${esc(currentDepartment())} · 尚未批准前不占用预算</p><form id="request-form"><label>申请事项<input name="name" maxlength="60" required placeholder="例如：华东客户拜访"></label><div class="form-grid"><label>计划月份<input type="month" name="month" required value="${new Date().toLocaleDateString("sv-SE").slice(0, 7)}"></label><label>申请额度（元）<input type="number" name="amount" min="0.01" max="1000000" step="0.01" required></label></div><label>费用类型<select name="type">${["差旅交通", "业务招待", "办公采购", "其他费用"].map((t) => `<option>${t}</option>`).join("")}</select></label>${travelForm("request")}<label>用途说明<textarea name="note" required maxlength="500" placeholder="说明业务必要性、预计费用和使用范围"></textarea></label><div class="actions"><button type="submit" class="primary">提交申请</button></div></form>`,
   );
   const f = document.querySelector("#request-form");
-  const tripEditor = mountTravelForm(f);
+  const tripEditor = mountTravelForm(f, () => {}, {
+    policy,
+    actor: currentActor(),
+  });
   f.addEventListener("input", () => (f.dataset.dirty = "true"));
   f.onsubmit = (e) => {
     e.preventDefault();
     const d = new FormData(f);
     try {
+      if (tripEditor.read() && !policyHealthy)
+        throw Error("差旅制度存储异常，请恢复有效备份后提交");
       const r = validateRequest({
         id: "SQ" + crypto.randomUUID(),
         name: d.get("name").trim(),
