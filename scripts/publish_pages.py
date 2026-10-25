@@ -30,7 +30,7 @@ def main():
     git('fetch', 'origin', 'refs/heads/gh-pages')
     parent = git('rev-parse', 'FETCH_HEAD')
     existing = set(git('ls-tree', '-r', '--name-only', parent).splitlines())
-    if not {'.nojekyll','index.html'}.issubset(existing) or any(name not in {'.nojekyll','index.html','r001.html','r002.html'} and not name.startswith(('ocr/','samples/')) for name in existing):
+    if not {'.nojekyll','index.html'}.issubset(existing) or any(name not in {'.nojekyll','index.html','r001.html','r002.html','r003.html'} and not name.startswith(('ocr/','samples/')) for name in existing):
         raise SystemExit('Unexpected files in gh-pages; inspect before replacing the site')
     fd, index = tempfile.mkstemp(prefix='qingbao-pages-index-', dir='/tmp')
     os.close(fd)
@@ -47,6 +47,10 @@ def main():
         if not r002.is_file():
             raise SystemExit('Missing R002 standalone page; run npm run export:demo')
         assets=[('index.html',blob),('r001.html',git('hash-object','-w',str(r001))),('r002.html',git('hash-object','-w',str(r002))),('.nojekyll',empty)]
+        r003 = ROOT / 'deliverables/r003-合同付款.html'
+        if not r003.is_file():
+            raise SystemExit('Missing R003 standalone page')
+        assets.append(('r003.html',git('hash-object','-w',str(r003))))
         for folder in ['ocr','samples']:
             source=ROOT/'dist'/folder
             if not source.is_dir():

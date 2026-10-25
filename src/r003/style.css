@@ -1,0 +1,33 @@
+pre {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font-size: 12px;
+}
+.risk {
+  padding: 12px;
+  border-left: 3px solid #bd784b;
+  background: #fff6ec;
+}
+textarea {
+  font-family: ui-monospace, monospace;
+}
+.identifier {
+  overflow-wrap: anywhere;
+  font-size: 12px;
+}
+.card + .card {
+  margin-top: 22px;
+}
+#entry-error,
+.error {
+  color: #b54738;
+}
+main {
+  padding-bottom: 40px;
+}
+.calculation {
+  overflow-wrap: anywhere;
+}
+.sidebar {
+  overflow-y: auto;
+}

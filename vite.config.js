@@ -8,6 +8,7 @@ export default defineConfig({
       input: {
         main: fileURLToPath(new URL("./index.html", import.meta.url)),
         r001: fileURLToPath(new URL("./r001.html", import.meta.url)),
+        r003: fileURLToPath(new URL("./r003.html", import.meta.url)),
         r002: fileURLToPath(new URL("./r002.html", import.meta.url)),
       },
     },

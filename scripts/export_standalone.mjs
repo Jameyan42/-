@@ -11,6 +11,7 @@ for (const [entry, target] of [
   ["index.html", "轻报演示.html"],
   ["r001.html", "r001-住宿审核.html"],
   ["r002.html", "r002-发票查重.html"],
+  ["r003.html", "r003-合同付款.html"],
 ]) {
   const result = await build({
     configFile: false,
