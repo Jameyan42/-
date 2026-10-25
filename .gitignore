@@ -6,3 +6,6 @@ playwright-report/
 test-results/
 
 public/ocr/
+
+.venv-ocr/
+services/local_ocr/__pycache__/

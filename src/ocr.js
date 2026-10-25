@@ -71,7 +71,8 @@ export function startRecognition(
   onProgress = () => {},
   settings = defaultImageSettings(),
 ) {
-  let worker,
+  let localRequest,
+    worker,
     pdfJob,
     canvas,
     cancelled = false,
@@ -88,6 +89,7 @@ export function startRecognition(
       canvas.width = 1;
       canvas.height = 1;
     }
+    localRequest?.abort();
     pdfJob?.cancel();
     if (worker) void worker.terminate();
     rejectCancel(new Error(message));
@@ -104,6 +106,38 @@ export function startRecognition(
         canvas = (await pdfJob.promise).canvas;
       } else canvas = await renderInvoiceImage(file, settings);
       if (cancelled) throw new Error("已取消识别");
+      // Only the optional loopback server can enable this route; the public site stays browser-only.
+      if (
+        window.QINGBAO_LOCAL_OCR === true &&
+        ["127.0.0.1", "localhost"].includes(location.hostname)
+      ) {
+        localRequest = new AbortController();
+        onProgress({ status: "本机 RapidOCR 正在识别" });
+        const response = await fetch("/api/ocr", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            image: canvas.toDataURL("image/png").split(",")[1],
+          }),
+          signal: localRequest.signal,
+        });
+        const result = await response.json();
+        if (!response.ok) throw Error(result.error || "本地OCR服务不可用");
+        if (cancelled) throw Error("已取消识别");
+        if (
+          typeof result.text !== "string" ||
+          !Number.isFinite(result.confidence)
+        )
+          throw Error("本地OCR返回数据无效");
+        const fields = extractInvoiceFields(result.text);
+        return {
+          ...fields,
+          structured: extractInvoiceDetails(result.text, fields),
+          text: result.text,
+          confidence: result.confidence,
+          engine: result.engine,
+        };
+      }
       const base = new URL("./ocr/", document.baseURI).href;
       worker = await createWorker(["chi_sim", "eng"], 1, {
         workerPath: base + "worker.min.js",
