@@ -270,6 +270,15 @@
       "title": "合同付款条件审核与资金占用分离",
       "evidence": "docs/R003-v3验收.md",
       "verification": "259项业务/157项浏览器全部通过，R00334项含T01–T30、3项页面流程；生产独立HTML T04驳回/刷新保留、手机四区和R002互链通过；基线12项服务连接失败重启后全通过"
+    },
+    {
+      "order": "31",
+      "version": "OCR本机引擎验证",
+      "date": "2026-10-25",
+      "commit": "e25bebc",
+      "title": "可选RapidOCR本机接入与真实字段验证",
+      "evidence": "services/local_ocr/README.md",
+      "verification": "259业务测试/23项OCR与PDF票面浏览器通过；本机RapidOCR实际模型推理及浏览器10字段、电子PDF、原识别框、403/400边界验证通过；非任意真实发票准确率结论"
     }
   ],
   "history": [
@@ -2507,6 +2516,51 @@
       "limits": "无真实访谈或收益数据，不新增R004",
       "commit": "16d1735",
       "evidence": "docs/R003-v3验收.md"
+    },
+    {
+      "sequence": 150,
+      "stage": "OCR本机引擎验证",
+      "date": "2026-10-25",
+      "module": "OCR引擎",
+      "feature": "开源调研及RapidOCR ONNX可选本机服务",
+      "status": "已完成",
+      "value": "比较中文票据适用性，不直接依赖外部演示",
+      "entry": "services/local_ocr",
+      "demo": "本机8765打开主应用",
+      "verification": "259业务测试/23项OCR与PDF票面浏览器通过；本机RapidOCR实际模型推理及浏览器10字段、电子PDF、原识别框、403/400边界验证通过；非任意真实发票准确率结论",
+      "limits": "GitHub Pages不运行Python，线上未切换",
+      "commit": "e25bebc",
+      "evidence": "services/local_ocr/README.md"
+    },
+    {
+      "sequence": 151,
+      "stage": "OCR本机引擎验证",
+      "date": "2026-10-25",
+      "module": "OCR适配",
+      "feature": "原OCR调用链本机模式、PDF预处理与人工字段确认",
+      "status": "已完成",
+      "value": "保持旧流程，识别范围只送本机",
+      "entry": "报销 / 对公票面采集",
+      "demo": "结构化PNG 10字段、PDF106元、原框268.50元",
+      "verification": "259业务测试/23项OCR与PDF票面浏览器通过；本机RapidOCR实际模型推理及浏览器10字段、电子PDF、原识别框、403/400边界验证通过；非任意真实发票准确率结论",
+      "limits": "不含逐行商品/二维码/验真，需脱敏真实样本",
+      "commit": "e25bebc",
+      "evidence": "services/local_ocr/README.md"
+    },
+    {
+      "sequence": 152,
+      "stage": "OCR本机引擎验证",
+      "date": "2026-10-25",
+      "module": "OCR保护及验证",
+      "feature": "Host/Origin限制、图片上限、单任务锁、无票据日志落盘",
+      "status": "已完成",
+      "value": "限制本机服务暴露并真实运行模型",
+      "entry": "本机浏览器验证脚本",
+      "demo": "跨来源403、坏图片400及同源请求",
+      "verification": "259业务测试/23项OCR与PDF票面浏览器通过；本机RapidOCR实际模型推理及浏览器10字段、电子PDF、原识别框、403/400边界验证通过；非任意真实发票准确率结论",
+      "limits": "非生产后端，取消不强杀正在运行的CPU任务",
+      "commit": "e25bebc",
+      "evidence": "services/local_ocr/README.md"
     }
   ],
   "roadmap": [
