@@ -1,4 +1,14 @@
-import { current, load, save, saveDraft, execute, review } from "./model.ts";
+import { defaultEntities } from "./entity-rule.ts";
+import {
+  current,
+  load,
+  save,
+  saveDraft,
+  execute,
+  review,
+  noteReview,
+  configureEntities,
+} from "./model.ts";
 import { registry } from "./rules.ts";
 import { loadState } from "../r001/model";
 import { loadR002, historyForAudit } from "../r002/invoiceRepository";
@@ -55,6 +65,7 @@ const moneyText = (v) => {
 };
 const fresh = () => ({
   id: "BX-S001-" + crypto.randomUUID(),
+  companyId: "",
   employee: "",
   grade: "普通员工",
   department: "",
@@ -82,6 +93,9 @@ const invoice = () => ({
   sellerTaxId: "",
   buyerTaxId: "",
   source: "manual",
+  recognitionStatus: "已人工核对",
+  buyerTaxStatus: "未确认",
+  recognitionConfidence: null,
 });
 const input = (name, label, value, type = "text") =>
   `<label>${label}<input name="${name}" type="${type}" value="${esc(value)}"></label>`;
@@ -93,6 +107,27 @@ function duplicateEvidence(r) {
   return matches.length
     ? `<div class="table-wrap"><table><thead><tr><th>关联单号 / 人员</th><th>票号 / 金额</th><th>历史状态 / 匹配依据</th></tr></thead><tbody>${matches.map((m) => `<tr><td>${esc(m.historical.documentId.split("::")[0])}<small>${esc(m.historical.employeeName)}</small></td><td>${esc(m.historical.invoice.number)}<small>${yuan(m.historical.invoice.amountCents)}</small></td><td>${esc(m.historical.businessStatus)}<small>${esc(m.reason)}；${esc(m.statusExplanation)}</small></td></tr>`).join("")}</tbody></table></div>`
     : "";
+}
+function companyHint(id, config) {
+  const c = config.companies.find((c) => c.companyId === id);
+  return c
+    ? `法人基准：${c.companyName}；登记税号：${c.taxpayerId}；配置v${config.version}（模拟）`
+    : "请选择明确的报销所属法人，不以部门或员工姓名代替。";
+}
+function buyerEvidence(r) {
+  if (r.ruleId !== "R004") return "";
+  return `<p>法人配置版本：${esc(r.evidence?.configVersion)}</p><div class="table-wrap"><table><thead><tr><th>发票</th><th>购买方 / 税号</th><th>所选法人 / 登记税号</th><th>结果 / 依据</th></tr></thead><tbody>${(r.evidence?.details || []).map((x) => `<tr><td>${esc(x.number || x.invoiceId)}</td><td>${esc(x.buyerName || "缺失")}<small>${esc(x.buyerTaxId || "未确认/空")}</small></td><td>${esc(x.company?.companyName || "未选择")}<small>${esc(x.company?.taxpayerId || "")}</small></td><td>${labels[x.status]}<small>${esc(x.message)} ${esc(x.missingFields.join("；"))}${x.matchedAlias ? `；授权名称：${esc(x.matchedAlias.name)}（${esc(x.matchedAlias.effectiveFrom)}至${esc(x.matchedAlias.effectiveTo || "长期")}）` : ""}</small></td></tr>`).join("")}</tbody></table></div>`;
+}
+function reviewNotesPanel(d, b, history) {
+  return `<h4>核查及资料修改留痕</h4>${(d.reviewNotes || [])
+    .filter((n) => n.batchId === b.id)
+    .map(
+      (n) =>
+        `<p>${esc(n.action)} · ${esc(n.reason)} · ${esc(n.actor)}（${esc(n.role)}）· ${esc(displayTime(n.at))}</p>`,
+    )
+    .join(
+      "",
+    )}${!history && !b.review ? `<form id="r004-note"><label>核查意见<textarea name="note" maxlength="500"></textarea></label><button value="需补充材料">需补充材料</button> <button value="已核实信息">已核实信息</button><p>核查记录不覆盖自动规则；补正字段后必须重审，BLOCK不提供普通例外放行。</p><p id="r004-note-error" role="alert"></p></form>` : ""}<details><summary>资料修改记录（前后值、原因、角色、时间）</summary><pre>${esc(JSON.stringify(d.changes || [], null, 2))}</pre></details>`;
 }
 export function unifiedView() {
   return '<div id="s001-root" class="s001"></div>';
@@ -137,6 +172,7 @@ export function mountUnified({ page, actor, legacy, openLegacy }) {
     const f = root.querySelector("#s001-form");
     if (!f) return;
     const data = Object.fromEntries(new FormData(f));
+    draft.companyId = data.companyId;
     for (const key of Object.keys(draft))
       if (key !== "invoices" && key !== "id" && data[key] !== undefined)
         draft[key] = data[key];
@@ -171,7 +207,7 @@ export function mountUnified({ page, actor, legacy, openLegacy }) {
     return `<section class="panel"><div class="panel-title"><h3>统一报销单</h3><button id="s001-new" class="primary">新建报销单</button></div><p>一张报销单，一次执行所有适用规则；自动通过后仍需财务确认。人民币演示，不执行付款。</p><div class="toolbar"><input id="s001-search" aria-label="搜索统一报销" placeholder="单号、报销人或状态" value="${esc(search)}"><select id="s001-filter"><option value="">全部状态</option>${statuses.map((x) => `<option ${x === filter ? "selected" : ""}>${x}</option>`).join("")}</select></div><div class="table-wrap"><table><thead><tr><th>编号 / 报销人</th><th>类型</th><th>金额</th><th>创建时间</th><th>业务状态</th><th>操作</th></tr></thead><tbody>${rows.map((d) => `<tr><td>${esc(d.id)}<small>${esc(d.input.employee || "未填姓名")}</small></td><td>${d.input.expenseType}</td><td>${moneyText(d.input.amountYuan)}</td><td>${esc(displayTime(d.createdAt))}</td><td>${d.status}</td><td><button data-detail-s001="${esc(d.id)}">审核详情</button> <button data-edit-s001="${esc(d.id)}">编辑</button></td></tr>`).join("")}${old.map((d) => `<tr class="s001-legacy"><td>${esc(d.id)}<small>${esc(d.employee)}</small></td><td>${esc(d.type)}<small>原流程历史单</small></td><td>${yuan(Math.round(d.amount * 100))}</td><td>${esc(d.date)}</td><td>${esc(d.status)}<small>未执行统一规则</small></td><td><button data-legacy="${esc(d.id)}">查看原流程</button></td></tr>`).join("")}</tbody></table></div><p class="footnote">旧单保留原审批路径及数据，不伪造迁移或追补审核。统一流程使用新报销对象，旧系统预算/付款不自动承接本期单据。</p></section>`;
   }
   function form() {
-    return `<section class="panel"><h3>创建及编辑报销单</h3><p>${esc(draft.id)}</p><form id="s001-form" novalidate><div class="form-grid">${input("employee", "报销人", draft.employee)}${input("department", "所属部门", draft.department)}${select("grade", "员工职级", ["普通员工", "部门经理", "高级管理人员"], draft.grade)}${select("expenseType", "费用类型", ["住宿费", "其他费用"], draft.expenseType)}${input("amountYuan", "申请报销金额（元）", draft.amountYuan)}${select("currency", "报销币种", ["CNY"], draft.currency)}</div>${draft.expenseType === "住宿费" ? `<h4>住宿费用</h4><div class="form-grid">${input("city", "出差城市", draft.city)}${input("hotel", "酒店名称", draft.hotel)}${input("checkIn", "入住日期", draft.checkIn, "date")}${input("checkOut", "退房日期", draft.checkOut, "date")}${input("hotelAmountYuan", "住宿金额（元）", draft.hotelAmountYuan)}</div><p id="s001-nights">住宿晚数：${calculateNights(draft.checkIn, draft.checkOut) ?? "待有效日期"}</p>` : ""}${input("partialReason", "部分报销原因（适用时）", draft.partialReason)}<h4>关联发票（最多5张）</h4>${draft.invoices
+    return `<section class="panel"><h3>创建及编辑报销单</h3><p>${esc(draft.id)}</p><form id="s001-form" novalidate><div class="form-grid"><label>报销所属公司<select name="companyId"><option value="">请选择法人（不是部门）</option>${(state.entityConfig || defaultEntities()).companies.map((c) => `<option value="${esc(c.companyId)}" ${draft.companyId === c.companyId ? "selected" : ""}>${esc(c.companyName)}</option>`).join("")}</select></label><p id="r004-company-basis">${esc(companyHint(draft.companyId, state.entityConfig || defaultEntities()))}</p>${input("employee", "报销人", draft.employee)}${input("department", "所属部门", draft.department)}${select("grade", "员工职级", ["普通员工", "部门经理", "高级管理人员"], draft.grade)}${select("expenseType", "费用类型", ["住宿费", "其他费用"], draft.expenseType)}${input("amountYuan", "申请报销金额（元）", draft.amountYuan)}${select("currency", "报销币种", ["CNY"], draft.currency)}</div>${draft.expenseType === "住宿费" ? `<h4>住宿费用</h4><div class="form-grid">${input("city", "出差城市", draft.city)}${input("hotel", "酒店名称", draft.hotel)}${input("checkIn", "入住日期", draft.checkIn, "date")}${input("checkOut", "退房日期", draft.checkOut, "date")}${input("hotelAmountYuan", "住宿金额（元）", draft.hotelAmountYuan)}</div><p id="s001-nights">住宿晚数：${calculateNights(draft.checkIn, draft.checkOut) ?? "待有效日期"}</p>` : ""}${input("partialReason", "部分报销原因（适用时）", draft.partialReason)}${input("changeReason", "已审核资料修改原因（发生变更时必填）", "")}<h4>关联发票（最多5张）</h4>${draft.invoices
       .map(
         (i, k) =>
           `<fieldset data-invoice="${i.id}"><legend>发票 ${k + 1} · ${i.source === "ocr-assisted" ? "OCR辅助后待核对" : "手工录入"}</legend><div class="form-grid">${[
@@ -184,6 +220,7 @@ export function mountUnified({ page, actor, legacy, openLegacy }) {
                 "增值税电子专用发票",
                 "纸质发票",
                 "其他",
+                "客运票据（模拟特例）",
               ],
             ],
             ["code", "发票代码"],
@@ -195,14 +232,24 @@ export function mountUnified({ page, actor, legacy, openLegacy }) {
             ["buyerName", "购买方名称"],
             ["sellerTaxId", "销售方税号"],
             ["buyerTaxId", "购买方税号"],
+            [
+              "recognitionStatus",
+              "购买方信息核对状态",
+              ["已人工核对", "待核对", "识别失败"],
+            ],
+            [
+              "buyerTaxStatus",
+              "购买方税号票面状态",
+              ["未确认", "已确认", "票面确为空"],
+            ],
           ]
             .map(
               ([name, label, opts]) =>
-                `<label>${label}${opts ? `<select data-field="${name}">${opts.map((o) => `<option ${o === i[name] ? "selected" : ""}>${o}</option>`).join("")}</select>` : `<input data-field="${name}" ${name === "date" ? 'type="date"' : ""} value="${esc(i[name])}">`}</label>`,
+                `<label>${label}${opts ? `<select data-field="${name}">${opts.map((o) => `<option ${o === (i[name] ?? (name === "recognitionStatus" ? (i.source === "manual" ? "已人工核对" : "待核对") : name === "buyerTaxStatus" ? "未确认" : "")) ? "selected" : ""}>${o}</option>`).join("")}</select>` : `<input data-field="${name}" ${name === "date" ? 'type="date"' : ""} value="${esc(i[name])}">`}</label>`,
             )
             .join(
               "",
-            )}</div><label>发票原件（可选，单份1MB）<input type="file" data-file="${i.id}" accept=".png,.jpg,.jpeg,.webp,.pdf"></label><small>${esc(i.attachment?.name || "未保留原件")}</small><label>PDF识别页码<input type="number" data-pdf-page="${i.id}" min="1" max="20" value="1"></label><button type="button" data-ocr="${i.id}">复用现有OCR识别原件</button> <button type="button" data-remove-invoice="${i.id}">移除此票</button><p>OCR仅提供候选，请对照原件核对；未识别不代表0元。币种不匹配时不得比较。</p></fieldset>`,
+            )}</div><p>OCR整体置信度：${i.recognitionConfidence == null ? "未知" : esc(i.recognitionConfidence.toFixed(1)) + "%"}，不是字段真实性概率，OCR候选需人工核对。</p><label>发票原件（可选，单份1MB）<input type="file" data-file="${i.id}" accept=".png,.jpg,.jpeg,.webp,.pdf"></label><small>${esc(i.attachment?.name || "未保留原件")}</small><label>PDF识别页码<input type="number" data-pdf-page="${i.id}" min="1" max="20" value="1"></label><button type="button" data-ocr="${i.id}">复用现有OCR识别原件</button> <button type="button" data-remove-invoice="${i.id}">移除此票</button><p>OCR仅提供候选，请对照原件核对；未识别不代表0元。币种不匹配时不得比较。</p></fieldset>`,
       )
       .join(
         "",
@@ -217,13 +264,13 @@ export function mountUnified({ page, actor, legacy, openLegacy }) {
       (history ? d.batches.at(-1) : null);
     if (history && b) batch = b.id;
     const invalidated = b && b.revision !== d.revision;
-    return `<section class="panel"><h3>${esc(d.id)} · ${esc((b?.input || d.input).employee)}</h3><p data-testid="s001-business">${d.status}</p><p>申请金额 ${moneyText((b?.input || d.input).amountYuan)} · ${esc((b?.input || d.input).department)} · 提交时间 ${esc(d.submittedAt ? displayTime(d.submittedAt) : "未提交")}</p>${!current(d) ? '<p class="risk">当前审核未执行或已失效，必须重新审核；旧批准不可沿用。</p>' : ""}${history ? `<label>审核批次<select id="s001-batch">${d.batches.map((x) => `<option value="${x.id}" ${x.id === b?.id ? "selected" : ""}>v${x.version} · ${x.id} · ${displayTime(x.at)}</option>`).join("")}</select></label>` : ""}<button data-edit-s001="${d.id}">编辑 / 重新审核</button> <button id="s001-history">查看审核历史</button></section>${b ? `<section class="panel"><h3>统一审核报告 · v${b.version}</h3><p>批次 ${esc(b.id)} · ${esc(displayTime(b.at))} · 风险规则数 ${b.results.filter((r) => ["REVIEW", "BLOCK", "INSUFFICIENT_DATA", "ERROR"].includes(r.status)).length}${invalidated ? " · 历史结果已失效（仅留证）" : ""}</p>${b.results.map((r) => `<details open class="s001-rule ${r.status}" data-rule-key="${r.ruleKey}"><summary>${r.ruleId} ${r.ruleName}：<b>${labels[r.status]}</b></summary><p>风险等级：${({none:"无风险",low:"低",medium:"中",high:"高"})[r.severity]} · ${esc(r.message)}</p>${r.ruleId === "R001" && r.evidence?.limitCents !== undefined ? `<p>限额 ${yuan(r.evidence.limitCents)} · 超标 ${yuan(r.evidence.excessCents)}</p>` : ""}${duplicateEvidence(r)}${r.ruleId === "R003" && r.evidence?.amountCents !== undefined ? `<p>报销金额 ${yuan(r.evidence.amountCents)} · 发票合计 ${yuan(r.evidence.invoiceTotalCents)} · 差异 ${yuan(Math.abs(r.evidence.differenceCents))} · 原因 ${esc(r.evidence.partialReason || "未填写")}</p>` : ""}<p>建议：${esc(r.suggestedAction)}</p><details><summary>审核依据及证据快照</summary><pre>${esc(JSON.stringify(r.evidence, null, 2))}</pre></details></details>`).join("")}</section><section class="panel"><h3>财务最终复核</h3>${b.review ? `<div data-testid="s001-review"><b>${b.review.decision === "approved" ? "财务复核通过" : "财务复核驳回"}</b><p>${esc(b.review.reason)}</p><p>${esc(b.review.reviewer)} · ${esc(displayTime(b.review.at))}</p></div>` : !history && current(d)?.id === b.id ? `<form id="s001-review-form">${input("reviewer", "财务人员", actor?.role === "财务" ? actor.name : "")}<label>复核意见（必填）<textarea name="reason" maxlength="500"></textarea></label><button value="approved" class="primary" ${actor?.role !== "财务" ? "disabled" : ""}>财务复核通过</button> <button value="rejected" ${actor?.role !== "财务" ? "disabled" : ""}>财务复核驳回</button><p>需切换为财务角色。BLOCK、信息不足和ERROR禁止普通通过，本期不提供例外授权。REVIEW经核查并填写意见可批准。</p><p id="s001-review-error" role="alert"></p></form>` : "<p>历史批次只读。</p>"}</section>` : ""}`;
+    return `<section class="panel"><h3>${esc(d.id)} · ${esc((b?.input || d.input).employee)}</h3><p data-testid="s001-business">${d.status}</p><p>申请金额 ${moneyText((b?.input || d.input).amountYuan)} · ${esc((b?.input || d.input).department)} · 提交时间 ${esc(d.submittedAt ? displayTime(d.submittedAt) : "未提交")}</p>${!current(d) ? '<p class="risk">当前审核未执行或已失效，必须重新审核；旧批准不可沿用。</p>' : ""}${history ? `<label>审核批次<select id="s001-batch">${d.batches.map((x) => `<option value="${x.id}" ${x.id === b?.id ? "selected" : ""}>v${x.version} · ${x.id} · ${displayTime(x.at)}</option>`).join("")}</select></label>` : ""}<button data-edit-s001="${d.id}">编辑 / 重新审核</button> <button id="s001-history">查看审核历史</button></section>${b ? `<section class="panel"><h3>统一审核报告 · v${b.version}</h3>${!b.ruleKeys.includes("invoice.buyer-entity") ? "<p class=review-box>这是原三规则历史批次，未执行R004；选择法人并重新审核后生成新结果，旧结论保留。</p>" : ""}<p>批次 ${esc(b.id)} · ${esc(displayTime(b.at))} · 风险规则数 ${b.results.filter((r) => ["REVIEW", "BLOCK", "INSUFFICIENT_DATA", "ERROR"].includes(r.status)).length}${invalidated ? " · 历史结果已失效（仅留证）" : ""}</p>${b.results.map((r) => `<details open class="s001-rule ${r.status}" data-rule-key="${r.ruleKey}"><summary>${r.ruleId} ${r.ruleName}：<b>${labels[r.status]}</b></summary><p>风险等级：${{ none: "无风险", low: "低", medium: "中", high: "高" }[r.severity]} · ${esc(r.message)}</p>${r.ruleId === "R001" && r.evidence?.limitCents !== undefined ? `<p>限额 ${yuan(r.evidence.limitCents)} · 超标 ${yuan(r.evidence.excessCents)}</p>` : ""}${duplicateEvidence(r)}${buyerEvidence(r)}${r.ruleId === "R003" && r.evidence?.amountCents !== undefined ? `<p>报销金额 ${yuan(r.evidence.amountCents)} · 发票合计 ${yuan(r.evidence.invoiceTotalCents)} · 差异 ${yuan(Math.abs(r.evidence.differenceCents))} · 原因 ${esc(r.evidence.partialReason || "未填写")}</p>` : ""}<p>建议：${esc(r.suggestedAction)}</p><details><summary>审核依据及证据快照</summary><pre>${esc(JSON.stringify(r.evidence, null, 2))}</pre></details></details>`).join("")}</section><section class="panel"><h3>财务最终复核</h3>${b.review ? `<div data-testid="s001-review"><b>${b.review.decision === "approved" ? "财务复核通过" : "财务复核驳回"}</b><p>${esc(b.review.reason)}</p><p>${esc(b.review.reviewer)} · ${esc(displayTime(b.review.at))}</p></div>` : !history && current(d)?.id === b.id ? `<form id="s001-review-form">${input("reviewer", "财务人员", actor?.role === "财务" ? actor.name : "")}<label>复核意见（必填）<textarea name="reason" maxlength="500"></textarea></label><button value="approved" class="primary" ${actor?.role !== "财务" ? "disabled" : ""}>财务复核通过</button> <button value="rejected" ${actor?.role !== "财务" ? "disabled" : ""}>财务复核驳回</button><p>需切换为财务角色。BLOCK、信息不足和ERROR禁止普通通过，本期不提供例外授权。REVIEW经核查并填写意见可批准。</p><p id="s001-review-error" role="alert"></p></form>` : "<p>历史批次只读。</p>"}${reviewNotesPanel(d, b, history)}</section>` : ""}`;
   }
   function historyList() {
     return `<section class="panel"><h3>审核记录</h3><div class="table-wrap"><table><thead><tr><th>单号 / 批次</th><th>时间</th><th>各规则</th><th>财务处理</th><th>操作</th></tr></thead><tbody>${state.claims.flatMap((d) => d.batches.map((b) => `<tr><td>${esc(d.id)}<small>v${b.version} / ${esc(b.id)}</small></td><td>${esc(displayTime(b.at))}</td><td>${b.results.map((r) => `${r.ruleId} ${labels[r.status]}`).join("<br>")}</td><td>${b.review ? `${b.review.decision === "approved" ? "已通过" : "已驳回"}<small>${esc(b.review.reason)} / ${esc(displayTime(b.review.at))}</small>` : "未复核"}${b.revision !== d.revision ? "<small>资料修改，旧批次失效</small>" : ""}</td><td><button data-history-doc="${d.id}" data-batch="${b.id}">查看</button></td></tr>`)).join("")}</tbody></table></div></section>`;
   }
   function render() {
-    root.innerHTML = `${message ? `<p class="review-box" role="status">${esc(message)}</p>` : ""}${broken ? `<section class="panel"><h3>本地数据无法安全读取</h3><p>${esc(broken)}</p><p>已暂停保存，不清除或用种子覆盖原值。</p></section>` : view === "form" ? form() : view === "detail" ? detail() : view === "history-detail" ? detail(true) : view === "history" ? historyList() : view === "rules" ? `<section class="panel"><h3>已启用审核规则</h3>${registry.map((r) => `<p>${r.ruleId} ${r.ruleName} · ${r.ruleKey}</p>`).join("")}<p>原合同付款R003保留在旧独立入口，金额规则使用invoice.amount-support内部标识，不覆盖合同数据。</p><p>R001读取独立标准；R002保留独立历史库并增加统一流程已审核单。旧主应用票据尚未自动联查。规则通过仅检查通过，财务需最终确认。</p></section>` : list()}`;
+    root.innerHTML = `${message ? `<p class="review-box" role="status">${esc(message)}</p>` : ""}${broken ? `<section class="panel"><h3>本地数据无法安全读取</h3><p>${esc(broken)}</p><p>已暂停保存，不清除或用种子覆盖原值。</p></section>` : view === "form" ? form() : view === "detail" ? detail() : view === "history-detail" ? detail(true) : view === "history" ? historyList() : view === "rules" ? `<section class="panel"><h3>已启用审核规则</h3>${registry.map((r) => `<p>${r.ruleId} ${r.ruleName} · ${r.ruleKey}</p>`).join("")}<p>原合同付款R003保留在旧独立入口，金额规则使用invoice.amount-support内部标识，不覆盖合同数据。</p><p>R001读取独立标准；R002保留独立历史库并增加统一流程已审核单。旧主应用票据尚未自动联查。规则通过仅检查通过，财务需最终确认。</p><h4>模拟法人及票据政策</h4><form id="r004-config"><label>配置JSON（名称/税号/别名有效期/票据政策）<textarea name="config" rows="16">${esc(JSON.stringify(state.entityConfig || defaultEntities(), null, 2))}</textarea></label><label>修改原因<input name="reason"></label><button class="primary">财务保存配置</button><p id="r004-config-error" role="alert"></p></form><details><summary>法人配置变更记录</summary><pre>${esc(JSON.stringify(state.entityConfigChanges || [], null, 2))}</pre></details></section>` : list()}`;
     bind();
   }
   function mutate(action, target = "#s001-error") {
@@ -251,7 +298,11 @@ export function mountUnified({ page, actor, legacy, openLegacy }) {
     )
       throw Error("单据已变化，请刷新，不覆盖新版本");
     raw = latest.raw;
-    let next = saveDraft(latest.state, draft, new Date().toISOString());
+    let next = saveDraft(latest.state, draft, new Date().toISOString(), {
+      actor: actor?.name || "模拟录入人",
+      role: actor?.role || "员工",
+      reason: root.querySelector("[name=changeReason]").value,
+    });
     if (run) {
       if (!draft.employee.trim() || !draft.department.trim())
         throw Error("请填写报销人和部门");
@@ -279,6 +330,51 @@ export function mountUnified({ page, actor, legacy, openLegacy }) {
   }
   function bind() {
     if (broken) return;
+    root.querySelector("[name=companyId]")?.addEventListener("change", (e) => {
+      root.querySelector("#r004-company-basis").textContent = companyHint(
+        e.target.value,
+        state.entityConfig || defaultEntities(),
+      );
+    });
+    root.querySelector("#r004-note")?.addEventListener("submit", (ev) => {
+      ev.preventDefault();
+      mutate(() => {
+        const values = Object.fromEntries(new FormData(ev.currentTarget)),
+          latest = load(localStorage);
+        raw = latest.raw;
+        persist(
+          noteReview(
+            latest.state,
+            selected,
+            ev.submitter.value,
+            values.note,
+            actor.name,
+            actor.role,
+            new Date().toISOString(),
+          ),
+        );
+        message = "核查意见已记录；未修改自动结果或批准状态。";
+        render();
+      }, "#r004-note-error");
+    });
+    root.querySelector("#r004-config")?.addEventListener("submit", (ev) => {
+      ev.preventDefault();
+      mutate(() => {
+        const values = Object.fromEntries(new FormData(ev.currentTarget));
+        persist(
+          configureEntities(
+            state,
+            JSON.parse(values.config),
+            actor?.name || "",
+            actor?.role || "",
+            values.reason,
+            new Date().toISOString(),
+          ),
+        );
+        message = "法人配置已保存，仅影响新审核，旧快照不变。";
+        render();
+      }, "#r004-config-error");
+    });
     root
       .querySelectorAll("form")
       .forEach((f) => (f.oninput = () => (dirty = true)));
@@ -436,6 +532,9 @@ export function mountUnified({ page, actor, legacy, openLegacy }) {
             for (const [from, to] of Object.entries(map))
               if (r.structured?.[from]) i[to] = r.structured[from];
             i.source = "ocr-assisted";
+            i.recognitionStatus = "待核对";
+            i.recognitionConfidence = r.confidence;
+            i.buyerTaxStatus = "未确认";
             message = "OCR候选已填入，请逐字段核对后再保存或提交。";
             dirty = true;
             render();
@@ -457,6 +556,7 @@ export function mountUnified({ page, actor, legacy, openLegacy }) {
       const d = fresh();
       draft = {
         ...d,
+        companyId: "SZ",
         employee: "李四（模拟）",
         department: "财务部",
         grade: "普通员工",
@@ -473,7 +573,9 @@ export function mountUnified({ page, actor, legacy, openLegacy }) {
             amountYuan: "600",
             date: "2026-10-22",
             sellerName: "模拟酒店",
-            buyerName: "模拟企业",
+            buyerName: "星河科技（深圳）有限公司",
+            buyerTaxId: "DEMO-SZ-001",
+            buyerTaxStatus: "已确认",
           },
         ],
       };

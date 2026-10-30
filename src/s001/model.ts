@@ -1,7 +1,13 @@
+import { defaultEntities, validateEntities } from "./entity-rule";
 import type { State, Input, Claim, Batch, Context } from "./types";
 import { auditAll, historyRow, registry } from "./rules";
 export const KEY = "qingbao-s001-v1";
-export const empty = (): State => ({ schema: 1, revision: 1, claims: [] });
+export const empty = (): State => ({
+  schema: 1,
+  revision: 1,
+  claims: [],
+  entityConfig: defaultEntities(),
+});
 export function current(d: Claim) {
   return d.batches.find(
     (b) => b.id === d.currentBatchId && b.revision === d.revision,
@@ -54,7 +60,24 @@ function checkInput(d: Input) {
     new Set(d.invoices.map((i) => i.id)).size !== d.invoices.length
   )
     throw Error("报销输入数据无效");
+  if (
+    d.companyId !== undefined &&
+    (typeof d.companyId !== "string" || d.companyId.length > 80)
+  )
+    throw Error("法人编号无效");
   for (const i of d.invoices) {
+    if (
+      (i.recognitionStatus !== undefined &&
+        !["已人工核对", "待核对", "识别失败"].includes(i.recognitionStatus)) ||
+      (i.buyerTaxStatus !== undefined &&
+        !["未确认", "已确认", "票面确为空"].includes(i.buyerTaxStatus)) ||
+      (i.recognitionConfidence !== undefined &&
+        i.recognitionConfidence !== null &&
+        (!Number.isFinite(i.recognitionConfidence) ||
+          i.recognitionConfidence < 0 ||
+          i.recognitionConfidence > 100))
+    )
+      throw Error("识别核对状态或置信度无效");
     if (
       [
         "id",
@@ -89,6 +112,26 @@ export function validate(s: State) {
     new Set(s.claims.map((d) => d.id)).size !== s.claims.length
   )
     throw Error("统一报销数据损坏，原值保留");
+  if (s.entityConfig) validateEntities(s.entityConfig);
+  if (s.entityConfigChanges !== undefined) {
+    if (
+      !Array.isArray(s.entityConfigChanges) ||
+      s.entityConfigChanges.length > 100
+    )
+      throw Error("法人配置记录容量或格式无效");
+    for (const log of s.entityConfigChanges) {
+      if (
+        !validTime(log.at) ||
+        !log.actor?.trim() ||
+        log.role !== "财务" ||
+        !log.reason?.trim() ||
+        log.reason.length > 500
+      )
+        throw Error("法人配置修改记录无效");
+      validateEntities(log.before);
+      validateEntities(log.after);
+    }
+  }
   const batchIds = new Set<string>();
   for (const d of s.claims) {
     checkInput(d.input);
@@ -144,23 +187,79 @@ export function validate(s: State) {
       )
         throw Error("复核无效");
     }
+    if (d.changes !== undefined) {
+      if (!Array.isArray(d.changes) || d.changes.length > 100)
+        throw Error("修改记录容量或格式无效");
+      for (const log of d.changes) {
+        if (
+          !validTime(log.at) ||
+          !log.actor?.trim() ||
+          !log.role?.trim() ||
+          !log.reason?.trim() ||
+          log.reason.length > 500
+        )
+          throw Error("资料修改记录无效");
+        checkInput(log.before);
+        checkInput(log.after);
+      }
+    }
+    if (d.reviewNotes !== undefined) {
+      if (!Array.isArray(d.reviewNotes) || d.reviewNotes.length > 100)
+        throw Error("核查意见容量或格式无效");
+      for (const log of d.reviewNotes) {
+        if (
+          !validTime(log.at) ||
+          log.role !== "财务" ||
+          !log.actor?.trim() ||
+          !log.reason?.trim() ||
+          log.reason.length > 500 ||
+          !["需补充材料", "已核实信息"].includes(log.action) ||
+          !d.batches.some((b) => b.id === log.batchId)
+        )
+          throw Error("核查记录无效");
+        checkInput(log.input);
+      }
+    }
     const b = current(d);
     if ((d.currentBatchId && !b) || d.status !== (b ? business(b) : "草稿"))
       throw Error("当前审核状态无效");
   }
 }
-export function saveDraft(s: State, input: Input, at: string): State {
+export function saveDraft(
+  s: State,
+  input: Input,
+  at: string,
+  change?: { actor: string; role: string; reason: string },
+): State {
   checkInput(input);
   if (!validTime(at)) throw Error("时间无效");
   const old = s.claims.find((d) => d.id === input.id);
   if (!input.id || input.invoices.length > 5) throw Error("单号或发票数量无效");
   const changed = !old || JSON.stringify(old.input) !== JSON.stringify(input);
+  if (
+    changed &&
+    old?.batches.length &&
+    (!change?.reason.trim() || !change.actor.trim() || !change.role.trim())
+  )
+    throw Error("已审核资料变更必须填写修改原因并记录身份");
+  const changes = [...(old?.changes || [])];
+  if (changed && old)
+    changes.push({
+      at,
+      actor: change?.actor || "模拟录入人",
+      role: change?.role || "员工",
+      reason: change?.reason || "草稿编辑",
+      before: structuredClone(old.input),
+      after: structuredClone(input),
+    });
   const d: Claim = {
     id: input.id,
     createdAt: old?.createdAt || at,
     submittedAt: old?.submittedAt || null,
     revision: (old?.revision || 0) + (changed ? 1 : 0),
     input: structuredClone(input),
+    changes,
+    reviewNotes: old?.reviewNotes || [],
     batches: old?.batches || [],
     currentBatchId: changed ? null : old!.currentBatchId,
     status: changed ? "草稿" : old!.status,
@@ -215,6 +314,9 @@ export function execute(
       }),
   ];
   const context = {
+    entityConfig: structuredClone(
+      c.entityConfig || s.entityConfig || defaultEntities(),
+    ),
     standards: structuredClone(c.standards),
     invoiceHistory: c.invoiceHistory === null ? null : history,
   };
@@ -302,4 +404,71 @@ export function save(
   } catch {
     throw Error("保存失败或配额不足；原记录及表单保留");
   }
+}
+
+export function noteReview(
+  s: State,
+  id: string,
+  action: "需补充材料" | "已核实信息",
+  reason: string,
+  actor: string,
+  role: string,
+  at: string,
+): State {
+  if (
+    role !== "财务" ||
+    !reason.trim() ||
+    reason.length > 500 ||
+    !actor.trim() ||
+    !validTime(at)
+  )
+    throw Error("财务身份、意见及时间必填");
+  const n = structuredClone(s),
+    d = n.claims.find((d) => d.id === id),
+    b = d && current(d);
+  if (!d || !b || at < b.at) throw Error("只能记录当前有效批次的核查意见");
+  d.reviewNotes = [
+    ...(d.reviewNotes || []),
+    {
+      at,
+      actor,
+      role,
+      action,
+      reason,
+      batchId: b.id,
+      input: structuredClone(d.input),
+    },
+  ];
+  n.revision++;
+  return n;
+}
+export function configureEntities(
+  s: State,
+  config: import("./entity-rule").EntityConfig,
+  actor: string,
+  role: string,
+  reason: string,
+  at: string,
+): State {
+  if (role !== "财务" || !actor.trim() || !reason.trim() || !validTime(at))
+    throw Error("仅财务可维护模拟法人制度，原因必填");
+  validateEntities(config);
+  const next = structuredClone(s);
+  next.entityConfig = {
+    ...structuredClone(config),
+    version: (s.entityConfig?.version || 1) + 1,
+  };
+  next.entityConfigChanges = [
+    ...(s.entityConfigChanges || []),
+    {
+      at,
+      actor,
+      role,
+      reason,
+      before: structuredClone(s.entityConfig || defaultEntities()),
+      after: structuredClone(next.entityConfig!),
+    },
+  ];
+  next.revision++;
+  return next;
 }

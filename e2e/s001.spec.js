@@ -91,6 +91,7 @@ test("验收三/六/八：部分报销→批准→修改失效→同单重审不
   await decide(p);
   const id = (await data(p)).claims[0].id;
   await p.locator("[data-edit-s001]").click();
+  await field(p, "changeReason").fill("核对后修正模拟资料");
   await field(p, "amountYuan").fill("700");
   await field(p, "hotelAmountYuan").fill("700");
   await p.locator("#s001-draft").click();
@@ -98,11 +99,13 @@ test("验收三/六/八：部分报销→批准→修改失效→同单重审不
   await p.locator("[data-detail-s001]").click();
   await expect(p.locator("#s001-root")).toContainText("已失效");
   await p.locator("[data-edit-s001]").click();
+  await field(p, "changeReason").fill("核对后修正模拟资料");
   await run(p);
   await expect(
     p.locator('[data-rule-key="invoice.duplicate"] > summary'),
   ).toContainText("通过");
   await p.locator("[data-edit-s001]").click();
+  await field(p, "changeReason").fill("核对后修正模拟资料");
   await run(p);
   const d = (await data(p)).claims.find((d) => d.id === id);
   expect(d.batches.length).toBe(3);
@@ -118,12 +121,14 @@ test("验收四：金额缺失及外币均信息不足，草稿刷新保留", as
   await p.locator("#s001-draft").click();
   await p.reload();
   await p.locator("[data-edit-s001]").click();
+  await field(p, "changeReason").fill("核对后修正模拟资料");
   await expect(inv(p, "amountYuan")).toHaveValue("");
   await run(p);
   await expect(
     p.locator('[data-rule-key="invoice.amount-support"] > summary'),
   ).toContainText("信息不足");
   await p.locator("[data-edit-s001]").click();
+  await field(p, "changeReason").fill("核对后修正模拟资料");
   await inv(p, "amountYuan").fill("100");
   await inv(p, "currency").selectOption("USD");
   await run(p);
@@ -157,6 +162,7 @@ test("多票、跨单重复与搜索，坏标准单条ERROR不假通过", async 
   ).toContainText("人工复核");
   await p.evaluate(() => localStorage.setItem("qingbao-r001-v1", "BROKEN"));
   await p.locator("[data-edit-s001]").click();
+  await field(p, "changeReason").fill("核对后修正模拟资料");
   await run(p);
   await expect(
     p.locator('[data-rule-key="lodging.limit"] > summary'),
@@ -203,6 +209,7 @@ test("复用OCR及附件来源，图片识别后保存刷新；手机表单无�
   await p.locator("#s001-draft").click();
   await p.reload();
   await p.locator("[data-edit-s001]").click();
+  await field(p, "changeReason").fill("核对后修正模拟资料");
   await expect(inv(p, "number")).toHaveValue("22345678901234567890");
   await expect(p.locator("[data-invoice]")).toContainText(
     "structured-invoice.png",

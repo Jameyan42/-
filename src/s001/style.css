@@ -70,5 +70,29 @@
   }
 }
 
-.s001 .panel { padding: 20px; }
-@media(max-width:720px){.s001 .panel{padding:14px}}
+.s001 .panel {
+  padding: 20px;
+}
+@media (max-width: 720px) {
+  .s001 .panel {
+    padding: 14px;
+  }
+}
+
+/* Keep entity settings and review notes consistent with the existing form fields. */
+.s001 form label > input,
+.s001 form label > textarea,
+.s001 form label > select {
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  margin: 7px 0 14px;
+  padding: 10px 12px;
+  border: 1px solid #dce4ed;
+  border-radius: 7px;
+  background: #fff;
+  color: inherit;
+  font: inherit;
+}
+.s001 #r004-note textarea { min-height: 90px; }
+.s001 #r004-config textarea { font-family: ui-monospace, monospace; }

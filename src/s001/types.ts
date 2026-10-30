@@ -1,3 +1,4 @@
+import type { EntityConfig } from "./entity-rule";
 import type { HumanReview, StandardsCatalog } from "../r001/types";
 import type { HistoryInvoice } from "../r002/invoiceTypes";
 export type Status =
@@ -30,9 +31,13 @@ export type Invoice = {
   sellerTaxId: string;
   buyerTaxId: string;
   source: "manual" | "ocr-assisted";
+  recognitionStatus?: "已人工核对" | "待核对" | "识别失败";
+  recognitionConfidence?: number | null;
+  buyerTaxStatus?: "未确认" | "已确认" | "票面确为空";
   attachment?: unknown;
 };
 export type Input = {
+  companyId?: string;
   id: string;
   employee: string;
   grade: string;
@@ -58,6 +63,7 @@ export type Batch = {
   results: RuleResult[];
   review: HumanReview | null;
   context: {
+    entityConfig?: EntityConfig;
     standards: StandardsCatalog | null;
     invoiceHistory: HistoryInvoice[] | null;
   };
@@ -68,12 +74,45 @@ export type Claim = {
   submittedAt: string | null;
   revision: number;
   input: Input;
+  changes?: Change[];
+  reviewNotes?: ReviewNote[];
   batches: Batch[];
   currentBatchId: string | null;
   status: string;
 };
-export type State = { schema: 1; revision: number; claims: Claim[] };
+export type Change = {
+  at: string;
+  actor: string;
+  role: string;
+  reason: string;
+  before: Input;
+  after: Input;
+};
+export type ReviewNote = {
+  at: string;
+  actor: string;
+  role: string;
+  action: "需补充材料" | "已核实信息";
+  reason: string;
+  batchId: string;
+  input: Input;
+};
+export type State = {
+  schema: 1;
+  revision: number;
+  claims: Claim[];
+  entityConfig?: EntityConfig;
+  entityConfigChanges?: {
+    at: string;
+    actor: string;
+    role: string;
+    reason: string;
+    before: EntityConfig;
+    after: EntityConfig;
+  }[];
+};
 export type Context = {
+  entityConfig?: EntityConfig;
   at: string;
   standards: StandardsCatalog | null;
   invoiceHistory: HistoryInvoice[] | null;
