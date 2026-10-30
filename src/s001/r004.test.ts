@@ -1,3 +1,4 @@
+import { sampleFiles, executePrepared as execute } from "./workflow-fixtures";
 import test from "node:test";
 import assert from "node:assert/strict";
 import {
@@ -11,7 +12,6 @@ import { auditAll } from "./rules";
 import {
   empty,
   saveDraft,
-  execute,
   current,
   review,
   noteReview,
@@ -31,6 +31,8 @@ const ctx = (): Context => ({
 });
 const bill = (): Input => ({
   id: "R004-BILL",
+  applicantId: "lin",
+  attachments: sampleFiles(["I1"]),
   companyId: "SZ",
   accountCode: "6602.01",
   accountStage: "财务确认",
@@ -201,7 +203,7 @@ test("集成A 四项异常同批输出", () => {
   };
   assert.deepEqual(
     auditAll(d, ctx()).map((r) => r.status),
-    ["REVIEW", "REVIEW", "BLOCK", "BLOCK", "PASS"],
+    ["REVIEW", "REVIEW", "BLOCK", "BLOCK", "PASS", "INSUFFICIENT_DATA"],
   );
 });
 test("配置更改后新批次用新版本、旧快照重放不变；非财务不得改配置", () => {
@@ -261,9 +263,16 @@ test("旧三规则批次和旧输入可读取、不自动补R004", () => {
   const s = execute(saveDraft(empty(), bill(), at), bill().id, ctx(), "B1"),
     b = s.claims[0]!.batches[0]!;
   b.ruleKeys = b.ruleKeys.filter(
-    (k) => !["invoice.buyer-entity", "expense.account-mapping"].includes(k),
+    (k) =>
+      ![
+        "invoice.buyer-entity",
+        "expense.account-mapping",
+        "workflow.approval-materials",
+      ].includes(k),
   );
-  b.results = b.results.filter((r) => !["R004", "R005"].includes(r.ruleId));
+  b.results = b.results.filter(
+    (r) => !["R004", "R005", "R006"].includes(r.ruleId),
+  );
   delete b.context.entityConfig;
   delete s.entityConfig;
   delete s.claims[0]!.input.companyId;

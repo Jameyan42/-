@@ -88,7 +88,7 @@ export function validateFlows(flows, org) {
         resolveNodes(flows[kind][branch], applicant, org);
   return flows;
 }
-function resolveNodes(nodes, applicant, org) {
+function resolveNodes(nodes, applicant, org, options = {}) {
   const result = [],
     seen = new Set();
   for (const node of nodes) {
@@ -101,8 +101,8 @@ function resolveNodes(nodes, applicant, org) {
     const p = org.people.find((p) => p.id === id);
     if (!p?.active || !["主管", "管理员"].includes(p.role))
       throw Error(`${applicant.name}的审批路径缺少有效审批人`);
-    if (p.id === applicant.id) throw Error("不允许申请人自批");
-    if (seen.has(p.id)) continue;
+    if (p.id === applicant.id && !options.allowSelf) throw Error("不允许申请人自批");
+    if (seen.has(p.id) && !options.keepRepeated) continue;
     seen.add(p.id);
     result.push({
       actorId: p.id,
@@ -387,4 +387,12 @@ export function validateLedgerReview(value) {
     reviewedBy: value.reviewedBy,
     at: value.at,
   };
+}
+
+// S001 reuses the same organization-to-person resolution, retaining separate duties.
+export function resolveBusinessApprovalNodes(applicantId, nodes, org, options = {}) {
+  validateOrg(org);
+  const applicant = org.people.find(p => p.id === applicantId && p.active);
+  if (!applicant) throw Error("缺少在岗申请人");
+  return resolveNodes(nodes, applicant, org, options);
 }

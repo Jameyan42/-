@@ -1,3 +1,4 @@
+import { workflowRule } from "./workflow-rule";
 import { accountRule } from "./account-rule";
 import { buyerRule } from "./entity-rule";
 import { auditLodging, parseYuan } from "../r001/rule";
@@ -243,6 +244,12 @@ export const registry: Registration[] = [
     execute: accountRule,
   },
 ];
+registry.push({
+  ruleId: "R006",
+  ruleKey: "workflow.approval-materials",
+  ruleName: "审批流程与附件完整性",
+  execute: workflowRule,
+});
 export function auditAll(d: Input, c: Context, rules = registry): RuleResult[] {
   return rules
     .map((rule) => {

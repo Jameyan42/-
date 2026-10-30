@@ -1,3 +1,4 @@
+import { addMaterials, completeBusiness } from "./r006-helpers.js";
 import { test, expect } from "@playwright/test";
 const key = "qingbao-s001-v1",
   data = (p) => p.evaluate((k) => JSON.parse(localStorage.getItem(k)), key);
@@ -12,9 +13,18 @@ async function create(p) {
   await p.locator("#s001-example").click();
   await p.locator("#s001-form [name=accountCode]").selectOption("6602.01");
   await p.locator("#s001-form [name=accountStage]").selectOption("财务确认");
+  await addMaterials(p);
 }
 async function run(p) {
-  await p.locator("#s001-form [type=submit]").click();
+  const stage = await p.locator("#role").inputValue();
+  if (stage !== "财务") {
+    await p.locator("#s001-form [type=submit]").click();
+    return;
+  }
+  await p.locator("#s001-draft").click();
+  if (await p.locator("#s001-form").count()) return;
+  await p.locator("[data-detail-s001]").first().click();
+  await completeBusiness(p);
 }
 const r4 = (p) => p.locator('[data-rule-key="invoice.buyer-entity"]');
 test("正常四规则→财务批准→刷新，法人和逐票依据保存", async ({ page: p }) => {

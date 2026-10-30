@@ -1,3 +1,4 @@
+import { addMaterials, completeBusiness } from "./r006-helpers.js";
 import { test, expect } from "@playwright/test";
 const f = (p, n) => p.locator(`#s001-form [name="${n}"]`),
   inv = (p, n) => p.locator(`[data-invoice] [data-field="${n}"]`).first();
@@ -9,9 +10,18 @@ async function create(p, finance = true) {
   if (finance) await p.locator("#role").selectOption("财务");
   await p.locator("#s001-new").click();
   await p.locator("#s001-example").click();
+  if (finance) await addMaterials(p);
 }
 async function run(p) {
-  await p.locator("#s001-form [type=submit]").click();
+  const stage = await p.locator("#role").inputValue();
+  if (stage !== "财务") {
+    await p.locator("#s001-form [type=submit]").click();
+    return;
+  }
+  await p.locator("#s001-draft").click();
+  if (await p.locator("#s001-form").count()) return;
+  await p.locator("[data-detail-s001]").first().click();
+  await completeBusiness(p);
 }
 async function confirmAccount(p, code = "6602.01") {
   await f(p, "accountCode").selectOption(code);
@@ -69,10 +79,10 @@ test("五项异常一次执行，不丢失其他规则", async ({ page: p }) => 
   await inv(p, "buyerName").fill("星河科技（东莞）有限公司");
   await inv(p, "buyerTaxId").fill("DEMO-DG-001");
   await run(p);
-  await expect(p.locator(".s001-rule")).toHaveCount(5);
+  await expect(p.locator(".s001-rule")).toHaveCount(6);
   expect(
     (await data(p)).claims[0].batches[0].results.map((r) => r.status),
-  ).toEqual(["REVIEW", "REVIEW", "BLOCK", "BLOCK", "BLOCK"]);
+  ).toEqual(["REVIEW", "REVIEW", "BLOCK", "BLOCK", "BLOCK", "PASS"]);
 });
 test("法人推荐、允许非默认培训科目及手机显示", async ({ page: p }) => {
   await create(p);

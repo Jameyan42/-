@@ -882,6 +882,9 @@ ${
 }</main><footer>轻报 QINGBAO <span>让费用管理回归简单</span><button id="reset">重置演示数据</button></footer></div><div id="overlay"></div>`;
   bind();
   unifiedController = mountUnified({
+    org:configuration.org,
+    orgHealthy:configHealthy,
+    travelRequests:requests,
     page,
     actor: currentActor(),
     legacy: items,

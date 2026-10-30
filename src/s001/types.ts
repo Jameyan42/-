@@ -1,3 +1,9 @@
+import type {
+  WorkflowConfig,
+  Workflow,
+  StoredFile,
+  AuditOperation,
+} from "./workflow-config";
 import type { AccountConfig } from "./account-config";
 import type { EntityConfig } from "./entity-rule";
 import type { HumanReview, StandardsCatalog } from "../r001/types";
@@ -38,6 +44,9 @@ export type Invoice = {
   attachment?: unknown;
 };
 export type Input = {
+  applicantId?: string;
+  travelRequestId?: string;
+  attachments?: StoredFile[];
   businessDate?: string;
   businessDescription?: string;
   businessScenario?: string;
@@ -70,6 +79,10 @@ export type Batch = {
   results: RuleResult[];
   review: HumanReview | null;
   context: {
+    workflowConfig?: WorkflowConfig;
+    workflow?: Workflow | null;
+    claimRevision?: number;
+    authorizationHealthy?: boolean;
     accountConfig?: AccountConfig;
     entityConfig?: EntityConfig;
     standards: StandardsCatalog | null;
@@ -77,6 +90,8 @@ export type Batch = {
   };
 };
 export type Claim = {
+  workflows?: Workflow[];
+  operations?: AuditOperation[];
   id: string;
   createdAt: string;
   submittedAt: string | null;
@@ -106,6 +121,8 @@ export type ReviewNote = {
   input: Input;
 };
 export type State = {
+  workflowConfig?: WorkflowConfig;
+  workflowConfigChanges?: AuditOperation[];
   schema: 1;
   revision: number;
   claims: Claim[];
@@ -129,6 +146,10 @@ export type State = {
   }[];
 };
 export type Context = {
+  workflowConfig?: WorkflowConfig;
+  workflow?: Workflow | null;
+  claimRevision?: number;
+  authorizationHealthy?: boolean;
   accountConfig?: AccountConfig;
   entityConfig?: EntityConfig;
   at: string;

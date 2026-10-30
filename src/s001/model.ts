@@ -1,3 +1,12 @@
+import { defaultWorkflowConfig } from "./workflow-config";
+import { validateWorkflowConfig, workflowReady } from "./workflow-rule";
+import {
+  activeWorkflow,
+  validateWorkflow,
+  validateOperations,
+  operation,
+  fileSummary,
+} from "./workflow-model";
 import { defaultAccounts } from "./account-config";
 import { validateAccounts } from "./account-rule";
 import { defaultEntities, validateEntities } from "./entity-rule";
@@ -10,6 +19,7 @@ export const empty = (): State => ({
   claims: [],
   entityConfig: defaultEntities(),
   accountConfig: defaultAccounts(),
+  workflowConfig: defaultWorkflowConfig(),
 });
 export function current(d: Claim) {
   return d.batches.find(
@@ -69,6 +79,8 @@ function checkInput(d: Input) {
   )
     throw Error("法人编号无效");
   for (const k of [
+    "applicantId",
+    "travelRequestId",
     "businessDate",
     "businessDescription",
     "businessScenario",
@@ -83,6 +95,32 @@ function checkInput(d: Input) {
     !["员工提交", "财务确认"].includes(d.accountStage)
   )
     throw Error("业务阶段无效");
+  if (
+    d.attachments !== undefined &&
+    (!Array.isArray(d.attachments) || d.attachments.length > 5)
+  )
+    throw Error("每单最多5个辅助材料文件");
+  for (const f of d.attachments || [])
+    if (
+      !f.id ||
+      !f.name ||
+      ![
+        "INVOICE",
+        "TRAVEL_APPROVAL",
+        "ITINERARY",
+        "HOTEL_DETAIL",
+        "OTHER",
+      ].includes(f.materialType) ||
+      !["SAVED", "FAILED", "METADATA_ONLY"].includes(f.storageStatus) ||
+      !["UNVERIFIED", "VERIFIED", "REJECTED"].includes(f.verificationStatus) ||
+      !Array.isArray(f.linkedInvoiceIds) ||
+      f.linkedInvoiceIds.some((id) => !d.invoices.some((i) => i.id === id)) ||
+      !validTime(f.uploadTime) ||
+      !f.uploadedBy?.trim() ||
+      (f.verificationStatus === "VERIFIED" &&
+        (!f.verifiedBy?.trim() || !f.verifiedAt || !validTime(f.verifiedAt)))
+    )
+      throw Error("附件登记、关联或核实记录无效");
   for (const i of d.invoices) {
     if (
       (i.recognitionStatus !== undefined &&
@@ -130,6 +168,18 @@ export function validate(s: State) {
     new Set(s.claims.map((d) => d.id)).size !== s.claims.length
   )
     throw Error("统一报销数据损坏，原值保留");
+  if (s.workflowConfig) validateWorkflowConfig(s.workflowConfig);
+  if (s.workflowConfigChanges) {
+    validateOperations(s.workflowConfigChanges);
+    for (const x of s.workflowConfigChanges) {
+      validateWorkflowConfig(
+        x.before as import("./workflow-config").WorkflowConfig,
+      );
+      validateWorkflowConfig(
+        x.after as import("./workflow-config").WorkflowConfig,
+      );
+    }
+  }
   if (s.accountConfig) validateAccounts(s.accountConfig);
   if (s.accountConfigChanges !== undefined) {
     if (
@@ -173,6 +223,22 @@ export function validate(s: State) {
   const batchIds = new Set<string>();
   for (const d of s.claims) {
     checkInput(d.input);
+    if (d.operations) validateOperations(d.operations);
+    if (d.workflows) {
+      if (
+        !Array.isArray(d.workflows) ||
+        d.workflows.length > 30 ||
+        new Set(d.workflows.map((w) => w.id)).size !== d.workflows.length ||
+        new Set(d.workflows.map((w) => w.reimbursementVersion)).size !==
+          d.workflows.length
+      )
+        throw Error("审批版本容量或标识无效");
+      for (const w of d.workflows) {
+        validateWorkflow(w);
+        if (w.claimId !== d.id || w.reimbursementVersion > d.revision)
+          throw Error("审批与报销版本不符");
+      }
+    }
     if (!validTime(d.createdAt)) throw Error("创建时间无效");
     if (
       d.id !== d.input?.id ||
@@ -265,6 +331,13 @@ export function validate(s: State) {
         (!b.input.accountCode || b.input.accountStage !== "财务确认")
       )
         throw Error("财务科目未确认的批次不能批准");
+    for (const b of d.batches)
+      if (
+        b.review?.decision === "approved" &&
+        b.ruleKeys.includes("workflow.approval-materials") &&
+        !workflowReady(b.results.find((r) => r.ruleId === "R006")!)
+      )
+        throw Error("必要业务审批和附件未满足，不可财务批准");
     const b = current(d);
     if ((d.currentBatchId && !b) || d.status !== (b ? business(b) : "草稿"))
       throw Error("当前审核状态无效");
@@ -313,11 +386,91 @@ export function saveDraft(
     revision: (old?.revision || 0) + (changed ? 1 : 0),
     input: structuredClone(input),
     changes,
+    workflows: old?.workflows || [],
+    operations: old?.operations || [],
     reviewNotes: old?.reviewNotes || [],
     batches: old?.batches || [],
     currentBatchId: changed ? null : old!.currentBatchId,
     status: changed ? "草稿" : old!.status,
   };
+  if (changed)
+    operation(
+      d,
+      old ? "资料/附件变更" : "创建报销单",
+      change?.actor || "模拟录入人",
+      change?.role || "员工",
+      change?.reason || "草稿编辑",
+      at,
+      old
+        ? {
+            revision: old.revision,
+            amountYuan: old.input.amountYuan,
+            attachments: fileSummary(old.input),
+          }
+        : null,
+      {
+        revision: d.revision,
+        amountYuan: input.amountYuan,
+        attachments: fileSummary(input),
+      },
+    );
+  if (changed) {
+    const beforeFiles = old ? fileSummary(old.input) : [],
+      afterFiles = fileSummary(input),
+      identity = {
+        actor: change?.actor || "模拟录入人",
+        role: change?.role || "员工",
+        reason: change?.reason || "草稿编辑",
+      };
+    for (const f of beforeFiles)
+      if (!afterFiles.some((x) => x.id === f.id))
+        operation(
+          d,
+          "附件删除",
+          identity.actor,
+          identity.role,
+          identity.reason,
+          at,
+          f,
+          null,
+        );
+    for (const f of afterFiles) {
+      const before = beforeFiles.find((x) => x.id === f.id);
+      if (!before)
+        operation(
+          d,
+          "附件上传",
+          identity.actor,
+          identity.role,
+          identity.reason,
+          at,
+          null,
+          f,
+        );
+      else if (JSON.stringify(before) !== JSON.stringify(f))
+        operation(
+          d,
+          "附件关联/分类/核实变更",
+          identity.actor,
+          identity.role,
+          identity.reason,
+          at,
+          before,
+          f,
+        );
+    }
+    if (old && old.input.amountYuan !== input.amountYuan)
+      operation(
+        d,
+        "报销金额修改",
+        identity.actor,
+        identity.role,
+        identity.reason,
+        at,
+        { amountYuan: old.input.amountYuan },
+        { amountYuan: input.amountYuan },
+      );
+  }
   return {
     ...s,
     revision: s.revision + 1,
@@ -368,6 +521,12 @@ export function execute(
       }),
   ];
   const context = {
+    workflowConfig: structuredClone(
+      s.workflowConfig || defaultWorkflowConfig(),
+    ),
+    workflow: structuredClone(activeWorkflow(d) || null),
+    claimRevision: d.revision,
+    authorizationHealthy: c.authorizationHealthy !== false,
     accountConfig: structuredClone(
       c.accountConfig || s.accountConfig || defaultAccounts(),
     ),
@@ -388,6 +547,17 @@ export function execute(
     context,
     review: null,
   };
+  const auditDoc = structuredClone(d);
+  operation(
+    auditDoc,
+    "执行自动审核",
+    "模拟系统",
+    "系统",
+    "执行当前全部适用规则",
+    c.at,
+    { batchId: d.currentBatchId },
+    { batchId, revision: d.revision, ruleKeys: b.ruleKeys },
+  );
   return {
     ...s,
     revision: s.revision + 1,
@@ -395,7 +565,7 @@ export function execute(
       x.id !== id
         ? x
         : {
-            ...d,
+            ...auditDoc,
             submittedAt: d.submittedAt || c.at,
             batches: [...d.batches, b],
             currentBatchId: b.id,
@@ -430,6 +600,13 @@ export function review(
     throw Error("人员、意见和有效时间必填");
   if (
     decision === "approved" &&
+    !b.ruleKeys.includes("workflow.approval-materials")
+  )
+    throw Error(
+      "当前历史批次未执行R006，请重新自动审核后再作新的财务批准；已有历史结论保留",
+    );
+  if (
+    decision === "approved" &&
     b.results.some((r) =>
       ["BLOCK", "ERROR", "INSUFFICIENT_DATA"].includes(r.status),
     )
@@ -441,6 +618,15 @@ export function review(
     (!b.input.accountCode || b.input.accountStage !== "财务确认")
   )
     throw Error("请先由模拟财务确认科目并重新审核，不能以人工复核代替科目确认");
+  const r006 = b.results.find((r) => r.ruleId === "R006");
+  if (decision === "approved" && r006 && !workflowReady(r006))
+    throw Error(
+      "必要业务审批或附件尚未满足，普通财务批准不能跳过；完成后重新审核",
+    );
+  operation(d, "财务最终复核", reviewer, "财务", reason, at, null, {
+    decision,
+    batchId,
+  });
   b.review = { decision, reason: reason.trim(), reviewer: reviewer.trim(), at };
   d.status = business(b);
   n.revision++;

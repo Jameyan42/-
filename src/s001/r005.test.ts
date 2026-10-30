@@ -1,3 +1,4 @@
+import { sampleFiles, executePrepared as execute } from "./workflow-fixtures";
 import test from "node:test";
 import assert from "node:assert/strict";
 import { defaultAccounts } from "./account-config";
@@ -7,7 +8,6 @@ import { auditAll, registry } from "./rules";
 import {
   empty,
   saveDraft,
-  execute,
   current,
   configureAccounts,
   validate,
@@ -21,6 +21,8 @@ import type { Input, Context } from "./types";
 const at = "2026-10-30T03:00:00.000Z";
 const bill = (): Input => ({
   id: "R005-TEST",
+  applicantId: "lin",
+  attachments: sampleFiles(["I1"]),
   companyId: "SZ",
   employee: "李四",
   department: "财务部",
@@ -174,7 +176,7 @@ test("T012 运行故障ERROR且不丢失其他结果", () => {
   const c = ctx();
   c.accountConfig!.mappings[0]!.allowedAccountCodes = ["不存在"];
   const rs = auditAll(bill(), c);
-  assert.equal(rs.length, 5);
+  assert.equal(rs.length, 6);
   assert.equal(rs[4]!.status, "ERROR");
   assert.equal(rs[0]!.status, "PASS");
 });
@@ -223,14 +225,17 @@ test("T015 五异常同批全部保留", () => {
   });
   assert.deepEqual(
     auditAll(d, ctx()).map((r) => r.status),
-    ["REVIEW", "REVIEW", "BLOCK", "BLOCK", "BLOCK"],
+    ["REVIEW", "REVIEW", "BLOCK", "BLOCK", "BLOCK", "REVIEW"],
   );
 });
 test("T016 旧四规则批次无新增通过、不写数据", () => {
   let s = execute(saveDraft(empty(), bill(), at), bill().id, ctx(), "B1");
   const b = s.claims[0]!.batches[0]!;
-  b.ruleKeys = b.ruleKeys.filter((k) => k !== "expense.account-mapping");
-  b.results = b.results.filter((r) => r.ruleId !== "R005");
+  b.ruleKeys = b.ruleKeys.filter(
+    (k) =>
+      !["expense.account-mapping", "workflow.approval-materials"].includes(k),
+  );
+  b.results = b.results.filter((r) => !["R005", "R006"].includes(r.ruleId));
   delete b.context.accountConfig;
   delete s.accountConfig;
   validate(s);
@@ -259,7 +264,7 @@ test("T018 特殊业务未确认科目不可借REVIEW放行，非财务不可改
   let s = execute(saveDraft(empty(), d, at), d.id, ctx(), "B1");
   assert.throws(
     () => review(s, d.id, "B1", "approved", "同意", "财务", at),
-    /确认科目/,
+    /确认科目|不能普通放行/,
   );
   assert.throws(
     () =>
