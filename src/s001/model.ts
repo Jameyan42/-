@@ -1,3 +1,5 @@
+import { defaultAccounts } from "./account-config";
+import { validateAccounts } from "./account-rule";
 import { defaultEntities, validateEntities } from "./entity-rule";
 import type { State, Input, Claim, Batch, Context } from "./types";
 import { auditAll, historyRow, registry } from "./rules";
@@ -7,6 +9,7 @@ export const empty = (): State => ({
   revision: 1,
   claims: [],
   entityConfig: defaultEntities(),
+  accountConfig: defaultAccounts(),
 });
 export function current(d: Claim) {
   return d.batches.find(
@@ -54,7 +57,7 @@ function checkInput(d: Input) {
     fields.some((k) => typeof d[k] !== "string" || d[k].length > 500) ||
     !d.id.trim() ||
     d.id.length > 80 ||
-    !["住宿费", "其他费用"].includes(d.expenseType) ||
+    !d.expenseType.trim() ||
     !Array.isArray(d.invoices) ||
     d.invoices.length > 5 ||
     new Set(d.invoices.map((i) => i.id)).size !== d.invoices.length
@@ -65,6 +68,21 @@ function checkInput(d: Input) {
     (typeof d.companyId !== "string" || d.companyId.length > 80)
   )
     throw Error("法人编号无效");
+  for (const k of [
+    "businessDate",
+    "businessDescription",
+    "businessScenario",
+    "costCenter",
+    "accountCode",
+    "accountStage",
+  ] as const)
+    if (d[k] !== undefined && (typeof d[k] !== "string" || d[k]!.length > 500))
+      throw Error("核算字段无效");
+  if (
+    d.accountStage !== undefined &&
+    !["员工提交", "财务确认"].includes(d.accountStage)
+  )
+    throw Error("业务阶段无效");
   for (const i of d.invoices) {
     if (
       (i.recognitionStatus !== undefined &&
@@ -112,6 +130,26 @@ export function validate(s: State) {
     new Set(s.claims.map((d) => d.id)).size !== s.claims.length
   )
     throw Error("统一报销数据损坏，原值保留");
+  if (s.accountConfig) validateAccounts(s.accountConfig);
+  if (s.accountConfigChanges !== undefined) {
+    if (
+      !Array.isArray(s.accountConfigChanges) ||
+      s.accountConfigChanges.length > 100
+    )
+      throw Error("科目配置记录无效");
+    for (const log of s.accountConfigChanges) {
+      if (
+        !validTime(log.at) ||
+        !log.actor?.trim() ||
+        log.role !== "财务" ||
+        !log.reason?.trim() ||
+        log.reason.length > 500
+      )
+        throw Error("科目配置留痕无效");
+      validateAccounts(log.before);
+      validateAccounts(log.after);
+    }
+  }
   if (s.entityConfig) validateEntities(s.entityConfig);
   if (s.entityConfigChanges !== undefined) {
     if (
@@ -220,6 +258,13 @@ export function validate(s: State) {
         checkInput(log.input);
       }
     }
+    for (const b of d.batches)
+      if (
+        b.review?.decision === "approved" &&
+        b.ruleKeys.includes("expense.account-mapping") &&
+        (!b.input.accountCode || b.input.accountStage !== "财务确认")
+      )
+        throw Error("财务科目未确认的批次不能批准");
     const b = current(d);
     if ((d.currentBatchId && !b) || d.status !== (b ? business(b) : "草稿"))
       throw Error("当前审核状态无效");
@@ -242,6 +287,15 @@ export function saveDraft(
     (!change?.reason.trim() || !change.actor.trim() || !change.role.trim())
   )
     throw Error("已审核资料变更必须填写修改原因并记录身份");
+  if (
+    change &&
+    change.role !== "财务" &&
+    (old
+      ? input.accountCode !== old.input.accountCode ||
+        input.accountStage !== old.input.accountStage
+      : Boolean(input.accountCode || input.accountStage === "财务确认"))
+  )
+    throw Error("仅模拟财务可修改确认科目和业务阶段");
   const changes = [...(old?.changes || [])];
   if (changed && old)
     changes.push({
@@ -314,6 +368,9 @@ export function execute(
       }),
   ];
   const context = {
+    accountConfig: structuredClone(
+      c.accountConfig || s.accountConfig || defaultAccounts(),
+    ),
     entityConfig: structuredClone(
       c.entityConfig || s.entityConfig || defaultEntities(),
     ),
@@ -378,6 +435,12 @@ export function review(
     )
   )
     throw Error("拦截/信息不足/执行失败不能普通放行，请修改后重审");
+  if (
+    decision === "approved" &&
+    b.ruleKeys.includes("expense.account-mapping") &&
+    (!b.input.accountCode || b.input.accountStage !== "财务确认")
+  )
+    throw Error("请先由模拟财务确认科目并重新审核，不能以人工复核代替科目确认");
   b.review = { decision, reason: reason.trim(), reviewer: reviewer.trim(), at };
   d.status = business(b);
   n.revision++;
@@ -467,6 +530,43 @@ export function configureEntities(
       reason,
       before: structuredClone(s.entityConfig || defaultEntities()),
       after: structuredClone(next.entityConfig!),
+    },
+  ];
+  next.revision++;
+  return next;
+}
+
+export function configureAccounts(
+  s: State,
+  config: import("./account-config").AccountConfig,
+  actor: string,
+  role: string,
+  reason: string,
+  at: string,
+): State {
+  if (
+    role !== "财务" ||
+    !actor.trim() ||
+    !reason.trim() ||
+    reason.length > 500 ||
+    !validTime(at)
+  )
+    throw Error("财务身份、修改原因和时间必填");
+  validateAccounts(config);
+  const next = structuredClone(s);
+  next.accountConfig = {
+    ...structuredClone(config),
+    version: (s.accountConfig?.version || 1) + 1,
+  };
+  next.accountConfigChanges = [
+    ...(s.accountConfigChanges || []),
+    {
+      at,
+      actor,
+      role,
+      reason,
+      before: structuredClone(s.accountConfig || defaultAccounts()),
+      after: structuredClone(next.accountConfig),
     },
   ];
   next.revision++;

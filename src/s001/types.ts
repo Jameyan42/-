@@ -1,3 +1,4 @@
+import type { AccountConfig } from "./account-config";
 import type { EntityConfig } from "./entity-rule";
 import type { HumanReview, StandardsCatalog } from "../r001/types";
 import type { HistoryInvoice } from "../r002/invoiceTypes";
@@ -37,12 +38,18 @@ export type Invoice = {
   attachment?: unknown;
 };
 export type Input = {
+  businessDate?: string;
+  businessDescription?: string;
+  businessScenario?: string;
+  costCenter?: string;
+  accountCode?: string;
+  accountStage?: "员工提交" | "财务确认";
   companyId?: string;
   id: string;
   employee: string;
   grade: string;
   department: string;
-  expenseType: "住宿费" | "其他费用";
+  expenseType: string;
   amountYuan: string;
   currency: string;
   city: string;
@@ -63,6 +70,7 @@ export type Batch = {
   results: RuleResult[];
   review: HumanReview | null;
   context: {
+    accountConfig?: AccountConfig;
     entityConfig?: EntityConfig;
     standards: StandardsCatalog | null;
     invoiceHistory: HistoryInvoice[] | null;
@@ -101,7 +109,16 @@ export type State = {
   schema: 1;
   revision: number;
   claims: Claim[];
+  accountConfig?: AccountConfig;
   entityConfig?: EntityConfig;
+  accountConfigChanges?: {
+    at: string;
+    actor: string;
+    role: string;
+    reason: string;
+    before: AccountConfig;
+    after: AccountConfig;
+  }[];
   entityConfigChanges?: {
     at: string;
     actor: string;
@@ -112,6 +129,7 @@ export type State = {
   }[];
 };
 export type Context = {
+  accountConfig?: AccountConfig;
   entityConfig?: EntityConfig;
   at: string;
   standards: StandardsCatalog | null;

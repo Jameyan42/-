@@ -6,8 +6,11 @@ const field = (p, n) => p.locator(`#s001-form [name="${n}"]`);
 const inv = (p, n) => p.locator(`[data-invoice] [data-field="${n}"]`).first();
 async function create(p) {
   await p.goto("/?view=claims");
+  await p.locator("#role").selectOption("财务");
   await p.locator("#s001-new").click();
   await p.locator("#s001-example").click();
+  await p.locator("#s001-form [name=accountCode]").selectOption("6602.01");
+  await p.locator("#s001-form [name=accountStage]").selectOption("财务确认");
 }
 async function run(p) {
   await p.locator("#s001-form [type=submit]").click();

@@ -24,6 +24,8 @@ const context = (): Context => ({
 export const example = (): Input => ({
   id: "S001-TEST",
   companyId: "SZ",
+  accountCode: "6602.01",
+  accountStage: "财务确认",
   employee: "李四",
   grade: "普通员工",
   department: "财务部",
@@ -61,7 +63,7 @@ test("S01 正常600三规则通过，非最终财务批准", () => {
   assert.equal(d.status, "规则检查通过（待财务确认）");
   assert.deepEqual(
     current(d)!.results.map((r) => r.status),
-    ["PASS", "PASS", "PASS", "PASS"],
+    ["PASS", "PASS", "PASS", "PASS", "PASS"],
   );
 });
 test("S02 800限额申请1200票1000重复，同批超400/重复/拦截200", () => {
@@ -81,7 +83,7 @@ test("S02 800限额申请1200票1000重复，同批超400/重复/拦截200", () 
   const r = current(submit(d, c).claims[0]!)!.results;
   assert.deepEqual(
     r.map((r) => r.status),
-    ["REVIEW", "REVIEW", "BLOCK", "PASS"],
+    ["REVIEW", "REVIEW", "BLOCK", "PASS", "PASS"],
   );
   assert.equal((r[0]!.evidence as { excessCents: number }).excessCents, 40000);
   assert.equal(
@@ -209,9 +211,9 @@ test("单规则失败独立ERROR，其他照常执行；可注册新规则", () 
       },
     },
   ]);
-  assert.equal(rs.length, 5);
+  assert.equal(rs.length, 6);
   assert.equal(rs[0]!.status, "PASS");
-  assert.equal(rs[4]!.status, "ERROR");
+  assert.equal(rs[5]!.status, "ERROR");
 });
 test("旧库损坏时相应规则ERROR，不影响金额规则", () => {
   const c = context();
@@ -244,10 +246,10 @@ test("真实UUID单号和票据编号适配后不超过原R002的80字符上限"
 test("追加注册规则后旧批次仍可读取，不偷偷补写新规则", () => {
   const s = submit();
   s.claims[0]!.batches[0]!.ruleKeys = s.claims[0]!.batches[0]!.ruleKeys.filter(
-    (k) => k !== "invoice.buyer-entity",
+    (k) => !["invoice.buyer-entity", "expense.account-mapping"].includes(k),
   );
   s.claims[0]!.batches[0]!.results = s.claims[0]!.batches[0]!.results.filter(
-    (r) => r.ruleId !== "R004",
+    (r) => !["R004", "R005"].includes(r.ruleId),
   );
   registry.push({
     ruleId: "R004",

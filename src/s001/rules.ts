@@ -1,3 +1,4 @@
+import { accountRule } from "./account-rule";
 import { buyerRule } from "./entity-rule";
 import { auditLodging, parseYuan } from "../r001/rule";
 import {
@@ -234,6 +235,12 @@ export const registry: Registration[] = [
     ruleKey: "invoice.buyer-entity",
     ruleName: "发票抬头与税号审核",
     execute: buyerRule,
+  },
+  {
+    ruleId: "R005",
+    ruleKey: "expense.account-mapping",
+    ruleName: "费用类型与会计科目匹配",
+    execute: accountRule,
   },
 ];
 export function auditAll(d: Input, c: Context, rules = registry): RuleResult[] {

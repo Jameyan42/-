@@ -32,6 +32,8 @@ const ctx = (): Context => ({
 const bill = (): Input => ({
   id: "R004-BILL",
   companyId: "SZ",
+  accountCode: "6602.01",
+  accountStage: "财务确认",
   employee: "李四",
   department: "财务部",
   grade: "普通员工",
@@ -199,7 +201,7 @@ test("集成A 四项异常同批输出", () => {
   };
   assert.deepEqual(
     auditAll(d, ctx()).map((r) => r.status),
-    ["REVIEW", "REVIEW", "BLOCK", "BLOCK"],
+    ["REVIEW", "REVIEW", "BLOCK", "BLOCK", "PASS"],
   );
 });
 test("配置更改后新批次用新版本、旧快照重放不变；非财务不得改配置", () => {
@@ -258,8 +260,10 @@ test("格式标准化不丢城市或组织形式；购买方不使用销售方�
 test("旧三规则批次和旧输入可读取、不自动补R004", () => {
   const s = execute(saveDraft(empty(), bill(), at), bill().id, ctx(), "B1"),
     b = s.claims[0]!.batches[0]!;
-  b.ruleKeys = b.ruleKeys.filter((k) => k !== "invoice.buyer-entity");
-  b.results = b.results.filter((r) => r.ruleId !== "R004");
+  b.ruleKeys = b.ruleKeys.filter(
+    (k) => !["invoice.buyer-entity", "expense.account-mapping"].includes(k),
+  );
+  b.results = b.results.filter((r) => !["R004", "R005"].includes(r.ruleId));
   delete b.context.entityConfig;
   delete s.entityConfig;
   delete s.claims[0]!.input.companyId;
