@@ -1,0 +1,74 @@
+.s001 fieldset {
+  border: 1px solid #dce4ed;
+  border-radius: 8px;
+  margin: 18px 0;
+  padding: 20px;
+  min-width: 0;
+}
+.s001 fieldset .form-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+.s001 input,
+.s001 select {
+  max-width: 100%;
+  min-width: 0;
+}
+.s001-rule {
+  border: 1px solid #dce4ed;
+  padding: 16px;
+  margin: 14px 0;
+  border-radius: 8px;
+}
+.s001-rule.BLOCK,
+.s001-rule.ERROR {
+  border-left: 5px solid #be4545;
+}
+.s001-rule.REVIEW,
+.s001-rule.INSUFFICIENT_DATA {
+  border-left: 5px solid #c58732;
+}
+.s001-rule.PASS {
+  border-left: 5px solid #3d9a73;
+}
+.s001 pre {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font-size: 12px;
+  max-height: 420px;
+  overflow: auto;
+}
+.s001-legacy {
+  opacity: 0.8;
+}
+.s001 .panel {
+  margin-bottom: 18px;
+}
+.s001 label {
+  display: block;
+}
+.s001 .enterprise-buttons {
+  margin-top: 20px;
+}
+.s001 td {
+  overflow-wrap: anywhere;
+}
+.s001 [role="alert"] {
+  color: #b34335;
+}
+.s001 fieldset button {
+  margin: 6px 0;
+}
+@media (max-width: 720px) {
+  .s001 fieldset .form-grid {
+    grid-template-columns: 1fr;
+  }
+  .s001 fieldset {
+    padding: 12px;
+  }
+  .s001 .toolbar {
+    flex-wrap: wrap;
+  }
+}
+
+.s001 .panel { padding: 20px; }
+@media(max-width:720px){.s001 .panel{padding:14px}}
