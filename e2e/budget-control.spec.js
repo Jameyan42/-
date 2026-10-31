@@ -247,7 +247,7 @@ test("预算新旧备份往返、坏月度记录拒绝、损坏配置暂停新�
   );
   await p.reload();
   await nav(p, "预算管理");
-  await expect(p.locator("[role=alert]")).toContainText("统计不完整");
+  await expect(p.locator(".risk[role=alert]")).toContainText("统计不完整");
   await expect(p.locator("#budget-export")).toBeDisabled();
   await claim(p, "未知预算不能提交", "200");
   await submit(p);

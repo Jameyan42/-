@@ -1,3 +1,5 @@
+import type { BudgetEscalation } from "./budget-config";
+import { sameEscalation } from "./budget-rule";
 import { defaultEntities } from "./entity-rule";
 // @ts-ignore Original JS module remains shared with legacy expense approvals.
 import { resolveBusinessApprovalNodes, validateSnapshot } from "../approval.js";
@@ -153,7 +155,12 @@ export function selectPolicy<T extends ApprovalPolicy | AttachmentPolicy>(
     message: "命中唯一适用政策",
   };
 }
-export function approvalNodes(d: Input, org: Org, p: ApprovalPolicy) {
+export function approvalNodes(
+  d: Input,
+  org: Org,
+  p: ApprovalPolicy,
+  extra?: BudgetEscalation,
+) {
   const person = org.people.find((x) => x.id === d.applicantId && x.active);
   if (
     !person ||
@@ -162,7 +169,7 @@ export function approvalNodes(d: Input, org: Org, p: ApprovalPolicy) {
       d.department
   )
     throw Error("申请人编号、姓名及部门不符合当前组织关系");
-  return resolveBusinessApprovalNodes(
+  const base = resolveBusinessApprovalNodes(
     person.id,
     p.approvalSequence.map((r) => ({
       selector: r === "直属主管" ? "manager" : "departmentHead",
@@ -176,6 +183,15 @@ export function approvalNodes(d: Input, org: Org, p: ApprovalPolicy) {
     label: NodeRole;
     stage: string;
   }[];
+  if (extra)
+    base.push({
+      actorId: extra.ownerId,
+      actorName: extra.ownerName,
+      role: extra.ownerRole,
+      label: "预算负责人",
+      stage: "business",
+    });
+  return base;
 }
 export function approvalCheck(
   d: Input,
@@ -183,6 +199,7 @@ export function approvalCheck(
   config: WorkflowConfig,
   at: string,
   revision?: number,
+  requiredExtra?: BudgetEscalation | null,
 ): Subcheck {
   const match = selectPolicy(d, config.approvalPolicies),
     ev: Record<string, unknown> = {
@@ -207,13 +224,19 @@ export function approvalCheck(
       "REVIEW",
       "尚未提交业务审批，正常等待前置节点；最终财务批准前必须完成",
     );
+  if (w.cancelledAt) return out("REVIEW", "本版本已撤销，必须修改后重新提交");
+  if (requiredExtra && !sameEscalation(w.budgetEscalation, requiredExtra))
+    return out(
+      "REVIEW",
+      "柔性超预算要求尚未绑定当前预算负责人授权，请更新授权流程或重新提交",
+    );
   if (w.claimId !== d.id || w.applicantId !== d.applicantId)
     return out("BLOCK", "审批记录关联单据或申请人不一致");
   if (w.reimbursementVersion !== revision)
     return out("REVIEW", "资料已修改，旧版本审批失效，必须重新提交审批");
   let nodes: ReturnType<typeof approvalNodes>;
   try {
-    nodes = approvalNodes(d, w.org, match.policy);
+    nodes = approvalNodes(d, w.org, match.policy, w.budgetEscalation);
   } catch (e) {
     return out(
       String(e).includes("自批") ? "BLOCK" : "INSUFFICIENT_DATA",
@@ -237,14 +260,27 @@ export function approvalCheck(
     return out("BLOCK", "审批记录版本、时间或关联信息不符合提交快照");
   for (const r of records) {
     const node = nodes[r.approvalLevel];
-    const person = w.org.people.find((x) => x.id === r.approverId && x.active);
+    const person =
+      r.approverRole === "预算负责人" && w.budgetEscalation
+        ? {
+            id: w.budgetEscalation.ownerId,
+            name: w.budgetEscalation.ownerName,
+            role: w.budgetEscalation.ownerRole,
+            active: true,
+          }
+        : w.org.people.find((x) => x.id === r.approverId && x.active);
     if (
       !node ||
+      r.approverId !== node.actorId ||
       node.label !== r.approverRole ||
       !person ||
       person.id !== node.actorId ||
       person.name !== r.approverName ||
-      !["主管", "管理员"].includes(person.role)
+      ![
+        "主管",
+        "管理员",
+        ...(r.approverRole === "预算负责人" ? ["财务"] : []),
+      ].includes(person.role)
     )
       return out("BLOCK", "审批记录中的审批人员不具备当前节点的授权权限");
     if (!match.policy.allowSelf && person.id === w.applicantId)
@@ -479,13 +515,26 @@ export function workflowRule(d: Input, c: Context): RuleResult {
   };
   const approval = !validEntity
       ? entityIssue
-      : c.authorizationHealthy === false
+      : c.budgetEscalationError
         ? {
             status: "INSUFFICIENT_DATA" as const,
-            message: "当前组织配置异常，无法确认审批授权，已暂停财务批准",
-            evidence: { authorizationHealthy: false },
+            message: c.budgetEscalationError,
+            evidence: { dependency: "R007" },
           }
-        : approvalCheck(d, c.workflow, config, c.at, c.claimRevision),
+        : c.authorizationHealthy === false
+          ? {
+              status: "INSUFFICIENT_DATA" as const,
+              message: "当前组织配置异常，无法确认审批授权，已暂停财务批准",
+              evidence: { authorizationHealthy: false },
+            }
+          : approvalCheck(
+              d,
+              c.workflow,
+              config,
+              c.at,
+              c.claimRevision,
+              c.budgetEscalation,
+            ),
     attachments = !validEntity
       ? entityIssue
       : attachmentCheck(d, config, c.workflow?.travelRequest),

@@ -18,6 +18,7 @@ export const example = (): Input => ({
   id: "S001-TEST",
   applicantId: "lin",
   attachments: sampleFiles(["INV-TEST"]),
+  departmentId: "sales",
   companyId: "SZ",
   accountCode: "6602.01",
   accountStage: "财务确认",
@@ -58,7 +59,7 @@ test("S01 正常600三规则通过，非最终财务批准", () => {
   assert.equal(d.status, "规则检查通过（待财务确认）");
   assert.deepEqual(
     current(d)!.results.map((r) => r.status),
-    ["PASS", "PASS", "PASS", "PASS", "PASS", "PASS"],
+    ["PASS", "PASS", "PASS", "PASS", "PASS", "PASS", "PASS"],
   );
 });
 test("S02 800限额申请1200票1000重复，同批超400/重复/拦截200", () => {
@@ -78,7 +79,7 @@ test("S02 800限额申请1200票1000重复，同批超400/重复/拦截200", () 
   const r = current(submit(d, c).claims[0]!)!.results;
   assert.deepEqual(
     r.map((r) => r.status),
-    ["REVIEW", "REVIEW", "BLOCK", "PASS", "PASS", "INSUFFICIENT_DATA"],
+    ["REVIEW", "REVIEW", "BLOCK", "PASS", "PASS", "INSUFFICIENT_DATA", "PASS"],
   );
   assert.equal((r[0]!.evidence as { excessCents: number }).excessCents, 40000);
   assert.equal(
@@ -127,16 +128,18 @@ test("S05 财务意见独立保存、刷新保留、不重复复核", () => {
   assert.deepEqual(load(storage).state, next);
 });
 test("S06 修改使当前审核失效并清除批准，旧历史不变", () => {
-  const s = review(
-      submit(),
-      "S001-TEST",
-      "B1",
-      "approved",
-      "核查通过",
-      "财务",
-      at,
-    ),
+  const s = submit(),
+    approved = review(s, "S001-TEST", "B1", "approved", "核查通过", "财务", at),
     d = example();
+  assert.throws(
+    () =>
+      saveDraft(approved, { ...d, amountYuan: "700" }, at, {
+        actor: "李四",
+        role: "员工",
+        reason: "需冲销",
+      }),
+    /冲销/,
+  );
   d.amountYuan = "700";
   const next = saveDraft(s, d, at, {
     actor: "李四",
@@ -207,9 +210,9 @@ test("单规则失败独立ERROR，其他照常执行；可注册新规则", () 
       },
     },
   ]);
-  assert.equal(rs.length, 7);
+  assert.equal(rs.length, 8);
   assert.equal(rs[0]!.status, "PASS");
-  assert.equal(rs[6]!.status, "ERROR");
+  assert.equal(rs[7]!.status, "ERROR");
 });
 test("旧库损坏时相应规则ERROR，不影响金额规则", () => {
   const c = context();
@@ -247,10 +250,11 @@ test("追加注册规则后旧批次仍可读取，不偷偷补写新规则", ()
         "invoice.buyer-entity",
         "expense.account-mapping",
         "workflow.approval-materials",
+        "budget.capacity",
       ].includes(k),
   );
   s.claims[0]!.batches[0]!.results = s.claims[0]!.batches[0]!.results.filter(
-    (r) => !["R004", "R005", "R006"].includes(r.ruleId),
+    (r) => !["R004", "R005", "R006", "R007"].includes(r.ruleId),
   );
   registry.push({
     ruleId: "R004",

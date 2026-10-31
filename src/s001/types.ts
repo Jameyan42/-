@@ -1,3 +1,4 @@
+import type { BudgetBook, BudgetEscalation } from "./budget-config";
 import type {
   WorkflowConfig,
   Workflow,
@@ -44,6 +45,7 @@ export type Invoice = {
   attachment?: unknown;
 };
 export type Input = {
+  departmentId?: string;
   applicantId?: string;
   travelRequestId?: string;
   attachments?: StoredFile[];
@@ -70,6 +72,7 @@ export type Input = {
   invoices: Invoice[];
 };
 export type Batch = {
+  budgetAtReview?: RuleResult;
   id: string;
   version: number;
   revision: number;
@@ -79,6 +82,10 @@ export type Batch = {
   results: RuleResult[];
   review: HumanReview | null;
   context: {
+    budgetBook?: BudgetBook;
+    budgetOrg?: import("./workflow-config").Org;
+    budgetEscalation?: BudgetEscalation | null;
+    budgetEscalationError?: string;
     workflowConfig?: WorkflowConfig;
     workflow?: Workflow | null;
     claimRevision?: number;
@@ -90,6 +97,8 @@ export type Batch = {
   };
 };
 export type Claim = {
+  budgetOpening?: "USED" | "RESERVED";
+  withdrawal?: { revision: number; at: string; actor: string; reason: string };
   workflows?: Workflow[];
   operations?: AuditOperation[];
   id: string;
@@ -121,6 +130,7 @@ export type ReviewNote = {
   input: Input;
 };
 export type State = {
+  budgetBook?: BudgetBook;
   workflowConfig?: WorkflowConfig;
   workflowConfigChanges?: AuditOperation[];
   schema: 1;
@@ -146,6 +156,10 @@ export type State = {
   }[];
 };
 export type Context = {
+  budgetBook?: BudgetBook;
+  budgetOrg?: import("./workflow-config").Org;
+  budgetEscalation?: BudgetEscalation | null;
+  budgetEscalationError?: string;
   workflowConfig?: WorkflowConfig;
   workflow?: Workflow | null;
   claimRevision?: number;

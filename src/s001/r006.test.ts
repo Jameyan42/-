@@ -42,6 +42,7 @@ import type { Input, Context } from "./types";
 const bill = (): Input => ({
   id: "R006-BILL",
   applicantId: "lin",
+  departmentId: "sales",
   companyId: "SZ",
   employee: "林晓",
   department: "销售部",
@@ -294,7 +295,25 @@ test("T014 三票逐张关联，单文件不自动覆盖；明确关联多票PDF
 });
 test("T015 删除/替换必要附件，当前批准及审批失效，前后文件和操作日志保留", () => {
   let s = execute(approve(submitted()), "R006-BILL", ctx(), "B1");
-  s = review(s, "R006-BILL", "B1", "approved", "六规则已核实", "财务", at);
+  const approved = review(
+    s,
+    "R006-BILL",
+    "B1",
+    "approved",
+    "六规则已核实",
+    "财务",
+    at,
+  );
+  assert.throws(
+    () =>
+      saveDraft(
+        approved,
+        { ...approved.claims[0]!.input, attachments: [] },
+        at,
+        { actor: "林晓", role: "员工", reason: "批准后不可删原件" },
+      ),
+    /冲销/,
+  );
   s = saveDraft(s, { ...s.claims[0]!.input, attachments: [] }, at, {
     actor: "林晓",
     role: "员工",
@@ -303,7 +322,7 @@ test("T015 删除/替换必要附件，当前批准及审批失效，前后文�
   assert.equal(current(s.claims[0]!), undefined);
   assert.equal(activeWorkflow(s.claims[0]!), undefined);
   assert.equal(s.claims[0]!.changes!.at(-1)!.before.attachments!.length, 2);
-  assert.equal(s.claims[0]!.batches[0]!.review!.decision, "approved");
+  assert.equal(approved.claims[0]!.batches[0]!.review!.decision, "approved");
   assert.ok(s.claims[0]!.operations!.some((l) => l.type === "资料/附件变更"));
   assert.ok(s.claims[0]!.operations!.some((l) => l.type === "附件删除"));
 });
@@ -340,7 +359,7 @@ test("六规则正常→独立财务批准→刷新，无最终审批循环依�
   let s = execute(approve(submitted()), "R006-BILL", ctx(), "B1");
   assert.deepEqual(
     current(s.claims[0]!)!.results.map((r) => r.status),
-    Array(6).fill("PASS"),
+    Array(7).fill("PASS"),
   );
   assert.equal(current(s.claims[0]!)!.review, null);
   s = review(s, "R006-BILL", "B1", "approved", "独立财务复核", "财务", at);
@@ -372,7 +391,15 @@ test("六异常同批并保留R006-A/B，缺附件不隐藏待部门负责人", 
     r = current(s.claims[0]!)!.results;
   assert.deepEqual(
     r.map((r) => r.status),
-    ["REVIEW", "REVIEW", "BLOCK", "BLOCK", "BLOCK", "INSUFFICIENT_DATA"],
+    [
+      "REVIEW",
+      "REVIEW",
+      "BLOCK",
+      "BLOCK",
+      "BLOCK",
+      "INSUFFICIENT_DATA",
+      "PASS",
+    ],
   );
   const e = r[5]!.evidence as any;
   assert.equal(e.approval.status, "REVIEW");
@@ -402,7 +429,7 @@ test("不同法人阈值、有效期、缺失、冲突和执行ERROR", () => {
   c.version = -1;
   const rs = auditAll(d, { ...ctx(), workflowConfig: c });
   assert.equal(rs[5]!.status, "ERROR");
-  assert.equal(rs.length, 6);
+  assert.equal(rs.length, 7);
   assert.throws(() => validateWorkflowConfig(c));
 });
 test("RETURNED与PENDING不伪造已通过，审计保护存储并发和配额", () => {
@@ -509,8 +536,10 @@ test("有完整系统出差审批时按政策可替代截图，伪造已批准�
 test("旧五规则批次保持五项，不追补R006；原始数据无静默重写", () => {
   const s = execute(approve(submitted()), "R006-BILL", ctx(), "B1"),
     b = s.claims[0]!.batches[0]!;
-  b.ruleKeys = b.ruleKeys.filter((k) => k !== "workflow.approval-materials");
-  b.results = b.results.filter((r) => r.ruleId !== "R006");
+  b.ruleKeys = b.ruleKeys.filter(
+    (k) => !["workflow.approval-materials", "budget.capacity"].includes(k),
+  );
+  b.results = b.results.filter((r) => !["R006", "R007"].includes(r.ruleId));
   delete b.context.workflow;
   delete b.context.workflowConfig;
   delete b.context.claimRevision;

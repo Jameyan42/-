@@ -33,6 +33,7 @@ const bill = (): Input => ({
   id: "R004-BILL",
   applicantId: "lin",
   attachments: sampleFiles(["I1"]),
+  departmentId: "sales",
   companyId: "SZ",
   accountCode: "6602.01",
   accountStage: "财务确认",
@@ -167,7 +168,24 @@ test("T011 三票PASS/BLOCK/资料不足逐张保留，BLOCK不被抵消", () =>
 });
 test("T012 变更所属法人需原因、旧审批失效、重审保留旧PASS及修改前后信息", () => {
   let s = execute(saveDraft(empty(), bill(), at), "R004-BILL", ctx(), "B1");
-  s = review(s, "R004-BILL", "B1", "approved", "核实一致", "财务", at);
+  const approved = review(
+    s,
+    "R004-BILL",
+    "B1",
+    "approved",
+    "核实一致",
+    "财务",
+    at,
+  );
+  assert.throws(
+    () =>
+      saveDraft(approved, { ...bill(), companyId: "DG" }, at, {
+        actor: "财务",
+        role: "财务",
+        reason: "不可改已使用",
+      }),
+    /冲销/,
+  );
   const d = { ...bill(), companyId: "DG" };
   assert.throws(() => saveDraft(s, d, at));
   const next = execute(
@@ -203,7 +221,7 @@ test("集成A 四项异常同批输出", () => {
   };
   assert.deepEqual(
     auditAll(d, ctx()).map((r) => r.status),
-    ["REVIEW", "REVIEW", "BLOCK", "BLOCK", "PASS", "INSUFFICIENT_DATA"],
+    ["REVIEW", "REVIEW", "BLOCK", "BLOCK", "PASS", "INSUFFICIENT_DATA", "PASS"],
   );
 });
 test("配置更改后新批次用新版本、旧快照重放不变；非财务不得改配置", () => {
@@ -268,10 +286,11 @@ test("旧三规则批次和旧输入可读取、不自动补R004", () => {
         "invoice.buyer-entity",
         "expense.account-mapping",
         "workflow.approval-materials",
+        "budget.capacity",
       ].includes(k),
   );
   b.results = b.results.filter(
-    (r) => !["R004", "R005", "R006"].includes(r.ruleId),
+    (r) => !["R004", "R005", "R006", "R007"].includes(r.ruleId),
   );
   delete b.context.entityConfig;
   delete s.entityConfig;

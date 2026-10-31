@@ -37,7 +37,7 @@ test("A 正常800：真实文件→具名主管→六规则PASS→财务独立�
   await create(p);
   await saveDetail(p);
   await completeBusiness(p);
-  await expect(p.locator(".s001-rule")).toHaveCount(6);
+  await expect(p.locator(".s001-rule")).toHaveCount(7);
   await expect(r6(p).locator(">summary")).toContainText("通过");
   await expect(p.locator("[data-r006-sub=approval]")).toContainText("业务审批");
   await expect(p.getByTestId("s001-business")).toHaveText(
@@ -74,7 +74,7 @@ test("B 六异常并存，缺部门审批不被缺附件遮蔽，不能普通财
   await action(p, "APPROVED", "直属主管同意");
   await role(p, "finance-zhou");
   await p.locator("#r006-audit").click();
-  await expect(p.locator(".s001-rule")).toHaveCount(6);
+  await expect(p.locator(".s001-rule")).toHaveCount(7);
   await expect(p.locator("[data-r006-sub=approval]")).toContainText(
     "部门负责人",
   );
@@ -90,6 +90,7 @@ test("B 六异常并存，缺部门审批不被缺附件遮蔽，不能普通财
     "BLOCK",
     "BLOCK",
     "INSUFFICIENT_DATA",
+    "PASS",
   ]);
   await p.locator("#s001-review-form [name=reason]").fill("不可跳过");
   await p.locator("#s001-review-form [value=approved]").click();
@@ -270,8 +271,10 @@ test("旧五规则历史不追补R006结论，新财务批准须重新审核", a
     const s = JSON.parse(localStorage.getItem("qingbao-s001-v1")),
       d = s.claims[0],
       b = d.batches[0];
-    b.ruleKeys = b.ruleKeys.filter((k) => k !== "workflow.approval-materials");
-    b.results = b.results.filter((r) => r.ruleId !== "R006");
+    b.ruleKeys = b.ruleKeys.filter(
+      (k) => !["workflow.approval-materials", "budget.capacity"].includes(k),
+    );
+    b.results = b.results.filter((r) => !["R006", "R007"].includes(r.ruleId));
     delete b.context.workflow;
     delete b.context.workflowConfig;
     delete b.context.claimRevision;

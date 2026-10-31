@@ -1,3 +1,4 @@
+import type { BudgetEscalation } from "./budget-config";
 export type Org = {
   departments: {
     id: string;
@@ -14,7 +15,7 @@ export type Org = {
     active: boolean;
   }[];
 };
-export type NodeRole = "直属主管" | "部门负责人";
+export type NodeRole = "直属主管" | "部门负责人" | "预算负责人";
 export type ApprovalPolicy = {
   policyId: string;
   companyId: string;
@@ -94,6 +95,8 @@ export type ApprovalRecord = {
   policyVersion: number;
 };
 export type Workflow = {
+  budgetEscalation?: BudgetEscalation;
+  cancelledAt?: string;
   id: string;
   claimId: string;
   reimbursementVersion: number;

@@ -90,7 +90,7 @@ test("验收二：三异常同时出现、BLOCK不得普通放行、可驳回", 
   await decide(p, "rejected");
   await expect(p.getByTestId("s001-review")).toContainText("财务复核驳回");
 });
-test("验收三/六/八：部分报销→批准→修改失效→同单重审不自重复→旧意见保留", async ({
+test("验收三/六/八：部分报销→核查留痕→批准前修改失效→同单重审不自重复→旧意见保留", async ({
   page: p,
 }) => {
   await create(p);
@@ -101,7 +101,10 @@ test("验收三/六/八：部分报销→批准→修改失效→同单重审不
     p.locator('[data-rule-key="invoice.amount-support"]'),
   ).toContainText("部分报销");
   await finance(p);
-  await decide(p);
+  await p
+    .locator("#r004-note [name=note]")
+    .fill("已核实部分报销，修改后重新核查");
+  await p.locator('#r004-note [value="已核实信息"]').click();
   const id = (await data(p)).claims[0].id;
   await p.locator("[data-edit-s001]").click();
   await field(p, "changeReason").fill("核对后修正模拟资料");
@@ -122,10 +125,14 @@ test("验收三/六/八：部分报销→批准→修改失效→同单重审不
   await run(p);
   const d = (await data(p)).claims.find((d) => d.id === id);
   expect(d.batches.length).toBe(3);
-  expect(d.batches[0].review.decision).toBe("approved");
+  expect(d.batches[0].review).toBeNull();
+  expect(d.reviewNotes[0].reason).toContain("已核实部分报销");
+  await decide(p);
   await nav(p, "审核历史");
   await expect(p.locator("#s001-root tbody tr")).toHaveCount(3);
   await p.locator("[data-history-doc]").first().click();
+  await expect(p.locator("#s001-root")).toContainText("已核实部分报销");
+  await p.locator("#s001-batch").selectOption({ index: 2 });
   await expect(p.getByTestId("s001-review")).toContainText("已核实模拟业务");
 });
 test("验收四：金额缺失及外币均信息不足，草稿刷新保留", async ({ page: p }) => {

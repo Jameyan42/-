@@ -23,6 +23,7 @@ const bill = (): Input => ({
   id: "R005-TEST",
   applicantId: "lin",
   attachments: sampleFiles(["I1"]),
+  departmentId: "sales",
   companyId: "SZ",
   employee: "李四",
   department: "财务部",
@@ -176,7 +177,7 @@ test("T012 运行故障ERROR且不丢失其他结果", () => {
   const c = ctx();
   c.accountConfig!.mappings[0]!.allowedAccountCodes = ["不存在"];
   const rs = auditAll(bill(), c);
-  assert.equal(rs.length, 6);
+  assert.equal(rs.length, 7);
   assert.equal(rs[4]!.status, "ERROR");
   assert.equal(rs[0]!.status, "PASS");
 });
@@ -225,7 +226,7 @@ test("T015 五异常同批全部保留", () => {
   });
   assert.deepEqual(
     auditAll(d, ctx()).map((r) => r.status),
-    ["REVIEW", "REVIEW", "BLOCK", "BLOCK", "BLOCK", "REVIEW"],
+    ["REVIEW", "REVIEW", "BLOCK", "BLOCK", "BLOCK", "REVIEW", "PASS"],
   );
 });
 test("T016 旧四规则批次无新增通过、不写数据", () => {
@@ -233,9 +234,15 @@ test("T016 旧四规则批次无新增通过、不写数据", () => {
   const b = s.claims[0]!.batches[0]!;
   b.ruleKeys = b.ruleKeys.filter(
     (k) =>
-      !["expense.account-mapping", "workflow.approval-materials"].includes(k),
+      ![
+        "expense.account-mapping",
+        "workflow.approval-materials",
+        "budget.capacity",
+      ].includes(k),
   );
-  b.results = b.results.filter((r) => !["R005", "R006"].includes(r.ruleId));
+  b.results = b.results.filter(
+    (r) => !["R005", "R006", "R007"].includes(r.ruleId),
+  );
   delete b.context.accountConfig;
   delete s.accountConfig;
   validate(s);

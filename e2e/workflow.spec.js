@@ -86,8 +86,8 @@ test("预算超额预警、切换月份及移动布局", async ({ page }) => {
   await navigate(page, "预算管理");
   await page.locator('[data-budget="销售部"]').click();
   await page.locator("[name=limit]").fill("3000");
-  await page.locator("[name=reason]").fill("测试预算软预警");
-  await page.locator("[type=submit]").click();
+  await page.locator("#budget-form [name=reason]").fill("测试预算软预警");
+  await page.locator("#budget-form [type=submit]").click();
   await expect(page.locator(".budget-card").first()).toContainText(
     "预算已耗尽",
   );

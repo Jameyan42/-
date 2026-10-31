@@ -1,3 +1,16 @@
+import { defaultBudgetBook } from "./budget-config";
+import {
+  validateBudgetBook,
+  allocations,
+  requiredBudgetEscalation,
+} from "./budget-rule";
+import {
+  reconcileBudget,
+  releaseBudget,
+  consumeBudget,
+  assertBudgetFinal,
+  budgetContext,
+} from "./budget-model";
 import { defaultWorkflowConfig } from "./workflow-config";
 import { validateWorkflowConfig, workflowReady } from "./workflow-rule";
 import {
@@ -20,6 +33,7 @@ export const empty = (): State => ({
   entityConfig: defaultEntities(),
   accountConfig: defaultAccounts(),
   workflowConfig: defaultWorkflowConfig(),
+  budgetBook: defaultBudgetBook(),
 });
 export function current(d: Claim) {
   return d.batches.find(
@@ -79,6 +93,7 @@ function checkInput(d: Input) {
   )
     throw Error("法人编号无效");
   for (const k of [
+    "departmentId",
     "applicantId",
     "travelRequestId",
     "businessDate",
@@ -168,6 +183,14 @@ export function validate(s: State) {
     new Set(s.claims.map((d) => d.id)).size !== s.claims.length
   )
     throw Error("统一报销数据损坏，原值保留");
+  if (s.budgetBook) {
+    validateBudgetBook(s.budgetBook);
+    for (const [id, a] of allocations(s.budgetBook)) {
+      const d = s.claims.find((d) => d.id === id);
+      if (!d || a.revision > d.revision)
+        throw Error("预算流水无法对应有效报销单版本");
+    }
+  }
   if (s.workflowConfig) validateWorkflowConfig(s.workflowConfig);
   if (s.workflowConfigChanges) {
     validateOperations(s.workflowConfigChanges);
@@ -353,6 +376,19 @@ export function saveDraft(
   if (!validTime(at)) throw Error("时间无效");
   const old = s.claims.find((d) => d.id === input.id);
   if (!input.id || input.invoices.length > 5) throw Error("单号或发票数量无效");
+  if (old?.budgetOpening) throw Error("期初模拟记录不可编辑为普通报销单");
+  if (
+    old &&
+    (old.batches.some((b) => b.review?.decision === "approved") ||
+      allocations(s.budgetBook || defaultBudgetBook()).get(old.id)?.used ||
+      s.budgetBook?.transactions.some(
+        (t) =>
+          t.scope === "CLAIM" &&
+          t.reimbursementId === old.id &&
+          t.transactionType === "CONSUME",
+      ))
+  )
+    throw Error("已批准并使用预算，不允许直接编辑，需正式冲销流程");
   const changed = !old || JSON.stringify(old.input) !== JSON.stringify(input);
   if (
     changed &&
@@ -387,6 +423,7 @@ export function saveDraft(
     input: structuredClone(input),
     changes,
     workflows: old?.workflows || [],
+    ...(old?.withdrawal ? { withdrawal: old.withdrawal } : {}),
     operations: old?.operations || [],
     reviewNotes: old?.reviewNotes || [],
     batches: old?.batches || [],
@@ -471,11 +508,19 @@ export function saveDraft(
         { amountYuan: input.amountYuan },
       );
   }
-  return {
+  const next = {
     ...s,
     revision: s.revision + 1,
-    claims: [d, ...s.claims.filter((d) => d.id !== input.id)],
+    claims: [d, ...s.claims.filter((x) => x.id !== input.id)],
   };
+  return changed &&
+    old &&
+    allocations(s.budgetBook || defaultBudgetBook()).get(old.id)?.reserved
+    ? reconcileBudget(next, d.id, "EDIT-" + d.id + "-" + d.revision, at, {
+        name: change?.actor || "模拟录入人",
+        role: change?.role || "员工",
+      })
+    : next;
 }
 export function execute(
   s: State,
@@ -485,6 +530,10 @@ export function execute(
 ): State {
   const d = s.claims.find((d) => d.id === id);
   if (!d) throw Error("单据不存在");
+  if (d.batches.some((b) => b.review?.decision === "approved"))
+    throw Error(
+      "该报销已最终批准，请查看历史；重新复审/冲销需独立流程，不能重新开启报销",
+    );
   if (!d.input.employee.trim() || !d.input.department.trim())
     throw Error("请填写报销人和部门");
   if (!validTime(c.at)) throw Error("审核时间无效");
@@ -520,7 +569,20 @@ export function execute(
           : [];
       }),
   ];
+  const bc = budgetContext(s, d, c.at, c.budgetOrg);
+  let extra = null,
+    extraError = "";
+  try {
+    if (bc.budgetOrg)
+      extra = requiredBudgetEscalation(d.input, bc, bc.budgetOrg);
+  } catch (err) {
+    extraError = String(err);
+  }
   const context = {
+    budgetBook: structuredClone(bc.budgetBook),
+    ...(bc.budgetOrg ? { budgetOrg: structuredClone(bc.budgetOrg) } : {}),
+    ...(extra ? { budgetEscalation: extra } : {}),
+    ...(extraError ? { budgetEscalationError: extraError } : {}),
     workflowConfig: structuredClone(
       s.workflowConfig || defaultWorkflowConfig(),
     ),
@@ -623,14 +685,41 @@ export function review(
     throw Error(
       "必要业务审批或附件尚未满足，普通财务批准不能跳过；完成后重新审核",
     );
+  if (
+    decision === "approved" &&
+    d.batches.some((x) => x.id !== b.id && x.review?.decision === "approved")
+  )
+    throw Error("已有最终财务批准，不可再次批准；历史预算迁移或冲销需单独核实");
+  let finalBudget: import("./types").RuleResult | null = null;
+  if (decision === "approved") {
+    if (!b.ruleKeys.includes("budget.capacity"))
+      throw Error(
+        "当前历史批次未执行R007，请重新审核并提交预算占用后再作新的批准",
+      );
+    finalBudget = assertBudgetFinal(n, d, at);
+    b.budgetAtReview = structuredClone(finalBudget);
+  }
   operation(d, "财务最终复核", reviewer, "财务", reason, at, null, {
     decision,
     batchId,
+    ...(finalBudget ? { budgetAtDecision: finalBudget } : {}),
   });
   b.review = { decision, reason: reason.trim(), reviewer: reviewer.trim(), at };
   d.status = business(b);
   n.revision++;
-  return n;
+  return decision === "approved"
+    ? consumeBudget(n, id, "FINANCE-" + batchId, at, {
+        name: reviewer,
+        role: "财务",
+      })
+    : releaseBudget(
+        n,
+        id,
+        "FINANCE-REJECT-" + batchId,
+        at,
+        { name: reviewer, role: "财务" },
+        reason,
+      );
 }
 export function load(storage: Pick<Storage, "getItem">) {
   const raw = storage.getItem(KEY);

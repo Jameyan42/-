@@ -1,3 +1,5 @@
+import { reconcileBudget, releaseBudget, budgetContext } from "./budget-model";
+import { requiredBudgetEscalation } from "./budget-rule";
 import { defaultEntities } from "./entity-rule";
 import type { State, Claim, Input } from "./types";
 import type {
@@ -20,9 +22,10 @@ import { canApprove, approvalStatus } from "../approval.js";
 // @ts-ignore Original organization validation remains authoritative.
 import { validateOrg } from "../organization.js";
 export function activeWorkflow(d: Claim) {
+  if (d.withdrawal?.revision === d.revision) return undefined;
   return [...(d.workflows || [])]
     .reverse()
-    .find((w) => w.reimbursementVersion === d.revision);
+    .find((w) => w.reimbursementVersion === d.revision && !w.cancelledAt);
 }
 export function operation(
   d: Claim,
@@ -77,10 +80,10 @@ export function validateWorkflow(w: Workflow) {
       r.reimbursementId !== w.claimId ||
       !r.approverId ||
       !r.approverName ||
-      !["直属主管", "部门负责人"].includes(r.approverRole) ||
+      !["直属主管", "部门负责人", "预算负责人"].includes(r.approverRole) ||
       !Number.isInteger(r.approvalLevel) ||
       r.approvalLevel < 0 ||
-      r.approvalLevel > 1 ||
+      r.approvalLevel > 2 ||
       !["PENDING", "APPROVED", "REJECTED", "RETURNED"].includes(
         r.approvalStatus,
       ) ||
@@ -136,6 +139,10 @@ export function submitWorkflow(
     )
   )
     throw Error("报销法人未配置、停用或不在业务日期有效期内");
+  if (d.budgetOpening || d.withdrawal?.revision === d.revision)
+    throw Error(
+      "期初模拟或已撤销版本不可直接提交，请创建/修改真实模拟报销版本",
+    );
   const old = activeWorkflow(d);
   if (old)
     throw Error(
@@ -155,6 +162,15 @@ export function submitWorkflow(
     config,
     org: structuredClone(org),
     records: [],
+    ...(requiredBudgetEscalation(d.input, budgetContext(s, d, at, org), org)
+      ? {
+          budgetEscalation: requiredBudgetEscalation(
+            d.input,
+            budgetContext(s, d, at, org),
+            org,
+          )!,
+        }
+      : {}),
     ...(travelRequest ? { travelRequest: structuredClone(travelRequest) } : {}),
   };
   d.workflows = [...(d.workflows || []), w];
@@ -167,7 +183,7 @@ export function submitWorkflow(
     policyVersion: config.version,
   });
   n.revision++;
-  return n;
+  return reconcileBudget(n, id, "SUBMIT-" + workflowId, at, actor, org);
 }
 export function recordApproval(
   s: State,
@@ -199,7 +215,7 @@ export function recordApproval(
     throw Error("当前审批异常或已结束；须修改后重新提交新版本");
   const match = selectPolicy(d.input, w.config.approvalPolicies);
   if (!match.policy) throw Error(match.message);
-  const nodes = approvalNodes(d.input, w.org, match.policy),
+  const nodes = approvalNodes(d.input, w.org, match.policy, w.budgetEscalation),
     level = nodes.findIndex(
       (_, i) =>
         !w.records.some(
@@ -254,9 +270,24 @@ export function recordApproval(
     r,
   );
   n.revision++;
-  return n;
+  return status === "APPROVED"
+    ? n
+    : releaseBudget(
+        n,
+        id,
+        "APPROVAL-" + approvalId,
+        at,
+        actor,
+        status === "REJECTED" ? "业务驳回释放预算" : "业务退回补充释放预算",
+      );
 }
 export function workflowStage(d: Claim): string {
+  if (d.budgetOpening)
+    return (
+      "期初模拟" +
+      (d.budgetOpening === "USED" ? "已使用（非正式财务审核）" : "预占")
+    );
+  if (d.withdrawal?.revision === d.revision) return "已撤销，需修改后重新提交";
   const w = activeWorkflow(d);
   if (!w)
     return d.workflows?.length
@@ -344,4 +375,57 @@ export function fileSummary(d: Input) {
     verificationStatus: f.verificationStatus,
     storageStatus: f.storageStatus,
   }));
+}
+
+export function requestBudgetAuthorization(
+  s: State,
+  id: string,
+  org: Org,
+  actor: { id: string; name: string; role: string },
+  reason: string,
+  at: string,
+): State {
+  const n = structuredClone(s),
+    d = n.claims.find((d) => d.id === id),
+    w = d && activeWorkflow(d);
+  if (
+    !d ||
+    !w ||
+    !reason.trim() ||
+    !validTime(at) ||
+    !(
+      actor.id === d.input.applicantId ||
+      ["财务", "管理员"].includes(actor.role)
+    )
+  )
+    throw Error("仅申请人/模拟财务可更新有效流程预算授权");
+  if (
+    w.records.some((r) => ["REJECTED", "RETURNED"].includes(r.approvalStatus))
+  )
+    throw Error("已驳回/退回流程须修改后重提");
+  const extra = requiredBudgetEscalation(
+    d.input,
+    budgetContext(n, d, at, org),
+    org,
+  );
+  if (!extra) throw Error("当前没有柔性超预算授权要求");
+  if (w.records.some((r) => r.approverRole === "预算负责人"))
+    throw Error(
+      "原授权条件已变化，不能覆盖旧审批，请修改说明形成新版本并重新提交",
+    );
+  w.budgetEscalation = extra;
+  d.currentBatchId = null;
+  d.status = "草稿";
+  operation(
+    d,
+    "增加预算负责人审批",
+    actor.name,
+    actor.role,
+    reason,
+    at,
+    null,
+    extra,
+  );
+  n.revision++;
+  return n;
 }

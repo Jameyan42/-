@@ -79,10 +79,10 @@ test("五项异常一次执行，不丢失其他规则", async ({ page: p }) => 
   await inv(p, "buyerName").fill("星河科技（东莞）有限公司");
   await inv(p, "buyerTaxId").fill("DEMO-DG-001");
   await run(p);
-  await expect(p.locator(".s001-rule")).toHaveCount(6);
+  await expect(p.locator(".s001-rule")).toHaveCount(7);
   expect(
     (await data(p)).claims[0].batches[0].results.map((r) => r.status),
-  ).toEqual(["REVIEW", "REVIEW", "BLOCK", "BLOCK", "BLOCK", "PASS"]);
+  ).toEqual(["REVIEW", "REVIEW", "BLOCK", "BLOCK", "BLOCK", "PASS", "PASS"]);
 });
 test("法人推荐、允许非默认培训科目及手机显示", async ({ page: p }) => {
   await create(p);

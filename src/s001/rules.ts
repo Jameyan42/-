@@ -1,3 +1,4 @@
+import { budgetRule } from "./budget-rule";
 import { workflowRule } from "./workflow-rule";
 import { accountRule } from "./account-rule";
 import { buyerRule } from "./entity-rule";
@@ -249,6 +250,12 @@ registry.push({
   ruleKey: "workflow.approval-materials",
   ruleName: "审批流程与附件完整性",
   execute: workflowRule,
+});
+registry.push({
+  ruleId: "R007",
+  ruleKey: "budget.capacity",
+  ruleName: "费用预算与额度控制",
+  execute: budgetRule,
 });
 export function auditAll(d: Input, c: Context, rules = registry): RuleResult[] {
   return rules

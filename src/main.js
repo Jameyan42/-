@@ -1243,7 +1243,7 @@ function bind() {
   document
     .querySelector("#create")
     ?.addEventListener("click", () =>
-      unifiedPages.includes(page) ? unifiedController?.create() : form(),
+      unifiedPages.includes(page) || page === "预算管理" ? unifiedController?.create() : form(),
     );
   document.querySelector("#reset").onclick = () => {
     if (!policyHealthy)
@@ -1722,7 +1722,7 @@ function form(existing) {
 render();
 
 function budgetView() {
-  return budgetOverview(
+  return unifiedView()+budgetOverview(
     currentBudgetRows(),
     budgetMonth,
     role === "财务",
