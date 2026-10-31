@@ -96,3 +96,19 @@
 }
 .s001 #r004-note textarea { min-height: 90px; }
 .s001 #r004-config textarea { font-family: ui-monospace, monospace; }
+
+/* R009 stays inside the existing audit workbench; advisory cards are not rule results. */
+.r009-risk { border:1px solid #dce4ed; border-left:4px solid #c58732; border-radius:8px; padding:18px; margin:16px 0; }
+.r009-risk blockquote { margin:12px 0; padding:10px 14px; background:#f5f7fb; border-left:3px solid #8a99ae; overflow-wrap:anywhere; }
+.r009-rule-summary { padding:14px; margin:14px 0; border:1px solid #dce4ed; border-radius:8px; }
+.r009-metrics { display:grid; grid-template-columns:repeat(5,minmax(0,1fr)); gap:12px; margin:16px 0; }
+.r009-metrics > div { background:#f5f7fb; padding:12px; border-radius:8px; }
+.r009-metrics b,.r009-metrics small { display:block; }
+.r009-metrics b { font-size:22px; margin-top:6px; }
+.s001 .r009-check { display:flex; align-items:center; gap:10px; margin:10px 0; }
+.s001 .r009-check input[type=checkbox] { width:18px; margin:0; }
+#r009-panel select[multiple] { min-height:100px; }
+#r009-panel details { margin:12px 0; }
+#r009-panel form { margin:14px 0; }
+#r009-panel small { overflow-wrap:anywhere; }
+@media(max-width:720px){ .r009-metrics { grid-template-columns:repeat(2,minmax(0,1fr)); } .r009-risk{padding:12px;} }
