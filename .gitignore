@@ -9,3 +9,8 @@ public/ocr/
 
 .venv-ocr/
 services/local_ocr/__pycache__/
+
+# Local R010 models, runtimes and generated test output
+.ocr-cache/
+__pycache__/
+r010-evaluation-local/

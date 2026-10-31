@@ -1,0 +1,6 @@
+# Optional PaddleOCR 3.x adapter; explicit downloaded model files required.
+-r requirements.txt
+paddleocr==3.4.0
+paddlepaddle==3.2.2
+paddlex[ocr-core]==3.4.3
+pandas==2.2.3

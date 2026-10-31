@@ -1,0 +1,242 @@
+[
+  {
+    "id": "R010-01",
+    "file": "samples/r010/01.png",
+    "mode": "清晰图片",
+    "expected": {
+      "type": "数电发票",
+      "number": "00000000000000000001",
+      "code": "",
+      "date": "2026-10-02",
+      "buyerName": "模拟星河科技有限公司",
+      "buyerTaxId": "DEMO-BUYER-001",
+      "sellerName": "模拟远帆酒店有限公司",
+      "sellerTaxId": "DEMO-SELLER-001",
+      "netAmount": "1000.00",
+      "taxAmount": "60.00",
+      "amount": "1060.00",
+      "itemName": "住宿服务 酒店住宿"
+    },
+    "notes": "全部文字均为虚构，不代表合法税务票据"
+  },
+  {
+    "id": "R010-02",
+    "file": "samples/r010/02.pdf",
+    "mode": "PDF文字层",
+    "expected": {
+      "type": "数电发票",
+      "number": "00000000000000000002",
+      "code": "",
+      "date": "2026-10-03",
+      "buyerName": "模拟星河科技有限公司",
+      "buyerTaxId": "DEMO-BUYER-001",
+      "sellerName": "模拟远帆酒店有限公司",
+      "sellerTaxId": "DEMO-SELLER-001",
+      "netAmount": "1000.00",
+      "taxAmount": "60.00",
+      "amount": "1060.00",
+      "itemName": "住宿服务 酒店住宿"
+    },
+    "notes": "全部文字均为虚构，不代表合法税务票据"
+  },
+  {
+    "id": "R010-03",
+    "file": "samples/r010/03.pdf",
+    "mode": "PDF文字层",
+    "expected": {
+      "type": "纸质发票",
+      "number": "00000003",
+      "code": "044001900111",
+      "date": "2026-10-04",
+      "buyerName": "模拟星河科技有限公司",
+      "buyerTaxId": "DEMO-BUYER-001",
+      "sellerName": "模拟远帆酒店有限公司",
+      "sellerTaxId": "DEMO-SELLER-001",
+      "netAmount": "1000.00",
+      "taxAmount": "60.00",
+      "amount": "1060.00",
+      "itemName": "住宿服务 酒店住宿"
+    },
+    "notes": "全部文字均为虚构，不代表合法税务票据"
+  },
+  {
+    "id": "R010-04",
+    "file": "samples/r010/04.jpg",
+    "mode": "清晰图片",
+    "expected": {
+      "type": "数电发票",
+      "number": "00000000000000000004",
+      "code": "",
+      "date": "2026-10-05",
+      "buyerName": "模拟星河科技有限公司",
+      "buyerTaxId": "DEMO-BUYER-001",
+      "sellerName": "模拟远帆酒店有限公司",
+      "sellerTaxId": "DEMO-SELLER-001",
+      "netAmount": "1000.00",
+      "taxAmount": "60.00",
+      "amount": "1060.00",
+      "itemName": "住宿服务 酒店住宿"
+    },
+    "notes": "全部文字均为虚构，不代表合法税务票据"
+  },
+  {
+    "id": "R010-05",
+    "file": "samples/r010/05.png",
+    "mode": "清晰图片",
+    "expected": {
+      "type": "数电发票",
+      "number": "00000000000000000005",
+      "code": "",
+      "date": "2026-10-06",
+      "buyerName": "模拟星河科技有限公司",
+      "buyerTaxId": "DEMO-BUYER-001",
+      "sellerName": "模拟远帆酒店有限公司",
+      "sellerTaxId": "DEMO-SELLER-001",
+      "netAmount": "1000.00",
+      "taxAmount": "60.00",
+      "amount": "1060.00",
+      "itemName": "住宿服务 酒店住宿"
+    },
+    "notes": "全部文字均为虚构，不代表合法税务票据"
+  },
+  {
+    "id": "R010-06",
+    "file": "samples/r010/06.jpg",
+    "mode": "清晰图片",
+    "expected": {
+      "type": "纸质发票",
+      "number": "00000006",
+      "code": "044001900111",
+      "date": "2026-10-07",
+      "buyerName": "模拟星河科技有限公司",
+      "buyerTaxId": "DEMO-BUYER-001",
+      "sellerName": "模拟远帆酒店有限公司",
+      "sellerTaxId": "DEMO-SELLER-001",
+      "netAmount": "1000.00",
+      "taxAmount": "60.00",
+      "amount": "1060.00",
+      "itemName": "住宿服务 酒店住宿"
+    },
+    "notes": "全部文字均为虚构，不代表合法税务票据"
+  },
+  {
+    "id": "R010-07",
+    "file": "samples/r010/07.png",
+    "mode": "清晰图片",
+    "expected": {
+      "type": "数电发票",
+      "number": "00000000000000000007",
+      "code": "",
+      "date": "2026-10-08",
+      "buyerName": "模拟星河科技有限公司",
+      "buyerTaxId": "DEMO-BUYER-001",
+      "sellerName": "模拟远帆酒店有限公司",
+      "sellerTaxId": "DEMO-SELLER-001",
+      "netAmount": "1000.00",
+      "taxAmount": "60.00",
+      "amount": "1060.00",
+      "itemName": "住宿服务 酒店住宿"
+    },
+    "notes": "全部文字均为虚构，不代表合法税务票据"
+  },
+  {
+    "id": "R010-08",
+    "file": "samples/r010/08.pdf",
+    "mode": "扫描PDF",
+    "expected": {
+      "type": "数电发票",
+      "number": "00000000000000000008",
+      "code": "",
+      "date": "2026-10-09",
+      "buyerName": "模拟星河科技有限公司",
+      "buyerTaxId": "DEMO-BUYER-001",
+      "sellerName": "模拟远帆酒店有限公司",
+      "sellerTaxId": "DEMO-SELLER-001",
+      "netAmount": "1000.00",
+      "taxAmount": "60.00",
+      "amount": "1060.00",
+      "itemName": "住宿服务 酒店住宿"
+    },
+    "notes": "全部文字均为虚构，不代表合法税务票据"
+  },
+  {
+    "id": "R010-09",
+    "file": "samples/r010/09.pdf",
+    "mode": "扫描PDF",
+    "expected": {
+      "type": "纸质发票",
+      "number": "00000009",
+      "code": "044001900111",
+      "date": "2026-10-10",
+      "buyerName": "模拟星河科技有限公司",
+      "buyerTaxId": "DEMO-BUYER-001",
+      "sellerName": "模拟远帆酒店有限公司",
+      "sellerTaxId": "DEMO-SELLER-001",
+      "netAmount": "1000.00",
+      "taxAmount": "60.00",
+      "amount": "1060.00",
+      "itemName": "住宿服务 酒店住宿"
+    },
+    "notes": "全部文字均为虚构，不代表合法税务票据"
+  },
+  {
+    "id": "R010-10",
+    "file": "samples/r010/10.png",
+    "mode": "清晰图片",
+    "expected": {
+      "type": "数电发票",
+      "number": "00000000000000000010",
+      "code": "",
+      "date": "2026-10-11",
+      "buyerName": "模拟星河科技有限公司",
+      "buyerTaxId": "",
+      "sellerName": "模拟远帆酒店有限公司",
+      "sellerTaxId": "DEMO-SELLER-001",
+      "netAmount": "1000.00",
+      "taxAmount": "60.00",
+      "amount": "1060.00",
+      "itemName": "住宿服务 酒店住宿"
+    },
+    "notes": "买方税号故意缺失"
+  },
+  {
+    "id": "R010-11",
+    "file": "samples/r010/11.png",
+    "mode": "清晰图片",
+    "expected": {
+      "type": "数电发票",
+      "number": "00000000000000000011",
+      "code": "",
+      "date": "2026-10-12",
+      "buyerName": "模拟星河科技有限公司",
+      "buyerTaxId": "DEMO-BUYER-001",
+      "sellerName": "模拟远帆酒店有限公司",
+      "sellerTaxId": "DEMO-SELLER-001",
+      "netAmount": "",
+      "taxAmount": "",
+      "amount": "1060.00",
+      "itemName": "住宿服务 酒店住宿"
+    },
+    "notes": "不含税金额、税额故意缺失，禁止倒推"
+  },
+  {
+    "id": "R010-12",
+    "file": "samples/r010/12.jpg",
+    "mode": "模糊低分辨率照片",
+    "expected": {
+      "type": "数电发票",
+      "number": "00000000000000000012",
+      "code": "",
+      "date": "2026-10-13",
+      "buyerName": "模拟星河科技有限公司",
+      "buyerTaxId": "DEMO-BUYER-001",
+      "sellerName": "模拟远帆酒店有限公司",
+      "sellerTaxId": "DEMO-SELLER-001",
+      "netAmount": "1000.00",
+      "taxAmount": "60.00",
+      "amount": "1060.00",
+      "itemName": "住宿服务 酒店住宿"
+    },
+    "notes": "模糊样票，允许明确识别失败，禁止虚构"
+  }
+]

@@ -59,7 +59,10 @@ import {
   displayTime,
 } from "../shared/audit-ui";
 import { parseYuan } from "../r001/rule";
-import { startRecognition } from "../ocr.js";
+import { startInvoiceRecognition } from "../r010/recognize.js";
+import { appendRecognition, recordCorrections, valuesOf, invalidateConfirmation } from "../r010/capture";
+import { previewInvoiceRules } from "../r010/preview";
+import { invoiceFields } from "../r010/extract.js";
 import { readAttachment, validateAttachments } from "../attachments.js";
 import "../s001/style.css";
 export const unifiedPages = ["报销单管理", "财务审核", "审核历史", "审核规则"];
@@ -306,6 +309,8 @@ export function mountUnified({
       row
         .querySelectorAll("[data-field]")
         .forEach((x) => (i[x.dataset.field] = x.value));
+      invalidateConfirmation(i);
+      for(const key of ["recognitionStatus","buyerTaxStatus"]){const control=row.querySelector(`[data-field="${key}"]`);if(control&&i[key])control.value=i[key];}
     });
   };
   function list() {
@@ -403,6 +408,39 @@ export function mountUnified({
         "",
       )}</ul>${!history ? `<form id="r006-action-form"><label>提交 / 审批原因（必填）<textarea name="comment" maxlength="500"></textarea></label>${!w ? '<button value="submit">提交当前版本业务审批</button>' : '<button value="APPROVED">当前具名审批人通过</button> <button value="REJECTED">审批驳回</button> <button value="RETURNED">退回补充材料</button>'}<p>使用顶部原角色及模拟身份切换，不能仅凭角色文字越权；管理员/财务可代提交，不代替业务节点审批。</p><p id="r006-action-error" role="alert"></p></form><button id="r006-audit" class="primary">重新执行全部自动审核</button><form id="r007-lifecycle"><label>预算操作原因<input name="reason"></label><button value="reserve">检查并提交/更新预算占用</button> <button value="authorize">补充当前预算负责人授权节点</button> <button value="withdraw">撤销报销并释放预占</button><p id="r007-lifecycle-error" role="alert"></p></form>` : ""}<details><summary>操作记录（单据、前后值、原因、人员和时间）</summary><pre>${esc(JSON.stringify(d.operations || [], null, 2))}</pre></details></section>`;
   }
+  function ocrEvidence(i) {
+    const records=i.ocrRecords||[], latest=records.at(-1);
+    if(!latest)return "";
+    return `<details open class="review-box r010-evidence"><summary>R010 原始识别与人工修正 · ${esc(latest.result.engine)}</summary><p>原件可通过“查看 / 下载原件”打开。以下候选不代表税务验真；缺失和低置信度字段需核对。每票最多保留3次原始识别。</p><p>${esc(latest.result.source)} · 第${latest.result.page}页 · ${latest.result.elapsedMs}ms · ${esc(latest.at)}</p><div class="r010-table"><table><thead><tr><th>字段</th><th>原始识别</th><th>状态 / 置信度</th><th>保存的人工修正</th></tr></thead><tbody>${invoiceFields.map(([key,label])=>{const f=latest.result.fields[key];return `<tr class="${f.status==='CANDIDATE'?'':'risk'}"><td>${esc(label)}</td><td>${esc(f.rawValue||'未提取')}${f.alternatives.length>1?esc(' 候选：'+f.alternatives.join(' / ')):''}</td><td>${esc(f.reason)} · ${f.confidence==null?'未知':(f.confidence*100).toFixed(1)+'%'}</td><td>${esc(latest.corrected?.values[key]??'尚未保存')}</td></tr>`;}).join('')}</tbody></table></div><p>${esc(latest.result.warnings.join('；'))}</p><button type="button" data-ocr-confirm="${esc(i.id)}">已对照原件逐项核对</button><p>${latest.confirmed?esc('最后确认：'+latest.confirmed.actor+' · '+latest.confirmed.at):'尚未确认；此操作不替代附件内容核验及税务验真'}</p><details><summary>原始结构化 JSON（含全部历次识别）</summary><pre data-r010-json="${esc(i.id)}">${esc(JSON.stringify(records,null,2))}</pre></details></details>`;
+  }
+  function updateOcrPreview() {
+    const target=root.querySelector('#r010-rule-preview');if(!target)return;
+    if(!draft.invoices.some(i=>i.ocrRecords?.length)){target.innerHTML='';return;}
+    try{const r2=loadR002(localStorage), results=previewInvoiceRules(state,draft,r2.ok?historyForAudit(r2.state):null,new Date().toISOString());
+      target.innerHTML='<h4>发票识别后即时预审（未提交，不占用预算）</h4>'+results.map(r=>`<p data-r010-rule="${esc(r.ruleId)}"><b>${esc(r.ruleId)} ${esc(labels[r.status])}</b>：${esc(r.message)}</p>`).join('')+'<p>编辑票面或报销金额后自动重新预审；正式审核仍需点击“开始自动审核”。OCR成功不代表税务验真通过。</p>';
+    }catch(error){target.textContent='即时预审失败，未生成通过结论：'+String(error);}
+  }
+  async function recognizeInvoice(id) {
+    if(job){message='已有OCR正在处理，请等待完成';return;}
+    let active;
+    try{
+      collect();const invoice=draft.invoices.find(i=>i.id===id);if(!invoice?.attachment)throw Error('请先保留发票原件');
+      if((invoice.ocrRecords||[]).length>=3)throw Error('原始识别已保留3次，请人工修正，不覆盖历史');
+      const claimId=draft.id, attachmentId=invoice.attachment.id, before=valuesOf(invoice);
+      const bytes=Uint8Array.from(atob(invoice.attachment.data.split(',')[1]),c=>c.charCodeAt(0));
+      const file=new File([bytes],invoice.attachment.name,{type:invoice.attachment.type});
+      const pdfPage=Number(root.querySelector(`[data-pdf-page="${id}"]`)?.value||1);
+      active=startInvoiceRecognition(file,progress=>{const el=root.querySelector('#s001-error');if(el)el.textContent=progress.status||'OCR识别中';},{pdfPage,rotation:0,crop:{left:0,right:0,top:0,bottom:0}});job=active;
+      const [result,digest]=await Promise.all([active.promise,crypto.subtle.digest('SHA-256',bytes)]);
+      if(!root.isConnected||draft?.id!==claimId||job!==active)return;
+      collect();const index=draft.invoices.findIndex(i=>i.id===id);if(index<0||draft.invoices[index].attachment?.id!==attachmentId)return;
+      const current=draft.invoices[index], changed=valuesOf(current);
+      const next=appendRecognition(current,{id:crypto.randomUUID(),at:new Date().toISOString(),attachmentId,fileName:file.name,fileSHA256:Array.from(new Uint8Array(digest),b=>b.toString(16).padStart(2,'0')).join(''),result});
+      for(const key of Object.keys(before))if(before[key]!==changed[key]){const field=key==='amount'?'amountYuan':key==='netAmount'?'netAmountYuan':key==='taxAmount'?'taxAmountYuan':key;next[field]=current[field];}
+      draft.invoices[index]=next;dirty=true;job=null;message='识别候选已填入并触发即时预审，请对照原件核对；未执行税务验真。';render();
+    }catch(error){if(root.isConnected){const el=root.querySelector('#s001-error');if(el)el.textContent=String(error);}}
+    finally{if(job===active)job=null;}
+  }
   function form() {
     return `<section class="panel"><h3>创建及编辑报销单</h3><p>${esc(draft.id)}</p><form id="s001-form" novalidate><div class="form-grid"><label>组织内申请人（审批以人员编号授权）<select name="applicantId"><option value="">请选择实际模拟申请人</option>${(
       org?.people || []
@@ -432,7 +470,10 @@ export function mountUnified({
             ],
             ["code", "发票代码"],
             ["number", "发票号码"],
-            ["amountYuan", "发票金额（元）"],
+            ["amountYuan", "发票价税合计（元）"],
+            ["netAmountYuan", "不含税金额（元，识别不到则留空）"],
+            ["taxAmountYuan", "税额（元，识别不到则留空）"],
+            ["itemName", "发票项目名称"],
             ["currency", "发票币种", ["CNY", "USD", "EUR"]],
             ["date", "开票日期"],
             ["sellerName", "销售方名称"],
@@ -452,15 +493,15 @@ export function mountUnified({
           ]
             .map(
               ([name, label, opts]) =>
-                `<label>${label}${opts ? `<select data-field="${name}">${opts.map((o) => `<option ${o === (i[name] ?? (name === "recognitionStatus" ? (i.source === "manual" ? "已人工核对" : "待核对") : name === "buyerTaxStatus" ? "未确认" : "")) ? "selected" : ""}>${o}</option>`).join("")}</select>` : `<input data-field="${name}" ${name === "date" ? 'type="date"' : ""} value="${esc(i[name])}">`}</label>`,
+                `<label>${label}${opts ? `<select data-field="${name}">${name==='type'?'<option value="">请选择票种（未可靠识别）</option>':''}${opts.map((o) => `<option ${o === (i[name] ?? (name === "recognitionStatus" ? (i.source === "manual" ? "已人工核对" : "待核对") : name === "buyerTaxStatus" ? "未确认" : "")) ? "selected" : ""}>${o}</option>`).join("")}</select>` : `<input data-field="${name}" ${name === "date" ? 'type="date"' : ""} value="${esc(i[name])}">`}</label>`,
             )
             .join(
               "",
-            )}</div><p>OCR整体置信度：${i.recognitionConfidence == null ? "未知" : esc(i.recognitionConfidence.toFixed(1)) + "%"}，不是字段真实性概率，OCR候选需人工核对。</p><label>发票原件（是否必需按制度，单份1MB）<input type="file" data-file="${i.id}" accept=".png,.jpg,.jpeg,.webp,.pdf"></label><small>${esc(i.attachment?.name || "未保留原件")}</small>${i.attachment ? `<p>文件内容：${esc(fileState(i.attachment.verificationStatus))}（类型标签不能证明内容）</p><button type="button" data-file-verify="${esc(i.attachment.id)}" ${actor?.role !== "财务" ? "disabled" : ""}>财务核实此文件内容</button> <button type="button" data-invoice-file-remove="${esc(i.id)}">移除原件</button><button type="button" data-file-view="${esc(i.attachment.id)}">查看 / 下载原件</button>` : ""}<label>PDF识别页码<input type="number" data-pdf-page="${i.id}" min="1" max="20" value="1"></label><button type="button" data-ocr="${i.id}">复用现有OCR识别原件</button> <button type="button" data-remove-invoice="${i.id}">移除此票</button><p>OCR仅提供候选，请对照原件核对；未识别不代表0元。币种不匹配时不得比较。</p></fieldset>`,
+            )}</div><p>OCR整体置信度：${i.recognitionConfidence == null ? "未知" : esc(i.recognitionConfidence.toFixed(1)) + "%"}，不是字段真实性概率，OCR候选需人工核对。</p><label>发票原件（是否必需按制度，单份1MB）<input type="file" data-file="${i.id}" accept=".png,.jpg,.jpeg,.webp,.pdf"></label><small>${esc(i.attachment?.name || "未保留原件")}</small>${i.attachment ? `<p>文件内容：${esc(fileState(i.attachment.verificationStatus))}（类型标签不能证明内容）</p><button type="button" data-file-verify="${esc(i.attachment.id)}" ${actor?.role !== "财务" ? "disabled" : ""}>财务核实此文件内容</button> <button type="button" data-invoice-file-remove="${esc(i.id)}">移除原件</button><button type="button" data-file-view="${esc(i.attachment.id)}">查看 / 下载原件</button>` : ""}<label>PDF识别页码<input type="number" data-pdf-page="${i.id}" min="1" max="20" value="1"></label><button type="button" data-ocr="${i.id}">重新识别原件</button> <button type="button" data-remove-invoice="${i.id}">移除此票</button><p>上传后自动识别；PDF优先读取文字层，扫描件使用OCR。本机服务使用PP-OCR模型，在线演示使用Tesseract后备引擎。未识别不代表0元，OCR不等于税务验真。</p>${ocrEvidence(i)}</fieldset>`,
       )
       .join(
         "",
-      )}<button type="button" id="s001-add-invoice">添加发票</button><p>每单原件合计1.5MB以内。未填写金额可保存草稿，审核时明确提示资料不足。</p><div class="enterprise-buttons"><button type="button" id="s001-draft">保存草稿</button><button class="primary" type="submit">开始自动审核</button><button type="button" id="s001-example">载入正常模拟案例</button></div><p id="s001-error" role="alert"></p></form></section>`;
+      )}<div id="r010-rule-preview" aria-live="polite"></div><button type="button" id="s001-add-invoice">添加发票</button><p>每单原件合计1.5MB以内。未填写金额可保存草稿，审核时明确提示资料不足。</p><div class="enterprise-buttons"><button type="button" id="s001-draft">保存草稿</button><button class="primary" type="submit">开始自动审核</button><button type="button" id="s001-example">载入正常模拟案例</button></div><p id="s001-error" role="alert"></p></form></section>`;
   }
   function detail(history = false) {
     const d = getDoc();
@@ -503,6 +544,7 @@ export function mountUnified({
   function persistDraft(run) {
     if (job) throw Error("OCR正在处理，请等待完成或离开表单取消后再提交");
     collect();
+    draft.invoices.forEach(i=>recordCorrections(i,actor?.name||"模拟录入人",new Date().toISOString()));
     validateAttachments(uniqueFiles(draft));
     const latest = load(localStorage);
     if (
@@ -1093,6 +1135,7 @@ export function mountUnified({
       (f) =>
         (f.onchange = async () => {
           try {
+            if(job)throw Error("OCR正在处理，请先等待完成再更换原件");
             collect();
             const file = f.files[0];
             if (!file) return;
@@ -1118,65 +1161,17 @@ export function mountUnified({
             };
             render();
             dirty = true;
+            await recognizeInvoice(i.id);
           } catch (err) {
-            job = null;
             if (root.isConnected)
               root.querySelector("#s001-error").textContent = String(err);
           }
         }),
     );
-    root.querySelectorAll("[data-ocr]").forEach(
-      (b) =>
-        (b.onclick = async () => {
-          try {
-            collect();
-            const i = draft.invoices.find((i) => i.id === b.dataset.ocr);
-            if (!i.attachment) throw Error("请先保留发票原件");
-            const binary = atob(i.attachment.data.split(",")[1]),
-              bytes = Uint8Array.from(binary, (c) => c.charCodeAt(0));
-            const file = new File([bytes], i.attachment.name, {
-                type: i.attachment.type,
-              }),
-              pdfPage = Number(
-                root.querySelector(`[data-pdf-page="${i.id}"]`).value,
-              );
-            job?.cancel();
-            job = startRecognition(file, () => {}, {
-              rotation: 0,
-              crop: { left: 0, right: 0, top: 0, bottom: 0 },
-              pdfPage,
-            });
-            message = "OCR识别中，请稍候，结果需人工核对。";
-            root.querySelector("#s001-error").textContent = message;
-            const r = await job.promise;
-            job = null;
-            if (!root.isConnected) return;
-            const map = {
-              number: "number",
-              code: "code",
-              date: "date",
-              buyerName: "buyerName",
-              sellerName: "sellerName",
-              buyerTaxId: "buyerTaxId",
-              sellerTaxId: "sellerTaxId",
-              amount: "amountYuan",
-            };
-            for (const [from, to] of Object.entries(map))
-              if (r.structured?.[from]) i[to] = r.structured[from];
-            i.source = "ocr-assisted";
-            i.recognitionStatus = "待核对";
-            i.recognitionConfidence = r.confidence;
-            i.buyerTaxStatus = "未确认";
-            message = "OCR候选已填入，请逐字段核对后再保存或提交。";
-            dirty = true;
-            render();
-          } catch (err) {
-            job = null;
-            if (root.isConnected)
-              root.querySelector("#s001-error").textContent = String(err);
-          }
-        }),
-    );
+    root.querySelectorAll('[data-ocr]').forEach(b=>b.onclick=()=>recognizeInvoice(b.dataset.ocr));
+    root.querySelectorAll('[data-ocr-confirm]').forEach(b=>b.onclick=()=>{collect();const i=draft.invoices.find(i=>i.id===b.dataset.ocrConfirm);recordCorrections(i,actor?.name||'模拟录入人',new Date().toISOString(),true);dirty=true;render();});
+    root.querySelector('#s001-form')?.addEventListener('input',()=>{collect();updateOcrPreview();});
+    updateOcrPreview();
     root
       .querySelector("#s001-draft")
       ?.addEventListener("click", () => mutate(() => persistDraft(false)));

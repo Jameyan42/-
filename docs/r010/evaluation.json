@@ -1,0 +1,1446 @@
+{
+  "at": "2026-10-31T09:53:34.022Z",
+  "samplePolicy": "12份明确标注DEMO ONLY的虚构非税务样票。仅验证合成布局；尚未完成真实脱敏发票准确率验证。",
+  "results": [
+    {
+      "id": "R010-01",
+      "file": "samples/r010/01.png",
+      "mode": "清晰图片",
+      "engine": "RapidOCR 1.4.4 / PP-OCRv4 ONNX / CPU",
+      "source": "LOCAL_CPU_OCR",
+      "elapsedMs": 3866,
+      "nativeRequests": 1,
+      "fields": [
+        {
+          "key": "type",
+          "expected": "数电发票",
+          "actual": "数电发票",
+          "correct": true,
+          "status": "CANDIDATE",
+          "confidence": 0.9769664135846224,
+          "reason": "匹配"
+        },
+        {
+          "key": "number",
+          "expected": "00000000000000000001",
+          "actual": "00000000000000000001",
+          "correct": true,
+          "status": "CANDIDATE",
+          "confidence": 0.9989539289474487,
+          "reason": "匹配"
+        },
+        {
+          "key": "code",
+          "expected": "",
+          "actual": "",
+          "correct": true,
+          "status": "MISSING",
+          "confidence": null,
+          "reason": "按预期保留空值"
+        },
+        {
+          "key": "date",
+          "expected": "2026-10-02",
+          "actual": "2026-10-02",
+          "correct": true,
+          "status": "CANDIDATE",
+          "confidence": 0.9996186375617981,
+          "reason": "匹配"
+        },
+        {
+          "key": "buyerName",
+          "expected": "模拟星河科技有限公司",
+          "actual": "模拟星河科技有限公司",
+          "correct": true,
+          "status": "CANDIDATE",
+          "confidence": 0.99922876060009,
+          "reason": "匹配"
+        },
+        {
+          "key": "buyerTaxId",
+          "expected": "DEMO-BUYER-001",
+          "actual": "DEMO-BUYER-001",
+          "correct": true,
+          "status": "CANDIDATE",
+          "confidence": 0.9995124012231826,
+          "reason": "匹配"
+        },
+        {
+          "key": "sellerName",
+          "expected": "模拟远帆酒店有限公司",
+          "actual": "模拟远帆酒店有限公司",
+          "correct": true,
+          "status": "CANDIDATE",
+          "confidence": 0.9988952949643135,
+          "reason": "匹配"
+        },
+        {
+          "key": "sellerTaxId",
+          "expected": "DEMO-SELLER-001",
+          "actual": "DEMO-SELLER-001",
+          "correct": true,
+          "status": "CANDIDATE",
+          "confidence": 0.9973461230595907,
+          "reason": "匹配"
+        },
+        {
+          "key": "netAmount",
+          "expected": "1000.00",
+          "actual": "1000.00",
+          "correct": true,
+          "status": "CANDIDATE",
+          "confidence": 0.9992756660167987,
+          "reason": "匹配"
+        },
+        {
+          "key": "taxAmount",
+          "expected": "60.00",
+          "actual": "60.00",
+          "correct": true,
+          "status": "CANDIDATE",
+          "confidence": 0.9992756660167987,
+          "reason": "匹配"
+        },
+        {
+          "key": "amount",
+          "expected": "1060.00",
+          "actual": "1060.00",
+          "correct": true,
+          "status": "CANDIDATE",
+          "confidence": 0.9969513677060604,
+          "reason": "匹配"
+        },
+        {
+          "key": "itemName",
+          "expected": "住宿服务 酒店住宿",
+          "actual": "住宿服务 酒店住宿",
+          "correct": true,
+          "status": "CANDIDATE",
+          "confidence": 0.9968538244565328,
+          "reason": "匹配"
+        }
+      ],
+      "warnings": []
+    },
+    {
+      "id": "R010-02",
+      "file": "samples/r010/02.pdf",
+      "mode": "PDF文字层",
+      "engine": "PDF.js 5.4.624 文字层",
+      "source": "PDF_TEXT",
+      "elapsedMs": 935,
+      "nativeRequests": 0,
+      "fields": [
+        {
+          "key": "type",
+          "expected": "数电发票",
+          "actual": "数电发票",
+          "correct": true,
+          "status": "CANDIDATE",
+          "confidence": null,
+          "reason": "匹配"
+        },
+        {
+          "key": "number",
+          "expected": "00000000000000000002",
+          "actual": "00000000000000000002",
+          "correct": true,
+          "status": "CANDIDATE",
+          "confidence": null,
+          "reason": "匹配"
+        },
+        {
+          "key": "code",
+          "expected": "",
+          "actual": "",
+          "correct": true,
+          "status": "MISSING",
+          "confidence": null,
+          "reason": "按预期保留空值"
+        },
+        {
+          "key": "date",
+          "expected": "2026-10-03",
+          "actual": "2026-10-03",
+          "correct": true,
+          "status": "CANDIDATE",
+          "confidence": null,
+          "reason": "匹配"
+        },
+        {
+          "key": "buyerName",
+          "expected": "模拟星河科技有限公司",
+          "actual": "模拟星河科技有限公司",
+          "correct": true,
+          "status": "CANDIDATE",
+          "confidence": null,
+          "reason": "匹配"
+        },
+        {
+          "key": "buyerTaxId",
+          "expected": "DEMO-BUYER-001",
+          "actual": "DEMO-BUYER-001",
+          "correct": true,
+          "status": "CANDIDATE",
+          "confidence": null,
+          "reason": "匹配"
+        },
+        {
+          "key": "sellerName",
+          "expected": "模拟远帆酒店有限公司",
+          "actual": "模拟远帆酒店有限公司",
+          "correct": true,
+          "status": "CANDIDATE",
+          "confidence": null,
+          "reason": "匹配"
+        },
+        {
+          "key": "sellerTaxId",
+          "expected": "DEMO-SELLER-001",
+          "actual": "DEMO-SELLER-001",
+          "correct": true,
+          "status": "CANDIDATE",
+          "confidence": null,
+          "reason": "匹配"
+        },
+        {
+          "key": "netAmount",
+          "expected": "1000.00",
+          "actual": "1000.00",
+          "correct": true,
+          "status": "CANDIDATE",
+          "confidence": null,
+          "reason": "匹配"
+        },
+        {
+          "key": "taxAmount",
+          "expected": "60.00",
+          "actual": "60.00",
+          "correct": true,
+          "status": "CANDIDATE",
+          "confidence": null,
+          "reason": "匹配"
+        },
+        {
+          "key": "amount",
+          "expected": "1060.00",
+          "actual": "1060.00",
+          "correct": true,
+          "status": "CANDIDATE",
+          "confidence": null,
+          "reason": "匹配"
+        },
+        {
+          "key": "itemName",
+          "expected": "住宿服务 酒店住宿",
+          "actual": "住宿服务 酒店住宿",
+          "correct": true,
+          "status": "CANDIDATE",
+          "confidence": null,
+          "reason": "匹配"
+        }
+      ],
+      "warnings": []
+    },
+    {
+      "id": "R010-03",
+      "file": "samples/r010/03.pdf",
+      "mode": "PDF文字层",
+      "engine": "PDF.js 5.4.624 文字层",
+      "source": "PDF_TEXT",
+      "elapsedMs": 618,
+      "nativeRequests": 0,
+      "fields": [
+        {
+          "key": "type",
+          "expected": "纸质发票",
+          "actual": "纸质发票",
+          "correct": true,
+          "status": "CANDIDATE",
+          "confidence": null,
+          "reason": "匹配"
+        },
+        {
+          "key": "number",
+          "expected": "00000003",
+          "actual": "00000003",
+          "correct": true,
+          "status": "CANDIDATE",
+          "confidence": null,
+          "reason": "匹配"
+        },
+        {
+          "key": "code",
+          "expected": "044001900111",
+          "actual": "044001900111",
+          "correct": true,
+          "status": "CANDIDATE",
+          "confidence": null,
+          "reason": "匹配"
+        },
+        {
+          "key": "date",
+          "expected": "2026-10-04",
+          "actual": "2026-10-04",
+          "correct": true,
+          "status": "CANDIDATE",
+          "confidence": null,
+          "reason": "匹配"
+        },
+        {
+          "key": "buyerName",
+          "expected": "模拟星河科技有限公司",
+          "actual": "模拟星河科技有限公司",
+          "correct": true,
+          "status": "CANDIDATE",
+          "confidence": null,
+          "reason": "匹配"
+        },
+        {
+          "key": "buyerTaxId",
+          "expected": "DEMO-BUYER-001",
+          "actual": "DEMO-BUYER-001",
+          "correct": true,
+          "status": "CANDIDATE",
+          "confidence": null,
+          "reason": "匹配"
+        },
+        {
+          "key": "sellerName",
+          "expected": "模拟远帆酒店有限公司",
+          "actual": "模拟远帆酒店有限公司",
+          "correct": true,
+          "status": "CANDIDATE",
+          "confidence": null,
+          "reason": "匹配"
+        },
+        {
+          "key": "sellerTaxId",
+          "expected": "DEMO-SELLER-001",
+          "actual": "DEMO-SELLER-001",
+          "correct": true,
+          "status": "CANDIDATE",
+          "confidence": null,
+          "reason": "匹配"
+        },
+        {
+          "key": "netAmount",
+          "expected": "1000.00",
+          "actual": "1000.00",
+          "correct": true,
+          "status": "CANDIDATE",
+          "confidence": null,
+          "reason": "匹配"
+        },
+        {
+          "key": "taxAmount",
+          "expected": "60.00",
+          "actual": "60.00",
+          "correct": true,
+          "status": "CANDIDATE",
+          "confidence": null,
+          "reason": "匹配"
+        },
+        {
+          "key": "amount",
+          "expected": "1060.00",
+          "actual": "1060.00",
+          "correct": true,
+          "status": "CANDIDATE",
+          "confidence": null,
+          "reason": "匹配"
+        },
+        {
+          "key": "itemName",
+          "expected": "住宿服务 酒店住宿",
+          "actual": "住宿服务 酒店住宿",
+          "correct": true,
+          "status": "CANDIDATE",
+          "confidence": null,
+          "reason": "匹配"
+        }
+      ],
+      "warnings": []
+    },
+    {
+      "id": "R010-04",
+      "file": "samples/r010/04.jpg",
+      "mode": "清晰图片",
+      "engine": "RapidOCR 1.4.4 / PP-OCRv4 ONNX / CPU",
+      "source": "LOCAL_CPU_OCR",
+      "elapsedMs": 4903,
+      "nativeRequests": 1,
+      "fields": [
+        {
+          "key": "type",
+          "expected": "数电发票",
+          "actual": "数电发票",
+          "correct": true,
+          "status": "CANDIDATE",
+          "confidence": 0.9905788838863373,
+          "reason": "匹配"
+        },
+        {
+          "key": "number",
+          "expected": "00000000000000000004",
+          "actual": "00000000000000000004",
+          "correct": true,
+          "status": "CANDIDATE",
+          "confidence": 0.9967286491394043,
+          "reason": "匹配"
+        },
+        {
+          "key": "code",
+          "expected": "",
+          "actual": "",
+          "correct": true,
+          "status": "MISSING",
+          "confidence": null,
+          "reason": "按预期保留空值"
+        },
+        {
+          "key": "date",
+          "expected": "2026-10-05",
+          "actual": "2026-10-05",
+          "correct": true,
+          "status": "CANDIDATE",
+          "confidence": 0.9984627803166707,
+          "reason": "匹配"
+        },
+        {
+          "key": "buyerName",
+          "expected": "模拟星河科技有限公司",
+          "actual": "模拟星河科技有限公司",
+          "correct": true,
+          "status": "CANDIDATE",
+          "confidence": 0.9966780841350555,
+          "reason": "匹配"
+        },
+        {
+          "key": "buyerTaxId",
+          "expected": "DEMO-BUYER-001",
+          "actual": "DEMO-BUYER-001",
+          "correct": true,
+          "status": "CANDIDATE",
+          "confidence": 0.9980948001146317,
+          "reason": "匹配"
+        },
+        {
+          "key": "sellerName",
+          "expected": "模拟远帆酒店有限公司",
+          "actual": "模拟远帆酒店有限公司",
+          "correct": true,
+          "status": "CANDIDATE",
+          "confidence": 0.9967043064534664,
+          "reason": "匹配"
+        },
+        {
+          "key": "sellerTaxId",
+          "expected": "DEMO-SELLER-001",
+          "actual": "DEMO-SELLER-001",
+          "correct": true,
+          "status": "CANDIDATE",
+          "confidence": 0.992579372156234,
+          "reason": "匹配"
+        },
+        {
+          "key": "netAmount",
+          "expected": "1000.00",
+          "actual": "1000.00",
+          "correct": true,
+          "status": "CANDIDATE",
+          "confidence": 0.9976561115338252,
+          "reason": "匹配"
+        },
+        {
+          "key": "taxAmount",
+          "expected": "60.00",
+          "actual": "60.00",
+          "correct": true,
+          "status": "CANDIDATE",
+          "confidence": 0.9976561115338252,
+          "reason": "匹配"
+        },
+        {
+          "key": "amount",
+          "expected": "1060.00",
+          "actual": "1060.00",
+          "correct": true,
+          "status": "CANDIDATE",
+          "confidence": 0.9978077746927738,
+          "reason": "匹配"
+        },
+        {
+          "key": "itemName",
+          "expected": "住宿服务 酒店住宿",
+          "actual": "住宿服务 酒店住宿",
+          "correct": true,
+          "status": "CANDIDATE",
+          "confidence": 0.9899788697560629,
+          "reason": "匹配"
+        }
+      ],
+      "warnings": []
+    },
+    {
+      "id": "R010-05",
+      "file": "samples/r010/05.png",
+      "mode": "清晰图片",
+      "engine": "RapidOCR 1.4.4 / PP-OCRv4 ONNX / CPU",
+      "source": "LOCAL_CPU_OCR",
+      "elapsedMs": 4245,
+      "nativeRequests": 1,
+      "fields": [
+        {
+          "key": "type",
+          "expected": "数电发票",
+          "actual": "数电发票",
+          "correct": true,
+          "status": "CANDIDATE",
+          "confidence": 0.9695870171893727,
+          "reason": "匹配"
+        },
+        {
+          "key": "number",
+          "expected": "00000000000000000005",
+          "actual": "00000000000000000005",
+          "correct": true,
+          "status": "CANDIDATE",
+          "confidence": 0.997369065284729,
+          "reason": "匹配"
+        },
+        {
+          "key": "code",
+          "expected": "",
+          "actual": "",
+          "correct": true,
+          "status": "MISSING",
+          "confidence": null,
+          "reason": "按预期保留空值"
+        },
+        {
+          "key": "date",
+          "expected": "2026-10-06",
+          "actual": "2026-10-06",
+          "correct": true,
+          "status": "CANDIDATE",
+          "confidence": 0.9997142752011617,
+          "reason": "匹配"
+        },
+        {
+          "key": "buyerName",
+          "expected": "模拟星河科技有限公司",
+          "actual": "模拟星河科技有限公司",
+          "correct": true,
+          "status": "CANDIDATE",
+          "confidence": 0.9996798084332392,
+          "reason": "匹配"
+        },
+        {
+          "key": "buyerTaxId",
+          "expected": "DEMO-BUYER-001",
+          "actual": "DEMO-BUYER-001",
+          "correct": true,
+          "status": "CANDIDATE",
+          "confidence": 0.9975806404562557,
+          "reason": "匹配"
+        },
+        {
+          "key": "sellerName",
+          "expected": "模拟远帆酒店有限公司",
+          "actual": "模拟远帆酒店有限公司",
+          "correct": true,
+          "status": "CANDIDATE",
+          "confidence": 0.9995031769459064,
+          "reason": "匹配"
+        },
+        {
+          "key": "sellerTaxId",
+          "expected": "DEMO-SELLER-001",
+          "actual": "DEMO-SELLER-001",
+          "correct": true,
+          "status": "CANDIDATE",
+          "confidence": 0.9966543316841125,
+          "reason": "匹配"
+        },
+        {
+          "key": "netAmount",
+          "expected": "1000.00",
+          "actual": "1000.00",
+          "correct": true,
+          "status": "CANDIDATE",
+          "confidence": 0.9997293949127197,
+          "reason": "匹配"
+        },
+        {
+          "key": "taxAmount",
+          "expected": "60.00",
+          "actual": "60.00",
+          "correct": true,
+          "status": "CANDIDATE",
+          "confidence": 0.9997293949127197,
+          "reason": "匹配"
+        },
+        {
+          "key": "amount",
+          "expected": "1060.00",
+          "actual": "1060.00",
+          "correct": true,
+          "status": "CANDIDATE",
+          "confidence": 0.9982160069048405,
+          "reason": "匹配"
+        },
+        {
+          "key": "itemName",
+          "expected": "住宿服务 酒店住宿",
+          "actual": "住宿服务 酒店住宿",
+          "correct": true,
+          "status": "CANDIDATE",
+          "confidence": 0.9976263523101807,
+          "reason": "匹配"
+        }
+      ],
+      "warnings": []
+    },
+    {
+      "id": "R010-06",
+      "file": "samples/r010/06.jpg",
+      "mode": "清晰图片",
+      "engine": "RapidOCR 1.4.4 / PP-OCRv4 ONNX / CPU",
+      "source": "LOCAL_CPU_OCR",
+      "elapsedMs": 4100,
+      "nativeRequests": 1,
+      "fields": [
+        {
+          "key": "type",
+          "expected": "纸质发票",
+          "actual": "纸质发票",
+          "correct": true,
+          "status": "CANDIDATE",
+          "confidence": 0.9982146791049412,
+          "reason": "匹配"
+        },
+        {
+          "key": "number",
+          "expected": "00000006",
+          "actual": "00000006",
+          "correct": true,
+          "status": "CANDIDATE",
+          "confidence": 0.9980630839572233,
+          "reason": "匹配"
+        },
+        {
+          "key": "code",
+          "expected": "044001900111",
+          "actual": "044001900111",
+          "correct": true,
+          "status": "CANDIDATE",
+          "confidence": 0.9980630839572233,
+          "reason": "匹配"
+        },
+        {
+          "key": "date",
+          "expected": "2026-10-07",
+          "actual": "2026-10-07",
+          "correct": true,
+          "status": "CANDIDATE",
+          "confidence": 0.9990763942400614,
+          "reason": "匹配"
+        },
+        {
+          "key": "buyerName",
+          "expected": "模拟星河科技有限公司",
+          "actual": "模拟星河科技有限公司",
+          "correct": true,
+          "status": "CANDIDATE",
+          "confidence": 0.9986709631406344,
+          "reason": "匹配"
+        },
+        {
+          "key": "buyerTaxId",
+          "expected": "DEMO-BUYER-001",
+          "actual": "DEMO-BUYER-001",
+          "correct": true,
+          "status": "CANDIDATE",
+          "confidence": 0.9929216574220097,
+          "reason": "匹配"
+        },
+        {
+          "key": "sellerName",
+          "expected": "模拟远帆酒店有限公司",
+          "actual": "模拟远帆酒店有限公司",
+          "correct": true,
+          "status": "CANDIDATE",
+          "confidence": 0.9984520811301011,
+          "reason": "匹配"
+        },
+        {
+          "key": "sellerTaxId",
+          "expected": "DEMO-SELLER-001",
+          "actual": "DEMO-SELLER-001",
+          "correct": true,
+          "status": "CANDIDATE",
+          "confidence": 0.9922014110618167,
+          "reason": "匹配"
+        },
+        {
+          "key": "netAmount",
+          "expected": "1000.00",
+          "actual": "1000.00",
+          "correct": true,
+          "status": "CANDIDATE",
+          "confidence": 0.9978044033050537,
+          "reason": "匹配"
+        },
+        {
+          "key": "taxAmount",
+          "expected": "60.00",
+          "actual": "60.00",
+          "correct": true,
+          "status": "CANDIDATE",
+          "confidence": 0.9978044033050537,
+          "reason": "匹配"
+        },
+        {
+          "key": "amount",
+          "expected": "1060.00",
+          "actual": "1060.00",
+          "correct": true,
+          "status": "CANDIDATE",
+          "confidence": 0.9971356652677059,
+          "reason": "匹配"
+        },
+        {
+          "key": "itemName",
+          "expected": "住宿服务 酒店住宿",
+          "actual": "住宿服务 酒店住宿",
+          "correct": true,
+          "status": "CANDIDATE",
+          "confidence": 0.9827210982640584,
+          "reason": "匹配"
+        }
+      ],
+      "warnings": []
+    },
+    {
+      "id": "R010-07",
+      "file": "samples/r010/07.png",
+      "mode": "清晰图片",
+      "engine": "RapidOCR 1.4.4 / PP-OCRv4 ONNX / CPU",
+      "source": "LOCAL_CPU_OCR",
+      "elapsedMs": 4032,
+      "nativeRequests": 1,
+      "fields": [
+        {
+          "key": "type",
+          "expected": "数电发票",
+          "actual": "数电发票",
+          "correct": true,
+          "status": "CANDIDATE",
+          "confidence": 0.9932785034179688,
+          "reason": "匹配"
+        },
+        {
+          "key": "number",
+          "expected": "00000000000000000007",
+          "actual": "00000000000000000007",
+          "correct": true,
+          "status": "CANDIDATE",
+          "confidence": 0.9975884175300598,
+          "reason": "匹配"
+        },
+        {
+          "key": "code",
+          "expected": "",
+          "actual": "",
+          "correct": true,
+          "status": "MISSING",
+          "confidence": null,
+          "reason": "按预期保留空值"
+        },
+        {
+          "key": "date",
+          "expected": "2026-10-08",
+          "actual": "2026-10-08",
+          "correct": true,
+          "status": "CANDIDATE",
+          "confidence": 0.9997279246648153,
+          "reason": "匹配"
+        },
+        {
+          "key": "buyerName",
+          "expected": "模拟星河科技有限公司",
+          "actual": "模拟星河科技有限公司",
+          "correct": true,
+          "status": "CANDIDATE",
+          "confidence": 0.9996798084332392,
+          "reason": "匹配"
+        },
+        {
+          "key": "buyerTaxId",
+          "expected": "DEMO-BUYER-001",
+          "actual": "DEMO-BUYER-001",
+          "correct": true,
+          "status": "CANDIDATE",
+          "confidence": 0.9975255973198834,
+          "reason": "匹配"
+        },
+        {
+          "key": "sellerName",
+          "expected": "模拟远帆酒店有限公司",
+          "actual": "模拟远帆酒店有限公司",
+          "correct": true,
+          "status": "CANDIDATE",
+          "confidence": 0.9994305051290072,
+          "reason": "匹配"
+        },
+        {
+          "key": "sellerTaxId",
+          "expected": "DEMO-SELLER-001",
+          "actual": "DEMO-SELLER-001",
+          "correct": true,
+          "status": "CANDIDATE",
+          "confidence": 0.9980213377210829,
+          "reason": "匹配"
+        },
+        {
+          "key": "netAmount",
+          "expected": "1000.00",
+          "actual": "1000.00",
+          "correct": true,
+          "status": "CANDIDATE",
+          "confidence": 0.999441710802225,
+          "reason": "匹配"
+        },
+        {
+          "key": "taxAmount",
+          "expected": "60.00",
+          "actual": "60.00",
+          "correct": true,
+          "status": "CANDIDATE",
+          "confidence": 0.999441710802225,
+          "reason": "匹配"
+        },
+        {
+          "key": "amount",
+          "expected": "1060.00",
+          "actual": "1060.00",
+          "correct": true,
+          "status": "CANDIDATE",
+          "confidence": 0.9977131560444832,
+          "reason": "匹配"
+        },
+        {
+          "key": "itemName",
+          "expected": "住宿服务 酒店住宿",
+          "actual": "住宿服务 酒店住宿",
+          "correct": true,
+          "status": "CANDIDATE",
+          "confidence": 0.9976263523101807,
+          "reason": "匹配"
+        }
+      ],
+      "warnings": []
+    },
+    {
+      "id": "R010-08",
+      "file": "samples/r010/08.pdf",
+      "mode": "扫描PDF",
+      "engine": "RapidOCR 1.4.4 / PP-OCRv4 ONNX / CPU",
+      "source": "LOCAL_CPU_OCR",
+      "elapsedMs": 7603,
+      "nativeRequests": 1,
+      "fields": [
+        {
+          "key": "type",
+          "expected": "数电发票",
+          "actual": "数电发票",
+          "correct": true,
+          "status": "CANDIDATE",
+          "confidence": 0.9913328111171722,
+          "reason": "匹配"
+        },
+        {
+          "key": "number",
+          "expected": "00000000000000000008",
+          "actual": "00000000000000000008",
+          "correct": true,
+          "status": "CANDIDATE",
+          "confidence": 0.9952972531318665,
+          "reason": "匹配"
+        },
+        {
+          "key": "code",
+          "expected": "",
+          "actual": "",
+          "correct": true,
+          "status": "MISSING",
+          "confidence": null,
+          "reason": "按预期保留空值"
+        },
+        {
+          "key": "date",
+          "expected": "2026-10-09",
+          "actual": "2026-10-09",
+          "correct": true,
+          "status": "CANDIDATE",
+          "confidence": 0.9967140237490336,
+          "reason": "匹配"
+        },
+        {
+          "key": "buyerName",
+          "expected": "模拟星河科技有限公司",
+          "actual": "模拟星河科技有限公司",
+          "correct": true,
+          "status": "CANDIDATE",
+          "confidence": 0.9960510618984699,
+          "reason": "匹配"
+        },
+        {
+          "key": "buyerTaxId",
+          "expected": "DEMO-BUYER-001",
+          "actual": "DEMO-BUYER-001",
+          "correct": true,
+          "status": "CANDIDATE",
+          "confidence": 0.9889910131692886,
+          "reason": "匹配"
+        },
+        {
+          "key": "sellerName",
+          "expected": "模拟远帆酒店有限公司",
+          "actual": "模拟远帆酒店有限公司",
+          "correct": true,
+          "status": "CANDIDATE",
+          "confidence": 0.9936535470187664,
+          "reason": "匹配"
+        },
+        {
+          "key": "sellerTaxId",
+          "expected": "DEMO-SELLER-001",
+          "actual": "DEMO-SELLER-001",
+          "correct": true,
+          "status": "CANDIDATE",
+          "confidence": 0.9910465705962408,
+          "reason": "匹配"
+        },
+        {
+          "key": "netAmount",
+          "expected": "1000.00",
+          "actual": "1000.00",
+          "correct": true,
+          "status": "CANDIDATE",
+          "confidence": 0.9979603657355676,
+          "reason": "匹配"
+        },
+        {
+          "key": "taxAmount",
+          "expected": "60.00",
+          "actual": "60.00",
+          "correct": true,
+          "status": "CANDIDATE",
+          "confidence": 0.9979603657355676,
+          "reason": "匹配"
+        },
+        {
+          "key": "amount",
+          "expected": "1060.00",
+          "actual": "1060.00",
+          "correct": true,
+          "status": "CANDIDATE",
+          "confidence": 0.9982130751013756,
+          "reason": "匹配"
+        },
+        {
+          "key": "itemName",
+          "expected": "住宿服务 酒店住宿",
+          "actual": "住宿服务 酒店住宿",
+          "correct": true,
+          "status": "CANDIDATE",
+          "confidence": 0.9916563590367635,
+          "reason": "匹配"
+        }
+      ],
+      "warnings": []
+    },
+    {
+      "id": "R010-09",
+      "file": "samples/r010/09.pdf",
+      "mode": "扫描PDF",
+      "engine": "RapidOCR 1.4.4 / PP-OCRv4 ONNX / CPU",
+      "source": "LOCAL_CPU_OCR",
+      "elapsedMs": 7208,
+      "nativeRequests": 1,
+      "fields": [
+        {
+          "key": "type",
+          "expected": "纸质发票",
+          "actual": "纸质发票",
+          "correct": true,
+          "status": "CANDIDATE",
+          "confidence": 0.9980697206088475,
+          "reason": "匹配"
+        },
+        {
+          "key": "number",
+          "expected": "00000009",
+          "actual": "00000009",
+          "correct": true,
+          "status": "CANDIDATE",
+          "confidence": 0.9981609353652368,
+          "reason": "匹配"
+        },
+        {
+          "key": "code",
+          "expected": "044001900111",
+          "actual": "044001900111",
+          "correct": true,
+          "status": "CANDIDATE",
+          "confidence": 0.9981609353652368,
+          "reason": "匹配"
+        },
+        {
+          "key": "date",
+          "expected": "2026-10-10",
+          "actual": "2026-10-10",
+          "correct": true,
+          "status": "CANDIDATE",
+          "confidence": 0.9964337269465129,
+          "reason": "匹配"
+        },
+        {
+          "key": "buyerName",
+          "expected": "模拟星河科技有限公司",
+          "actual": "模拟星河科技有限公司",
+          "correct": true,
+          "status": "CANDIDATE",
+          "confidence": 0.9961456842720509,
+          "reason": "匹配"
+        },
+        {
+          "key": "buyerTaxId",
+          "expected": "DEMO-BUYER-001",
+          "actual": "DEMO-BUYER-001",
+          "correct": true,
+          "status": "CANDIDATE",
+          "confidence": 0.9853023409843444,
+          "reason": "匹配"
+        },
+        {
+          "key": "sellerName",
+          "expected": "模拟远帆酒店有限公司",
+          "actual": "模拟远帆酒店有限公司",
+          "correct": true,
+          "status": "CANDIDATE",
+          "confidence": 0.9939295537769794,
+          "reason": "匹配"
+        },
+        {
+          "key": "sellerTaxId",
+          "expected": "DEMO-SELLER-001",
+          "actual": "DEMO-SELLER-001",
+          "correct": true,
+          "status": "CANDIDATE",
+          "confidence": 0.9916327113196963,
+          "reason": "匹配"
+        },
+        {
+          "key": "netAmount",
+          "expected": "1000.00",
+          "actual": "1000.00",
+          "correct": true,
+          "status": "CANDIDATE",
+          "confidence": 0.9978950252899756,
+          "reason": "匹配"
+        },
+        {
+          "key": "taxAmount",
+          "expected": "60.00",
+          "actual": "60.00",
+          "correct": true,
+          "status": "CANDIDATE",
+          "confidence": 0.9978950252899756,
+          "reason": "匹配"
+        },
+        {
+          "key": "amount",
+          "expected": "1060.00",
+          "actual": "1060.00",
+          "correct": true,
+          "status": "CANDIDATE",
+          "confidence": 0.9982958622276783,
+          "reason": "匹配"
+        },
+        {
+          "key": "itemName",
+          "expected": "住宿服务 酒店住宿",
+          "actual": "住宿服务 酒店住宿",
+          "correct": true,
+          "status": "CANDIDATE",
+          "confidence": 0.992913830280304,
+          "reason": "匹配"
+        }
+      ],
+      "warnings": []
+    },
+    {
+      "id": "R010-10",
+      "file": "samples/r010/10.png",
+      "mode": "清晰图片",
+      "engine": "RapidOCR 1.4.4 / PP-OCRv4 ONNX / CPU",
+      "source": "LOCAL_CPU_OCR",
+      "elapsedMs": 5097,
+      "nativeRequests": 1,
+      "fields": [
+        {
+          "key": "type",
+          "expected": "数电发票",
+          "actual": "数电发票",
+          "correct": true,
+          "status": "CANDIDATE",
+          "confidence": 0.9886573227969083,
+          "reason": "匹配"
+        },
+        {
+          "key": "number",
+          "expected": "00000000000000000010",
+          "actual": "00000000000000000010",
+          "correct": true,
+          "status": "CANDIDATE",
+          "confidence": 0.9983107948303223,
+          "reason": "匹配"
+        },
+        {
+          "key": "code",
+          "expected": "",
+          "actual": "",
+          "correct": true,
+          "status": "MISSING",
+          "confidence": null,
+          "reason": "按预期保留空值"
+        },
+        {
+          "key": "date",
+          "expected": "2026-10-11",
+          "actual": "2026-10-11",
+          "correct": true,
+          "status": "CANDIDATE",
+          "confidence": 0.999560801188151,
+          "reason": "匹配"
+        },
+        {
+          "key": "buyerName",
+          "expected": "模拟星河科技有限公司",
+          "actual": "模拟星河科技有限公司",
+          "correct": true,
+          "status": "CANDIDATE",
+          "confidence": 0.9992558434605598,
+          "reason": "匹配"
+        },
+        {
+          "key": "buyerTaxId",
+          "expected": "",
+          "actual": "",
+          "correct": true,
+          "status": "MISSING",
+          "confidence": null,
+          "reason": "按预期保留空值"
+        },
+        {
+          "key": "sellerName",
+          "expected": "模拟远帆酒店有限公司",
+          "actual": "模拟远帆酒店有限公司",
+          "correct": true,
+          "status": "CANDIDATE",
+          "confidence": 0.9993422217667103,
+          "reason": "匹配"
+        },
+        {
+          "key": "sellerTaxId",
+          "expected": "DEMO-SELLER-001",
+          "actual": "DEMO-SELLER-001",
+          "correct": true,
+          "status": "CANDIDATE",
+          "confidence": 0.9973546834219069,
+          "reason": "匹配"
+        },
+        {
+          "key": "netAmount",
+          "expected": "1000.00",
+          "actual": "1000.00",
+          "correct": true,
+          "status": "CANDIDATE",
+          "confidence": 0.9994056912568899,
+          "reason": "匹配"
+        },
+        {
+          "key": "taxAmount",
+          "expected": "60.00",
+          "actual": "60.00",
+          "correct": true,
+          "status": "CANDIDATE",
+          "confidence": 0.9994056912568899,
+          "reason": "匹配"
+        },
+        {
+          "key": "amount",
+          "expected": "1060.00",
+          "actual": "1060.00",
+          "correct": true,
+          "status": "CANDIDATE",
+          "confidence": 0.991447102278471,
+          "reason": "匹配"
+        },
+        {
+          "key": "itemName",
+          "expected": "住宿服务 酒店住宿",
+          "actual": "住宿服务 酒店住宿",
+          "correct": true,
+          "status": "CANDIDATE",
+          "confidence": 0.9969598531723023,
+          "reason": "匹配"
+        }
+      ],
+      "warnings": []
+    },
+    {
+      "id": "R010-11",
+      "file": "samples/r010/11.png",
+      "mode": "清晰图片",
+      "engine": "RapidOCR 1.4.4 / PP-OCRv4 ONNX / CPU",
+      "source": "LOCAL_CPU_OCR",
+      "elapsedMs": 4492,
+      "nativeRequests": 1,
+      "fields": [
+        {
+          "key": "type",
+          "expected": "数电发票",
+          "actual": "数电发票",
+          "correct": true,
+          "status": "CANDIDATE",
+          "confidence": 0.9226366064765237,
+          "reason": "匹配"
+        },
+        {
+          "key": "number",
+          "expected": "00000000000000000011",
+          "actual": "00000000000000000011",
+          "correct": true,
+          "status": "CANDIDATE",
+          "confidence": 0.9988186883926392,
+          "reason": "匹配"
+        },
+        {
+          "key": "code",
+          "expected": "",
+          "actual": "",
+          "correct": true,
+          "status": "MISSING",
+          "confidence": null,
+          "reason": "按预期保留空值"
+        },
+        {
+          "key": "date",
+          "expected": "2026-10-12",
+          "actual": "2026-10-12",
+          "correct": true,
+          "status": "CANDIDATE",
+          "confidence": 0.9994767506917318,
+          "reason": "匹配"
+        },
+        {
+          "key": "buyerName",
+          "expected": "模拟星河科技有限公司",
+          "actual": "模拟星河科技有限公司",
+          "correct": true,
+          "status": "CANDIDATE",
+          "confidence": 0.9984654448926449,
+          "reason": "匹配"
+        },
+        {
+          "key": "buyerTaxId",
+          "expected": "DEMO-BUYER-001",
+          "actual": "DEMO-BUYER-001",
+          "correct": true,
+          "status": "CANDIDATE",
+          "confidence": 0.9993959546089173,
+          "reason": "匹配"
+        },
+        {
+          "key": "sellerName",
+          "expected": "模拟远帆酒店有限公司",
+          "actual": "模拟远帆酒店有限公司",
+          "correct": true,
+          "status": "CANDIDATE",
+          "confidence": 0.998022336512804,
+          "reason": "匹配"
+        },
+        {
+          "key": "sellerTaxId",
+          "expected": "DEMO-SELLER-001",
+          "actual": "DEMO-SELLER-001",
+          "correct": true,
+          "status": "CANDIDATE",
+          "confidence": 0.9985854483786083,
+          "reason": "匹配"
+        },
+        {
+          "key": "netAmount",
+          "expected": "",
+          "actual": "",
+          "correct": true,
+          "status": "MISSING",
+          "confidence": null,
+          "reason": "按预期保留空值"
+        },
+        {
+          "key": "taxAmount",
+          "expected": "",
+          "actual": "",
+          "correct": true,
+          "status": "MISSING",
+          "confidence": null,
+          "reason": "按预期保留空值"
+        },
+        {
+          "key": "amount",
+          "expected": "1060.00",
+          "actual": "1060.00",
+          "correct": true,
+          "status": "CANDIDATE",
+          "confidence": 0.9982787854969501,
+          "reason": "匹配"
+        },
+        {
+          "key": "itemName",
+          "expected": "住宿服务 酒店住宿",
+          "actual": "住宿服务 酒店住宿",
+          "correct": true,
+          "status": "CANDIDATE",
+          "confidence": 0.9973979075749715,
+          "reason": "匹配"
+        }
+      ],
+      "warnings": []
+    },
+    {
+      "id": "R010-12",
+      "file": "samples/r010/12.jpg",
+      "mode": "模糊低分辨率照片",
+      "engine": "RapidOCR 1.4.4 / PP-OCRv4 ONNX / CPU",
+      "source": "LOCAL_CPU_OCR",
+      "elapsedMs": 3804,
+      "nativeRequests": 1,
+      "fields": [
+        {
+          "key": "type",
+          "expected": "数电发票",
+          "actual": "数电发票",
+          "correct": true,
+          "status": "CANDIDATE",
+          "confidence": 0.9936198234558106,
+          "reason": "匹配"
+        },
+        {
+          "key": "number",
+          "expected": "00000000000000000012",
+          "actual": "00000000000000000012",
+          "correct": true,
+          "status": "CANDIDATE",
+          "confidence": 0.9984117579460144,
+          "reason": "匹配"
+        },
+        {
+          "key": "code",
+          "expected": "",
+          "actual": "",
+          "correct": true,
+          "status": "MISSING",
+          "confidence": null,
+          "reason": "按预期保留空值"
+        },
+        {
+          "key": "date",
+          "expected": "2026-10-13",
+          "actual": "2026-10-13",
+          "correct": true,
+          "status": "CANDIDATE",
+          "confidence": 0.9928839763005575,
+          "reason": "匹配"
+        },
+        {
+          "key": "buyerName",
+          "expected": "模拟星河科技有限公司",
+          "actual": "模拟星河科技有限公司",
+          "correct": true,
+          "status": "CANDIDATE",
+          "confidence": 0.9932636469602585,
+          "reason": "匹配"
+        },
+        {
+          "key": "buyerTaxId",
+          "expected": "DEMO-BUYER-001",
+          "actual": "DEMO-BUYER-001",
+          "correct": true,
+          "status": "CANDIDATE",
+          "confidence": 0.9885866641998291,
+          "reason": "匹配"
+        },
+        {
+          "key": "sellerName",
+          "expected": "模拟远帆酒店有限公司",
+          "actual": "模拟远帆酒店有限公司",
+          "correct": true,
+          "status": "CANDIDATE",
+          "confidence": 0.9860336482524872,
+          "reason": "匹配"
+        },
+        {
+          "key": "sellerTaxId",
+          "expected": "DEMO-SELLER-001",
+          "actual": "DEMO-SELLER-001",
+          "correct": true,
+          "status": "CANDIDATE",
+          "confidence": 0.9889789990016392,
+          "reason": "匹配"
+        },
+        {
+          "key": "netAmount",
+          "expected": "1000.00",
+          "actual": "1000.00",
+          "correct": true,
+          "status": "CANDIDATE",
+          "confidence": 0.9872422218322754,
+          "reason": "匹配"
+        },
+        {
+          "key": "taxAmount",
+          "expected": "60.00",
+          "actual": "60.00",
+          "correct": true,
+          "status": "CANDIDATE",
+          "confidence": 0.9872422218322754,
+          "reason": "匹配"
+        },
+        {
+          "key": "amount",
+          "expected": "1060.00",
+          "actual": "1060.00",
+          "correct": true,
+          "status": "CANDIDATE",
+          "confidence": 0.987513080239296,
+          "reason": "匹配"
+        },
+        {
+          "key": "itemName",
+          "expected": "住宿服务 酒店住宿",
+          "actual": "住宿服务 酒店住宿",
+          "correct": true,
+          "status": "CANDIDATE",
+          "confidence": 0.9609264334042867,
+          "reason": "匹配"
+        }
+      ],
+      "warnings": []
+    }
+  ]
+}

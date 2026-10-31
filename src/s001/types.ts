@@ -44,6 +44,10 @@ export type Invoice = {
   recognitionConfidence?: number | null;
   buyerTaxStatus?: "未确认" | "已确认" | "票面确为空";
   attachment?: unknown;
+  netAmountYuan?: string;
+  taxAmountYuan?: string;
+  itemName?: string;
+  ocrRecords?: import("../r010/capture").RecognitionRecord[];
 };
 export type Input = {
   departmentId?: string;

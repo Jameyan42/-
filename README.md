@@ -1,3 +1,17 @@
+# R010 · 开源发票识别与人工核对
+
+在既有统一报销中上传PNG/JPG/PDF，自动提取票号、日期、买卖方名称与税号、净额/税额/合计、票种与项目；可修正并保存原始识别、文件SHA256、人工确认快照。自动调用原R002/R003/R004预审，不修改原规则，不替代税务验真。
+
+- **本机增强版：RapidOCR1.4.4 + Paddle PP-OCRv4 ONNX，普通CPU运行。** [Windows/Linux安装与启动](services/invoice_ocr/README.md)。启动后在同一电脑Chrome打开 `http://127.0.0.1:8766/?view=claims`。
+- **原在线站点：** https://jameyan42.github.io/-/?view=claims&v=r010 。GitHub Pages没有Python运行环境，使用PDF.js5.4.624文字提取与Tesseract.js7后备，不能称作在线PP-OCR服务。
+- [演示流程与限制](docs/r010/USAGE_AND_LIMITS.md)、[开源调研及许可证](docs/r010/OPEN_SOURCE_RESEARCH.md)、[实际测试验收](docs/r010/TEST_REPORT.md)、[逐字段结果CSV](docs/r010/evaluation.csv)。
+
+PaddleOCR3.4/Paddle3.2.2已实际安装，但官方权重源403，**原生Paddle3推理未验证**；因此采用已实测且包内含模型的RapidOCR。12份明确标注的虚构样票覆盖图片、文字PDF、扫描PDF、模糊图；尚未完成真实脱敏发票准确率验证。保留原R001—R009，未接真实财务系统、付费API或税务验真。
+
+数据仍在浏览器本地存储，不是多人协作数据库。运行Node20.19+ /22.12+，Python3.11/3.12 64位；已安装依赖可直接 `npm run build` 后启动Python服务。纯前端仍可 `npm run dev -- --port 5173`。R010任务完成后不扩展其他模块。
+
+---
+
 # R009 · 辅助风险分析与人工反馈（本地演示）
 
 统一入口：**https://jameyan42.github.io/-/?view=claims&v=r009**。角色切财务，新建/打开统一报销→先执行七规则→同页“AI辅助分析（演示）”→证据→反馈/人工发现→历史与统计。R008原页面增加AI设置版本扩展，不建第二个规则中心或AI网站。

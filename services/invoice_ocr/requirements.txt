@@ -1,0 +1,6 @@
+# CPU inference, Python 3.11/3.12 x64. Pretrained PP-OCRv4 ONNX models are in the wheel.
+rapidocr-onnxruntime==1.4.4
+onnxruntime==1.23.2
+opencv-python==4.10.0.84
+numpy==1.26.4
+Pillow==11.3.0

@@ -1,3 +1,4 @@
+import { validateRecognitionRecords } from "../r010/capture";
 import { resolveAll } from "./rule-config";
 import { validateRuleBook } from "./rule-config-model";
 import { defaultBudgetBook } from "./budget-config";
@@ -173,6 +174,9 @@ function checkInput(d: Input) {
       !["manual", "ocr-assisted"].includes(i.source)
     )
       throw Error("票面字段或录入来源无效");
+    for (const key of ["netAmountYuan", "taxAmountYuan", "itemName"] as const)
+      if (i[key] !== undefined && (typeof i[key] !== "string" || i[key]!.length > 500)) throw Error("OCR扩展字段无效");
+    if (i.ocrRecords !== undefined) validateRecognitionRecords(i.ocrRecords);
   }
 }
 export function validate(s: State) {

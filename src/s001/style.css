@@ -112,3 +112,10 @@
 #r009-panel form { margin:14px 0; }
 #r009-panel small { overflow-wrap:anywhere; }
 @media(max-width:720px){ .r009-metrics { grid-template-columns:repeat(2,minmax(0,1fr)); } .r009-risk{padding:12px;} }
+
+/* R010 provenance remains readable inside the existing mobile form. */
+.s001 .r010-evidence { min-width:0; max-width:100%; padding:12px; }
+.s001 .r010-table { overflow:auto; max-width:100%; }
+.s001 .r010-table table { min-width:620px; table-layout:fixed; width:100%; }
+.s001 .r010-evidence summary { overflow-wrap:anywhere; }
+.s001 #r010-rule-preview { padding:12px; background:#f5f7fb; overflow-wrap:anywhere; }
