@@ -59,6 +59,7 @@ export type BudgetBook = {
   }[];
 };
 export type BudgetEscalation = {
+  ruleVersionId?: string;
   budgetId: string;
   budgetVersion: number;
   amountCents: number;

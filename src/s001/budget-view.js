@@ -1,3 +1,5 @@
+import { budgetContext } from "./budget-model.ts";
+import { resolveVersion, policyToday, usesManagedBudgets } from "./rule-config.ts";
 import { centsToYuan } from "../r001/rule.ts";
 import { defaultEntities } from "./entity-rule.ts";
 import { defaultBudgetBook } from "./budget-config.ts";
@@ -22,13 +24,10 @@ export function budgetEvidence(r) {
   return `<div class="review-box"><p>${esc(b.budgetId)} · ${esc(b.companyId)} / ${esc(b.departmentId)} / ${esc(b.expenseType)} / ${esc(b.budgetPeriod)} · v${b.version} · ${modes[b.controlMode]}</p><div class="detail-grid"><p>预算总额 <b>${yuan(e.totalCents)}</b></p><p>已使用（财务批准） <b>${yuan(e.usedCents)}</b></p><p>其他预占 <b>${yuan(e.otherReservedCents)}</b></p><p>本单有效预占 <b>${yuan(e.ownReservedCents)}</b></p><p>当前实际可用 <b>${yuan(e.currentAvailableCents)}</b></p><p>供本单比较额度（剔除自身） <b>${yuan(e.availableForCurrentCents)}</b></p><p>申请金额 <b>${yuan(e.amountCents)}</b></p><p>预计余额 <b>${yuan(e.projectedRemainingCents)}</b></p><p>超预算 <b>${yuan(e.excessCents)}</b></p></div><p>当前使用率${pct(e.currentUsageBps)}；申请后预计${pct(e.projectedUsageBps)}。${e.warnings?.length ? `预警：${esc(e.warnings.join("/"))}%阈值` : ""}</p><p>草稿/自动审核只作预计，不写预算流水；已使用不等于付款或总账费用。</p></div>`;
 }
 export function budgetPreview(input, state, org) {
-  const r = budgetRule(input, {
-    at: new Date().toISOString(),
-    standards: null,
-    invoiceHistory: null,
-    budgetBook: state.budgetBook || defaultBudgetBook(),
-    budgetOrg: org,
-  });
+  let r;
+  try {r=budgetRule(input,budgetContext(state,state.claims.find(d=>d.id===input.id)||{id:input.id,revision:1,input,workflows:[]},new Date().toISOString(),org));}
+  catch(e){return `<h4>预算预计（只读）</h4><p class="risk">${esc(String(e))}；制度未确认，不视为通过。</p>`;}
+
   return `<h4>预算预计（只读）</h4><p>${esc(r.message)}</p>${budgetEvidence(r)}`;
 }
 const field = (name, label, value, type = "text") =>
@@ -72,14 +71,22 @@ export function budgetManagement(state, org, actor, filters, selected) {
     reserveOnSoftExceeded: true,
     extraApproverId: "admin-gu",
   };
-  return `<section class="panel"><h3>统一报销预算执行（R007）</h3><p>同一预算流水源计算：已使用＝财务最终批准；预占＝有效提交但未最终批准。原流程预算保留在本页下方，口径不同，不合并余额。此前未登记R007流水的历史单不自动追补；正式启用前需核对期初迁移，不把模拟期初当作真实数据。</p><div class="form-grid"><label>法人筛选<select id="r007-company"><option value="">全部</option>${opts(companies, filters.company)}</select></label><label>部门筛选<select id="r007-department"><option value="">全部</option>${opts(departments, filters.department)}</select></label><label>费用类型筛选<select id="r007-expense"><option value="">全部</option>${opts(
+  const governed=usesManagedBudgets(state.ruleBook,new Date().toISOString());
+  return `<section class="panel"><h3>统一报销预算执行（R007）</h3>${governed?'<p class="review-box">控制策略已由R008版本管理接管。这里仅维护额度、期间及流水；下方原策略字段只读。表格按当前日期/预算月份显示适用策略，无配置时必须先发布，不能沿用旧值通过。</p>':''}<p>同一预算流水源计算：已使用＝财务最终批准；预占＝有效提交但未最终批准。原流程预算保留在本页下方，口径不同，不合并余额。此前未登记R007流水的历史单不自动追补；正式启用前需核对期初迁移，不把模拟期初当作真实数据。</p><div class="form-grid"><label>法人筛选<select id="r007-company"><option value="">全部</option>${opts(companies, filters.company)}</select></label><label>部门筛选<select id="r007-department"><option value="">全部</option>${opts(departments, filters.department)}</select></label><label>费用类型筛选<select id="r007-expense"><option value="">全部</option>${opts(
     [...new Set(all.map((b) => b.expenseType))].map((x) => [x, x]),
     filters.expense,
   )}</select></label><label>预算月份<input id="r007-period" type="month" value="${esc(filters.period)}"></label></div><div class="table-wrap"><table id="r007-table"><thead><tr><th>预算 / 维度</th><th>额度 / 已使用</th><th>预占 / 可用</th><th>使用率 / 模式</th><th>操作</th></tr></thead><tbody>${rows
-    .map((b) => {
+    .map((rawBudget) => {
+      let b=rawBudget, policyInfo='';
+      if(governed){const at=new Date().toISOString(),today=policyToday(at),d={companyId:b.companyId,businessDate:b.budgetPeriod===today.slice(0,7)?today:b.budgetPeriod+'-01',checkIn:b.budgetPeriod+'-01'};
+       const sel=resolveVersion(state.ruleBook,d,'R007',at),p=sel.version?.enabled&&!sel.error?sel.version.parameters.policies.find(p=>p.expenseType===b.expenseType):null;
+       policyInfo=p?`R008 v${sel.version.versionNumber}`:'R008策略缺失/冲突/停用';
+       if(p)b={...b,...p};
+      }
+
       const t = budgetTotals(book, b.budgetId),
         available = b.budgetAmount - t.used - t.reserved;
-      return `<tr><td>${esc(b.budgetId)}<small>${esc(b.companyId)} / ${esc(departments.find((d) => d[0] === b.departmentId)?.[1] || b.departmentId)} / ${esc(b.expenseType)} / ${esc(b.budgetPeriod)} · v${b.version} · ${b.status === "ACTIVE" ? "启用" : "停用"}</small></td><td>${yuan(b.budgetAmount)}<small>已使用${yuan(t.used)}</small></td><td>预占${yuan(t.reserved)}<small class="${available < 0 ? "risk" : ""}">可用${yuan(available)}</small></td><td>${b.budgetAmount ? (((t.used + t.reserved) / b.budgetAmount) * 100).toFixed(2) + "%" : "零预算不作除法"}<small>${modes[b.controlMode]}</small></td><td><button data-r007-open="${esc(b.budgetId)}">配置 / 流水</button></td></tr>`;
+      return `<tr><td>${esc(b.budgetId)}<small>${esc(b.companyId)} / ${esc(departments.find((d) => d[0] === b.departmentId)?.[1] || b.departmentId)} / ${esc(b.expenseType)} / ${esc(b.budgetPeriod)} · v${b.version} · ${b.status === "ACTIVE" ? "启用" : "停用"}</small></td><td>${yuan(b.budgetAmount)}<small>已使用${yuan(t.used)}</small></td><td>预占${yuan(t.reserved)}<small class="${available < 0 ? "risk" : ""}">可用${yuan(available)}</small></td><td>${b.budgetAmount ? (((t.used + t.reserved) / b.budgetAmount) * 100).toFixed(2) + "%" : "零预算不作除法"}<small>${governed&&!policyInfo.startsWith("R008 v")?"不可执行":modes[b.controlMode]} ${esc(policyInfo)}</small></td><td><button data-r007-open="${esc(b.budgetId)}">配置 / 流水</button></td></tr>`;
     })
     .join(
       "",

@@ -1,3 +1,5 @@
+import { resolveAll } from "./rule-config";
+import { validateRuleBook } from "./rule-config-model";
 import { defaultBudgetBook } from "./budget-config";
 import {
   validateBudgetBook,
@@ -183,6 +185,7 @@ export function validate(s: State) {
     new Set(s.claims.map((d) => d.id)).size !== s.claims.length
   )
     throw Error("统一报销数据损坏，原值保留");
+  validateRuleBook(s);
   if (s.budgetBook) {
     validateBudgetBook(s.budgetBook);
     for (const [id, a] of allocations(s.budgetBook)) {
@@ -578,7 +581,9 @@ export function execute(
   } catch (err) {
     extraError = String(err);
   }
+  const selections=resolveAll(s,d.input,c.at);
   const context = {
+    ...(selections ? {ruleSelections:selections} : {}),
     budgetBook: structuredClone(bc.budgetBook),
     ...(bc.budgetOrg ? { budgetOrg: structuredClone(bc.budgetOrg) } : {}),
     ...(extra ? { budgetEscalation: extra } : {}),
@@ -790,6 +795,7 @@ export function configureEntities(
 ): State {
   if (role !== "财务" || !actor.trim() || !reason.trim() || !validTime(at))
     throw Error("仅财务可维护模拟法人制度，原因必填");
+  if(s.ruleBook && JSON.stringify([config.policies,config.minimumConfidence])!==JSON.stringify([(s.entityConfig||defaultEntities()).policies,(s.entityConfig||defaultEntities()).minimumConfidence]))throw Error("R004票种政策请通过规则管理中心发布；此处仅维护法人主数据");
   validateEntities(config);
   const next = structuredClone(s);
   next.entityConfig = {
@@ -827,6 +833,7 @@ export function configureAccounts(
     !validTime(at)
   )
     throw Error("财务身份、修改原因和时间必填");
+  if(s.ruleBook)throw Error("已启用版本管理，请在规则管理中心创建R005草稿并发布");
   validateAccounts(config);
   const next = structuredClone(s);
   next.accountConfig = {

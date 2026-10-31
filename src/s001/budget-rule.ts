@@ -303,6 +303,8 @@ export function budgetTotals(book: BudgetBook, budgetId: string) {
   return { reserved, used, rows };
 }
 export function budgetRule(d: Input, c: Context): RuleResult {
+  const selection=c.ruleSelections?.find(x=>x.ruleId==='R007');
+  if(selection?.error)return {ruleId:'R007',ruleKey:'budget.capacity',ruleName:'费用预算与额度控制',status:'ERROR',severity:'high',message:selection.error,evidence:{configurationError:true},suggestedAction:'补充或恢复有效预算策略后重新审核',configuration:structuredClone(selection)};
   const book = c.budgetBook || defaultBudgetBook();
   validateBudgetBook(book);
   const match = matchBudget(d, book, c.budgetOrg || c.workflow?.org),
@@ -417,6 +419,7 @@ export function requiredBudgetEscalation(
   );
   if (!p) throw Error("柔性预算缺少有效具名预算负责人授权配置");
   return {
+    ...(c.ruleSelections?.find(x=>x.ruleId==='R007')?.version ? {ruleVersionId:c.ruleSelections.find(x=>x.ruleId==='R007')!.version!.versionId} : {}),
     budgetId: e.budget.budgetId,
     budgetVersion: e.budget.version,
     amountCents: e.amountCents,
@@ -434,6 +437,7 @@ export function sameEscalation(
   return (
     !!a &&
     !!b &&
+    a.ruleVersionId === b.ruleVersionId &&
     a.budgetId === b.budgetId &&
     a.budgetVersion === b.budgetVersion &&
     a.amountCents === b.amountCents &&

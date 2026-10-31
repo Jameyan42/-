@@ -95,6 +95,7 @@ export type ApprovalRecord = {
   policyVersion: number;
 };
 export type Workflow = {
+  ruleSelection?: import("./rule-config").Selection;
   budgetEscalation?: BudgetEscalation;
   cancelledAt?: string;
   id: string;

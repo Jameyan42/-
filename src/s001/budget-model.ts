@@ -1,3 +1,4 @@
+import { resolveVersion, applySelection, usesManagedBudgets, businessDate } from "./rule-config";
 import { centsToYuan } from "../r001/rule";
 import {
   defaultBudgetBook,
@@ -81,7 +82,7 @@ export function budgetContext(
   at: string,
   org?: Org,
 ): Context {
-  return {
+  const context:Context = {
     at,
     standards: null,
     invoiceHistory: null,
@@ -93,6 +94,15 @@ export function budgetContext(
         .find((w) => w.reimbursementVersion === d.revision)?.org ||
       d.workflows?.at(-1)?.org,
   };
+  if(usesManagedBudgets(s.ruleBook,at,businessDate(d.input,'R007'))){
+    const x=resolveVersion(s.ruleBook!,d.input,'R007',at);
+    if(x.error)return {...context,ruleSelections:[x]};
+    let effective:Context;
+    try{effective=applySelection(d.input,context,x);}catch(err){return {...context,ruleSelections:[{...x,error:String(err)}]};}
+    effective.ruleSelections=[x];
+    return effective;
+  }
+  return context;
 }
 export function reconcileBudget(
   s: State,
@@ -270,7 +280,7 @@ export function assertBudgetFinal(s: State, d: Claim, at: string) {
     )
   )
     throw Error("本单预占金额不匹配，需重新提交预算检查");
-  return r;
+  return c.ruleSelections ? {...r,configuration:c.ruleSelections[0]} : r;
 }
 export function consumeBudget(
   s: State,
@@ -364,6 +374,8 @@ export function configureBudgets(
   for (const old of book.budgets) {
     const next = budgets.find((b) => b.budgetId === old.budgetId);
     if (!next) throw Error("不可删除已有预算，请停用保留历史");
+    if(usesManagedBudgets(s.ruleBook,at) && JSON.stringify([old.controlMode,old.warningThresholds,old.reserveOnSoftExceeded,old.extraApproverId])!==JSON.stringify([next.controlMode,next.warningThresholds,next.reserveOnSoftExceeded,next.extraApproverId]))throw Error('预算控制策略已由R008接管，请在规则管理中心发布；预算额度仍在此处维护');
+
     if (
       JSON.stringify([
         old.companyId,

@@ -1,3 +1,4 @@
+import { applySelection, policyOutcome } from "./rule-config";
 import { budgetRule } from "./budget-rule";
 import { workflowRule } from "./workflow-rule";
 import { accountRule } from "./account-rule";
@@ -261,10 +262,18 @@ export function auditAll(d: Input, c: Context, rules = registry): RuleResult[] {
   return rules
     .map((rule) => {
       try {
-        return rule.execute(d, c);
+        const selection=c.ruleSelections?.find(x=>x.ruleId===rule.ruleId);
+        if(c.ruleSelections&&!selection)throw Error('配置解析结果缺失，不能使用旧默认值');
+        if(selection?.version && !selection.version.enabled)return {ruleId:rule.ruleId,ruleKey:rule.ruleKey,ruleName:rule.ruleName,status:'INSUFFICIENT_DATA' as const,severity:'high' as const,message:'规则已停用，关键内控不能默认通过，请管理员恢复有效制度',evidence:{disabled:true},suggestedAction:'恢复或发布有效制度后重新审核，不能普通放行',configuration:structuredClone(selection)};
+        if(selection?.error)throw Error(selection.error);
+        const resolved=selection?applySelection(d,c,selection):c;
+        let output=rule.execute(d,resolved);
+        if(selection){output=policyOutcome(d,resolved,output,selection);output={...output,configuration:structuredClone(selection)};}
+        return output;
       } catch (err) {
         return {
           ...rule,
+          ...(c.ruleSelections?.find(x=>x.ruleId===rule.ruleId)?{configuration:structuredClone(c.ruleSelections.find(x=>x.ruleId===rule.ruleId))}:{}),
           status: "ERROR" as const,
           severity: "high" as const,
           message: String(err),

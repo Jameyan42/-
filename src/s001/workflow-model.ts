@@ -1,3 +1,4 @@
+import { resolveVersion, applySelection } from "./rule-config";
 import { reconcileBudget, releaseBudget, budgetContext } from "./budget-model";
 import { requiredBudgetEscalation } from "./budget-rule";
 import { defaultEntities } from "./entity-rule";
@@ -148,12 +149,15 @@ export function submitWorkflow(
     throw Error(
       "当前版本已经提交；驳回/退回后须修改资料形成新版本，不覆盖旧审批",
     );
-  const config = structuredClone(s.workflowConfig || defaultWorkflowConfig());
+  const ruleSelection=s.ruleBook?resolveVersion(s.ruleBook,d.input,'R006',at):undefined;
+  const cfg=ruleSelection?applySelection(d.input,{at,standards:null,invoiceHistory:null,workflowConfig:s.workflowConfig},ruleSelection).workflowConfig:s.workflowConfig;
+  const config = structuredClone(cfg || defaultWorkflowConfig());
   validateWorkflowConfig(config);
   const match = selectPolicy(d.input, config.approvalPolicies);
   if (!match.policy) throw Error(match.message);
   approvalNodes(d.input, org, match.policy);
   const w: Workflow = {
+    ...(ruleSelection?{ruleSelection}:{}),
     id: workflowId,
     claimId: id,
     applicantId: d.input.applicantId!,
@@ -321,6 +325,7 @@ export function configureWorkflow(
     !validTime(at)
   )
     throw Error("仅模拟财务/管理员可维护制度，原因必填");
+  if(s.ruleBook)throw Error("已启用版本管理，请在规则管理中心发布R006新版本");
   validateWorkflowConfig(config);
   const n = structuredClone(s);
   n.workflowConfig = {

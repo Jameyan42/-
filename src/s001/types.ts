@@ -17,6 +17,7 @@ export type Status =
   | "NOT_APPLICABLE"
   | "ERROR";
 export type RuleResult = {
+  configuration?: import("./rule-config").Selection;
   ruleId: string;
   ruleKey: string;
   ruleName: string;
@@ -82,6 +83,7 @@ export type Batch = {
   results: RuleResult[];
   review: HumanReview | null;
   context: {
+    ruleSelections?: import("./rule-config").Selection[];
     budgetBook?: BudgetBook;
     budgetOrg?: import("./workflow-config").Org;
     budgetEscalation?: BudgetEscalation | null;
@@ -130,6 +132,7 @@ export type ReviewNote = {
   input: Input;
 };
 export type State = {
+  ruleBook?: import("./rule-config").RuleBook;
   budgetBook?: BudgetBook;
   workflowConfig?: WorkflowConfig;
   workflowConfigChanges?: AuditOperation[];
@@ -156,6 +159,7 @@ export type State = {
   }[];
 };
 export type Context = {
+  ruleSelections?: import("./rule-config").Selection[];
   budgetBook?: BudgetBook;
   budgetOrg?: import("./workflow-config").Org;
   budgetEscalation?: BudgetEscalation | null;
