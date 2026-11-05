@@ -2,6 +2,7 @@ import { defineConfig } from "vite";
 import { fileURLToPath } from "node:url";
 export default defineConfig({
   base: "./",
+  server: { fs: { deny: ["**/.env*", "**/.git/**", "**/.data/**", "**/.s003-private/**", "**/backups/**", "**/*.pem", "**/*.key", "**/.venv-ocr/**"] } },
   build: {
     modulePreload: { polyfill: false },
     rollupOptions: {

@@ -1,0 +1,53 @@
+name: Validate single-company business backend
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+permissions:
+  contents: read
+jobs:
+  business:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: qingbao_dev
+          POSTGRES_USER: qb_owner
+          POSTGRES_PASSWORD: ci-ephemeral-database-only
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U qb_owner -d qingbao_dev"
+          --health-interval 5s --health-timeout 3s --health-retries 20
+    env:
+      DATABASE_URL: postgresql://qb_app:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123@127.0.0.1:5432/qingbao_dev
+      MIGRATION_DATABASE_URL: postgresql://qb_owner:ci-ephemeral-database-only@127.0.0.1:5432/qingbao_dev
+      APP_DB_PASSWORD: 0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123
+      PUBLIC_ORIGIN: http://127.0.0.1:8780
+      FILE_STORAGE_DIR: .data/ci-files
+      HOST: 127.0.0.1
+      PORT: '8780'
+      S003_TEST_ALLOW_WRITE: '1'
+      DB_TOOLS_CONTAINER: ${{ job.services.postgres.id }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - name: Generate ephemeral CI session key and private dotenv
+        run: |
+          node --input-type=module -e "import {randomBytes} from 'node:crypto'; import {writeFileSync} from 'node:fs'; const value=randomBytes(48).toString('hex'); writeFileSync('.env','SESSION_SECRET='+value+'\n',{mode:0o600});"
+      - run: npm run typecheck:server && npm run db:migrate && npm run build
+      - name: Authenticated workflow and real recovery tests (synthetic data only)
+        run: |
+          npm run server > /tmp/qingbao-business.log 2>&1 &
+          node --input-type=module -e "for(let i=0;i<50;i++){try{const r=await fetch('http://127.0.0.1:8780/api/health');if(r.ok)process.exit(0);}catch{}await new Promise(r=>setTimeout(r,200));}process.exit(1);"
+          npm run test:server
+          npm run test:ops
+      - run: npx playwright install --with-deps chromium
+      - name: Browser role workflow
+        env:
+          S003_BUSINESS_URL: http://127.0.0.1:8780
+        run: npm run test:e2e -- --config=playwright.business.config.js

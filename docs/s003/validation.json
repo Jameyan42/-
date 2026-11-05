@@ -1,0 +1,17 @@
+{
+  "at": "2026-11-05T10:43:25.710Z",
+  "image": "qingbao-s003-verified:local",
+  "imageId": "sha256:0efd6697182f5e2995cc6bda415522d393c7933783154bdd6458ce7711336f27",
+  "sourceHashesMatch": true,
+  "database": "PostgreSQL16",
+  "sourceRuleFreezeUnchanged": true,
+  "legacyUnitPassed": 470,
+  "legacyBrowserPassed": 220,
+  "legacyNativeOcrSkipped": 4,
+  "serviceTestsPassed": 21,
+  "businessBrowserPassed": 4,
+  "backupRestoreTestsPassed": 3,
+  "actualDatabaseAndAppRestartVerified": true,
+  "realPublicDeployment": false,
+  "realCompanyAcceptance": false
+}

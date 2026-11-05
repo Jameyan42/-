@@ -1,0 +1,1 @@
+{"extends":"./tsconfig.r001.json","compilerOptions":{"noUncheckedIndexedAccess":false,"esModuleInterop":true},"include":["server/**/*.ts"]}

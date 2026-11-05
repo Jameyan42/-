@@ -1,0 +1,18 @@
+import {z} from 'zod';import {calendarOrdinal,parseYuan} from '../src/r001/rule';
+export const id=z.uuid();export const text=z.string().trim().max(500);export const reason=z.string().trim().min(1).max(500);
+export const date=z.string().refine(x=>calendarOrdinal(x)!==null,'请输入有效日历日期');
+export const money=z.string().refine(x=>{const p=parseYuan(x);return p.ok&&p.cents<=1e12;},'金额须为非负人民币数字，最多两位小数').transform(x=>{const p=parseYuan(x);if(!p.ok)throw Error(p.message);if(p.cents>1e12)throw Error('金额超过限额');return p.cents;});
+const line=z.object({id,expenseType:z.enum(['住宿费','办公用品','交通费','业务招待费']),businessDate:date,amountYuan:money,description:text,city:text.default(''),checkIn:z.string().max(10).default(''),checkOut:z.string().max(10).default('')}).strict();
+const invoice=z.object({id,type:z.enum(['数电发票','增值税电子普通发票','增值税电子专用发票','纸质发票']),code:z.string().max(12),number:z.string().max(20),amountYuan:money,date:date,buyerName:text,buyerTaxId:text,sellerName:text,sellerTaxId:text,attachmentId:id.nullable()}).strict().refine(i=>i.type==='数电发票'?/^\d{20}$/.test(i.number):/^\d{8}$/.test(i.number)&&/^\d{10}(\d{2})?$/.test(i.code),'发票标识无效');
+export const draft=z.object({description:text,currency:z.literal('CNY'),lines:z.array(line).max(30),invoices:z.array(invoice).max(30),allocations:z.array(z.object({lineId:id,invoiceId:id,amountYuan:money}).strict()).max(100)}).strict();
+export type Payload={description:string;currency:'CNY';lines:any[];invoices:any[];allocations:any[];ownerSnapshot?:any};
+export function normalize(input:unknown):Payload{const x=draft.parse(input);return {...x,lines:x.lines.map(({amountYuan,...v})=>({...v,amountCents:amountYuan})),invoices:x.invoices.map(({amountYuan,...v})=>({...v,amountCents:amountYuan})),allocations:x.allocations.map(({amountYuan,...v})=>({...v,amountCents:amountYuan}))};}
+export const identity=(i:any)=>i.type==='数电发票'?'DIGITAL:'+i.number:'VAT:'+i.code+':'+i.number;
+export const yuan=(c:number|string)=>{const n=BigInt(c);return `${n/100n}.${String(n%100n).padStart(2,'0')}`;};
+export function wire(p:Payload){const {ownerSnapshot,...base}=p;return {...base,lines:p.lines.map(({amountCents,...l})=>({...l,amountYuan:yuan(amountCents)})),invoices:p.invoices.map(({amountCents,...i})=>({...i,amountYuan:yuan(amountCents)})),allocations:p.allocations.map(({amountCents,...a})=>({...a,amountYuan:yuan(amountCents)}))};}
+export function checkRelations(p:Payload){
+ if(new Set(p.lines.map(l=>l.id)).size!==p.lines.length||new Set(p.invoices.map(i=>i.id)).size!==p.invoices.length||new Set(p.invoices.map(identity)).size!==p.invoices.length)throw Object.assign(Error('明细或发票标识重复'),{status:400});
+ const pairs=new Set();for(const a of p.allocations){if(!p.lines.some(l=>l.id===a.lineId)||!p.invoices.some(i=>i.id===a.invoiceId)||a.amountCents<=0)throw Object.assign(Error('发票分摊关联无效'),{status:400});const key=a.lineId+':'+a.invoiceId;if(pairs.has(key))throw Object.assign(Error('分摊关联重复'),{status:400});pairs.add(key);}
+ for(const i of p.invoices)if(p.allocations.filter(a=>a.invoiceId===i.id).reduce((n,a)=>n+a.amountCents,0)>i.amountCents)throw Object.assign(Error('发票分摊合计超过票面金额'),{status:400});
+ if(p.lines.reduce((n,l)=>n+l.amountCents,0)>1e12)throw Object.assign(Error('报销合计超过限额'),{status:400});
+}

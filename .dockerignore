@@ -1,0 +1,14 @@
+.git
+node_modules
+.venv-ocr
+.ocr-cache
+.data
+.env
+.env.*
+attachments
+backups
+playwright-report
+test-results
+deliverables
+PROJECT_AUDIT_REPORT.md
+*.log

@@ -1,0 +1,12 @@
+[Unit]
+Description=Qingbao consistent database and private file backup
+After=network-online.target
+[Service]
+Type=oneshot
+User=qingbao
+WorkingDirectory=/opt/qingbao
+EnvironmentFile=/etc/qingbao/backup.env
+ExecStart=/bin/sh deploy/backup-nightly.sh
+UMask=0077
+NoNewPrivileges=true
+# Configure protected database credentials, BACKUP_ROOT and FILE_STORAGE_DIR before enabling.

@@ -1,0 +1,70 @@
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: qingbao
+      POSTGRES_USER: qb_owner
+      POSTGRES_PASSWORD: ${DB_OWNER_PASSWORD:?generate a unique database owner password}
+    volumes:
+      - database:/var/lib/postgresql/data
+    healthcheck:
+      test: [CMD-SHELL, "pg_isready -U qb_owner -d qingbao"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+  app:
+    image: qingbao-business:${IMAGE_TAG:-local}
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      HOST: 0.0.0.0
+      PORT: 8780
+      PUBLIC_ORIGIN: https://${DOMAIN:?set your real domain}
+      TRUST_PROXY: '1'
+      SESSION_SECRET: ${SESSION_SECRET:?generate at least 32 characters}
+      DATABASE_URL: postgresql://qb_app:${APP_DB_PASSWORD:?generate hexadecimal app database password}@db:5432/qingbao
+      FILE_STORAGE_DIR: /app/.data/files
+    volumes:
+      - private_files:/app/.data/files
+  migrate:
+    image: qingbao-business:${IMAGE_TAG:-local}
+    profiles: [tools]
+    command: [node, --import, tsx, server/migrate.ts]
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://qb_app:${APP_DB_PASSWORD}@db:5432/qingbao
+      MIGRATION_DATABASE_URL: postgresql://qb_owner:${DB_OWNER_PASSWORD}@db:5432/qingbao
+      APP_DB_PASSWORD: ${APP_DB_PASSWORD}
+  bootstrap:
+    image: qingbao-business:${IMAGE_TAG:-local}
+    profiles: [tools]
+    command: [node, --import, tsx, server/bootstrap.ts]
+    environment:
+      DATABASE_URL: postgresql://qb_app:${APP_DB_PASSWORD}@db:5432/qingbao
+      BOOTSTRAP_USERNAME: ${BOOTSTRAP_USERNAME:-}
+      BOOTSTRAP_PASSWORD: ${BOOTSTRAP_PASSWORD:-}
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    depends_on: [app]
+    environment:
+      DOMAIN: ${DOMAIN:?set your real domain}
+    ports: ['80:80','443:443']
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - certificates:/data
+      - caddy_config:/config
+volumes:
+  database:
+  private_files:
+  certificates:
+  caddy_config:

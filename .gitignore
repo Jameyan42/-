@@ -14,3 +14,11 @@ services/local_ocr/__pycache__/
 .ocr-cache/
 __pycache__/
 r010-evaluation-local/
+
+# S003 private runtime, credentials and backups
+.env
+.env.*
+!.env.example
+.data/
+.s003-private/
+backups/

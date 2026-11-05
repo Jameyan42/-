@@ -1,5 +1,15 @@
 # 更新日志
 
+## S003 · 单公司报销后端联调版 — 2026-11-05
+
+- 同仓库/同index增加服务端业务模式，保留原静态演示和S002冻结源；正式页面只读写真实API/数据库，不用localStorage作正式业务库。
+- Express5、PostgreSQL16迁移/约束/精确分金额、私有文件原字节与SHA256、Argon2id、PG会话、首次改密、后端四角色和范围权限、CSRF/Origin、登录限流与操作日志。
+- 草稿/退回版本、直属主管/财务状态转换、R001—R004明细适配与制度快照、事务性发票占用、付款登记幂等/唯一参考号、追加信息更正、授权筛选及CSV。
+- 原来源只读完整备份工具、私有原备份归档、旧S001显式账号映射为草稿；不继承旧模拟批准/付款。不支持格式保留原档待手工补录。
+- 提供数据库/原件一致备份和空库恢复、实际恢复验证、预打包Docker运行、Compose/Caddy/定时模板与后端CI；境内真实部署/HTTPS/定时任务启用和企业验收未完成。
+- 新增server、src/business、src/bootstrap、deploy、业务测试/文档；变更index和package/lock、构建入口。新增依赖见package.json/lock（Express、PG、Argon2、session/connect-pg-simple、Zod、multer、helmet、rate-limit、file-type、yauzl、XML校验；tsx移为运行依赖）。未修改原R001—R010核心逻辑。
+- 完整测试数量、早期问题及修复、Docker构建网络限制、已知安全风险见docs/s003/TEST_REPORT.md，不声称生产验收。付款登记不执行银行转账，备份不自动外发或自动删除旧数据。
+
 ## S002 · 住宿费批量自动审核、异常分流与效果验证 — 2026-11-05
 
 - 原财务工作台新增实验子模块；CSV预览/校验/明确确认、现有单据只读复制、批次幂等/历史、五队列、实验复核、人工盲标、分段真人计时、动态评估与CSV/JSON导出。

@@ -18,12 +18,25 @@
     "typecheck:r002": "tsc --noEmit -p tsconfig.r002.json",
     "dev:r002": "vite --host 0.0.0.0 --open /r002.html",
     "test:r003": "tsc --noEmit -p tsconfig.r003.json && tsx --test src/r003/*.test.ts",
-    "test:s001": "tsc --noEmit -p tsconfig.s001.json && tsx --test src/s001/*.test.ts"
+    "test:s001": "tsc --noEmit -p tsconfig.s001.json && tsx --test src/s001/*.test.ts",
+    "server": "node --env-file=.env --import tsx server/index.ts",
+    "db:migrate": "node --env-file=.env --import tsx server/migrate.ts",
+    "db:bootstrap": "node --env-file=.env --import tsx server/bootstrap.ts",
+    "typecheck:server": "tsc --noEmit -p tsconfig.server.json",
+    "test:server": "node --env-file=.env --import tsx --test server/integration.test.ts server/time.test.ts server/config.test.ts",
+    "backup:server": "node --env-file=.env --import tsx server/backup.ts backup",
+    "restore:server": "node --env-file=.env --import tsx server/backup.ts restore",
+    "test:ops": "node --env-file=.env --import tsx --test server/ops.test.ts"
   },
   "devDependencies": {
     "@playwright/test": "^1.64.1",
+    "@types/connect-pg-simple": "^7.0.3",
+    "@types/express": "^5.0.6",
+    "@types/express-session": "^1.19.0",
+    "@types/multer": "^2.3.0",
     "@types/node": "22.19.7",
-    "tsx": "4.20.6",
+    "@types/pg": "^8.23.1",
+    "@types/yauzl": "^3.4.0",
     "typescript": "5.9.3",
     "vite": "^7.1.0"
   },
@@ -31,7 +44,20 @@
   "dependencies": {
     "@tesseract.js-data/chi_sim": "^1.0.0",
     "@tesseract.js-data/eng": "^1.0.0",
+    "argon2": "^0.44.0",
+    "connect-pg-simple": "^10.0.0",
+    "express": "^5.3.0",
+    "express-rate-limit": "^8.7.3",
+    "express-session": "^1.19.0",
+    "fast-xml-parser": "^5.12.0",
+    "file-type": "^21.3.4",
+    "helmet": "^8.3.0",
+    "multer": "^2.5.0",
     "pdfjs-dist": "5.4.624",
-    "tesseract.js": "^7.0.0"
+    "pg": "^8.23.1",
+    "tesseract.js": "^7.0.0",
+    "tsx": "^4.20.6",
+    "yauzl": "^3.4.0",
+    "zod": "^4.6.7"
   }
 }

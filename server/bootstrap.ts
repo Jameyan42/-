@@ -1,0 +1,5 @@
+import argon2 from 'argon2';import {randomUUID} from 'node:crypto';import {pool,tx,event} from './db';
+const username=process.env.BOOTSTRAP_USERNAME,password=process.env.BOOTSTRAP_PASSWORD;
+if(!username||!password||!/^[a-z0-9][a-z0-9._-]{2,63}$/.test(username)||password.length<12)throw Error('Set BOOTSTRAP_USERNAME and a unique password of at least 12 characters; no default account');
+const hash=await argon2.hash(password,{type:argon2.argon2id,memoryCost:65536,timeCost:3});
+await tx(async c=>{await c.query('SELECT pg_advisory_xact_lock(8303003)');if((await c.query('SELECT 1 FROM users LIMIT 1')).rowCount)throw Error('Bootstrap is only allowed on an empty user database');const id=randomUUID();await c.query("INSERT INTO users(id,username,name,password_hash,roles,must_change_password) VALUES($1,$2,'系统管理员',$3,ARRAY['ADMIN'],true)",[id,username,hash]);await event(c,{id,roles:['ADMIN'],name:'系统管理员'},'BOOTSTRAP','命令行初始化首个管理员');});await pool.end();console.log('Administrator created; first login requires a password change.');
