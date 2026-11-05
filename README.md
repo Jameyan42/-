@@ -1,3 +1,15 @@
+# S002 · 住宿费批量审核与效果实验
+
+[原系统入口](https://jameyan42.github.io/-/?view=claims&v=s002)：切财务→财务审核→“批量自动审核 / 效果实验”。CSV全行预览、现有单据只读复制、原R001/R002/R003批量调用、五类分流、实验复核、盲标与真人分段计时均在原工作台中。
+
+[实验协议与演示](S002_EXPERIMENT_PROTOCOL.md)、[实际测试报告](S002_TEST_REPORT.md)、[60条虚构事实](S002_TEST_DATA.csv)、[全部待确认的人工标注模板](S002_GOLD_LABEL_TEMPLATE.csv)。数据含DEV40/HOLDOUT20，源代码在生成HOLDOUT前冻结；原始机器运行见docs/s002/machine-run.json。
+
+**人工金标准0/60、真人计时0；尚不能证明准确率或效率提升。** 规则已实际运行，指标从实际已确认记录计算；没有有效分母显示暂无数据，不自动替你确认标签。实验写独立本地键qingbao-s002-v1，不写原审批、预算或发票历史。R001超标仍按原REVIEW人工核查，不捏造硬拦截。
+
+本机：首次`npm ci`，然后`npm run dev -- --port 5173`，同一电脑Chrome打开http://localhost:5173/?view=claims 。`npm test`、`QINGBAO_BROWSER_PATH=/usr/bin/chromium npm run test:e2e -- --workers=4`；`node scripts/freeze_s002.mjs`校验冻结，`node_modules/.bin/tsx scripts/evaluate_s002.ts`复现纯机器运行。无新依赖，保留R001—R010；本轮不开发其他审核规则。
+
+---
+
 # R010 · 开源发票识别与人工核对
 
 在既有统一报销中上传PNG/JPG/PDF，自动提取票号、日期、买卖方名称与税号、净额/税额/合计、票种与项目；可修正并保存原始识别、文件SHA256、人工确认快照。自动调用原R002/R003/R004预审，不修改原规则，不替代税务验真。

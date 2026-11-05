@@ -30,6 +30,8 @@ async function base(p, name) {
   });
 }
 test.beforeEach(async ({ page: p }) => {
+  // Legacy facts and budgets are dated October 2026. This changes test Date only.
+  await p.clock.setFixedTime(new Date("2026-10-31T02:00:00.000Z"));
   await p.goto("/");
   await p.locator("#role").selectOption("员工");
 });

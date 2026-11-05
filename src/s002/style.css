@@ -1,0 +1,10 @@
+.s002 nav { display:flex;gap:10px;flex-wrap:wrap;margin:16px 0; }
+.s002 pre { max-height:360px;overflow:auto;white-space:pre-wrap;overflow-wrap:anywhere; }
+.s002 .s002-metrics { display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px; }
+.s002 .s002-metrics p { background:#f4f7fb;padding:16px;border-radius:8px; }
+.s002 .s002-metrics b { display:block;margin-top:8px; }
+.s002 label { margin:10px 0; }
+.s002 input[type=checkbox] { display:inline;width:auto;margin-right:8px; }
+.s002 form { border-top:1px solid #dce4ed;margin-top:16px;padding-top:12px; }
+.s002 button { margin:4px; }
+.s002 .table-wrap { max-height:440px;overflow:auto; }

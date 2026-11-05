@@ -1,0 +1,14 @@
+import type {Input,RuleResult,State,Context} from '../s001/types';
+export const queues=['SYSTEM_ERROR','RULE_BLOCK','NEED_INFO','MANUAL_REVIEW','FAST_CHECK'] as const;
+export type Queue=typeof queues[number];
+export const labels=['NORMAL','ABNORMAL','NEED_MORE_INFO','REQUIRE_REVIEW'] as const;
+export type Label=typeof labels[number];
+export type Sample={caseId:string;split:'DEV'|'HOLDOUT'|'LOCAL';group:'A'|'B';input:Input;sourceStatus:string;sourceClaimId?:string;revision:number};
+export type Annotation={caseId:string;reimbursementId:string;revision:number;manualLabel:Label;riskCategory:string;evidence:string;annotator:string;annotationTime:string;confirmed:true;exposed:boolean;contextKey?:string};
+export type Review={caseId:string;revision:number;batchId:string;actor:string;at:string;decision:'CONFIRM'|'RETURN'|'REJECT';reason:string};
+export type Outcome={caseId:string;revision:number;input:Input;issues:string[];results:RuleResult[];queue:Queue};
+export type Batch={id:string;at:string;signature:string;scope:string;codeVersion:string;elapsedMs:number;rows:Outcome[];context:{state:State;standards:Context['standards'];history:Context['invoiceHistory']}};
+export type Timing={id:string;caseId:string;revision:number;participant:string;mode:'MANUAL'|'ASSISTED';group:'A'|'B';phase:'LOOKUP'|'VIEW'|'REVIEW'|'CORRECTION';startedAt:string;endedAt:string;activeMs:number;decision:Label;lookup:boolean;needInfo:boolean;rework:number;batchId:string|null;exposedBefore:boolean;valid:boolean};
+export type Experiment={schema:1;revision:number;samples:Sample[];batches:Batch[];annotations:Annotation[];reviews:Review[];timings:Timing[];exposures:{caseId:string;revision:number;at:string}[]};
+export const KEY='qingbao-s002-v1';
+export const empty=():Experiment=>({schema:1,revision:1,samples:[],batches:[],annotations:[],reviews:[],timings:[],exposures:[]});

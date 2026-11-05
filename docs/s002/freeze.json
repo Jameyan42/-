@@ -1,0 +1,24 @@
+{
+  "status": "FROZEN",
+  "frozenAt": "2026-11-05T08:08:06.446Z",
+  "codeVersion": "cd21c40e1c8f32fac572d58a929aa86ba91be7c1b1587b018053b4d1eff69045",
+  "sources": {
+    "src/r001/rule.ts": "f44622a332a794ec6e4426cdbc1bd0b5e5a4e7d967781da2b6560c02bf514e07",
+    "src/r001/types.ts": "17c23f1c04bc519bf04f3522f146e9e275961b06558c861de5b9841bbbdb4b32",
+    "src/r001/standards.ts": "4a374222f735ff4d9fc0885cef9857e08bb6088118d9fe8811ae5ad54e573628",
+    "src/r002/invoiceDuplicateRule.ts": "e1516f5ff9407629ea09d7cbd7bc9f7983f9c9391fbd6fb04eb1001c0db8b89c",
+    "src/s001/rules.ts": "be135625322685cd174047dfe2ee0b5b64f3fc7302f79621f7c0fd9cc2b394c1",
+    "src/s001/rule-config.ts": "09a03f20b665d2d017adac51fc42bb1352e902e38e0c9a82fedce21900850a40",
+    "src/s001/types.ts": "2929de6f68a76197b46e53e9cec2457a098c926818f30de87a172e3e3a64a909",
+    "src/s002/types.ts": "2e7b23ba7a676fc4d3114166a81ab7087045ddef79df7fc3e4136f2b5a5f591c",
+    "src/s002/data.ts": "cd08c10916e0c329360b8e9d217b87706badf87f1d0d7a83c481f7d16d20d052",
+    "src/s002/engine.ts": "1337bdb5f314d9ed6c36d87a1cfd3ab2b4055970e108bf7083cc468b83b4c6d7",
+    "src/s002/model.ts": "e408d76758cfcad195865afd5c704fff5130d7c8ae0ad74186f49a48f562c413",
+    "src/s002/metrics.ts": "84dd11bd929ceb167034ad4d710f1fe9e42131b3f077f70a08df0f7f96dfdc11",
+    "src/s002/ui.js": "6b21caaff48f65b6e841338a3b97345e1a8a51ecd70d417f020a005aebe822e6",
+    "scripts/create_s002_data.py": "8e2514cd09e26f0257f630fb75e7e0db2778f412edd381f46a6eab30ed1ee7d3"
+  },
+  "policy": "Reuse original R001/R002/R003 and R008 selections; no new hard block for R001 REVIEW",
+  "goldConfirmed": 0,
+  "holdoutUsedForTuning": false
+}

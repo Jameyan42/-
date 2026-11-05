@@ -1,4 +1,6 @@
 import { test, expect } from "@playwright/test";
+// These legacy fixtures are dated October 2026; keep browser Date deterministic across month changes.
+test.beforeEach(async ({ page }) => { await page.clock.setFixedTime(new Date("2026-10-31T02:00:00.000Z")); });
 const navigate = (p, name) => p.locator(`[data-page="${name}"]`).click();
 const row = (p, name) => p.locator("tbody tr").filter({ hasText: name });
 test.beforeEach(async ({ page }) => {

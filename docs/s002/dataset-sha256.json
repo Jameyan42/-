@@ -1,0 +1,6 @@
+{
+  "S002_TEST_DATA.csv": "befa7071b322b844f84d2b3d9711e3981ca33094dbaeed6b2d90486276e4f175",
+  "S002_GOLD_LABEL_TEMPLATE.csv": "76963f0bbb62292faf3985655656c80deab37889652d257e09aa5dd15854a722",
+  "docs/s002/development-facts.json": "eb7ff7245b418af16b0ddff38ccee787b523527217475ca0ce48f2beb046bc6d",
+  "docs/s002/holdout-facts.json": "bbe2f75b8efbfc704bf8c6a31d65b8a601ae417792795915437fcd2e74ff8264"
+}

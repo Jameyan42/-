@@ -1,3 +1,4 @@
+import { mountExperiment } from "../s002/ui.js";
 import { aiPanel, bindAIPanel, aiStatisticsHtml, aiSettingsHtml, bindAISettings } from "./ai-ui.js";
 import { ruleManager, bindRuleManager } from "./rule-manager-ui.js";
 import { resolveAll, applySelection, usesManagedBudgets } from "./rule-config.ts";
@@ -66,6 +67,7 @@ import { invoiceFields } from "../r010/extract.js";
 import { readAttachment, validateAttachments } from "../attachments.js";
 import "../s001/style.css";
 export const unifiedPages = ["报销单管理", "财务审核", "审核历史", "审核规则"];
+let disposeExperiment = null;
 let mountedPage = "",
   dirty = false,
   job = null,
@@ -89,6 +91,7 @@ export function canLeaveUnified() {
   return !dirty || confirm("统一报销表单或复核意见尚未保存，是否放弃？");
 }
 export function disposeUnified() {
+  disposeExperiment?.(); disposeExperiment=null;
   job?.cancel();
   job = null;
   dirty = false;
@@ -518,7 +521,10 @@ export function mountUnified({
     return `<section class="panel"><h3>审核记录</h3><div class="table-wrap"><table><thead><tr><th>单号 / 批次</th><th>时间</th><th>各规则</th><th>财务处理</th><th>操作</th></tr></thead><tbody>${state.claims.flatMap((d) => d.batches.map((b) => `<tr><td>${esc(d.id)}<small>v${b.version} / ${esc(b.id)}</small></td><td>${esc(displayTime(b.at))}</td><td>${b.results.map((r) => `${r.ruleId} ${labels[r.status]}`).join("<br>")}</td><td>${b.review ? `${b.review.decision === "approved" ? "已通过" : "已驳回"}<small>${esc(b.review.reason)} / ${esc(displayTime(b.review.at))}</small>` : "未复核"}${b.revision !== d.revision ? "<small>资料修改，旧批次失效</small>" : ""}</td><td><button data-history-doc="${d.id}" data-batch="${b.id}">查看</button></td></tr>`)).join("")}</tbody></table></div></section>`;
   }
   function render() {
+    disposeExperiment?.(); disposeExperiment=null;
+    if(view==="s002"){root.innerHTML='<button id="s002-back">返回统一财务工作台</button><div id="s002-panel"></div>';root.querySelector("#s002-back").onclick=()=>{view="list";render();};disposeExperiment=mountExperiment(root.querySelector("#s002-panel"),actor);return;}
     root.innerHTML = `${message ? `<p class="review-box" role="status">${esc(message)}</p>` : ""}${broken ? `<section class="panel"><h3>本地数据无法安全读取</h3><p>${esc(broken)}</p><p>已暂停保存，不清除或用种子覆盖原值。</p></section>` : view === "form" ? form() : view === "detail" ? detail() : view === "history-detail" ? detail(true) : view === "history" ? historyList() : view === "budgets" ? budgetManagement(state, org, actor, budgetFilters, budgetSelected) : view === "rules" ? `${ruleManager(state,actor)}${aiSettingsHtml(state,actor)}<details ${state.ruleBook?"":"open"}><summary>原配置入口 / 法人主数据（版本管理启用后策略请在上方发布）</summary><section class="panel"><h3>已启用审核规则</h3>${registry.map((r) => `<p>${r.ruleId} ${r.ruleName} · ${r.ruleKey}</p>`).join("")}<p>原合同付款R003保留在旧独立入口，金额规则使用invoice.amount-support内部标识，不覆盖合同数据。</p><p>${state.ruleBook?"R001正式审核读取上方已发布版本；独立R001页面仅保留兼容，不修改统一版本。":"R001读取独立标准；"}R002保留独立历史库并增加统一流程已审核单。旧主应用票据尚未自动联查。规则通过仅检查通过，财务需最终确认。</p><h4>模拟审批及附件政策（金额单位为分）</h4><form id="r006-config"><label>审批/附件制度JSON<textarea name="config" rows="16">${esc(JSON.stringify(state.workflowConfig || defaultWorkflowConfig(), null, 2))}</textarea></label><label>修改原因<input name="reason"></label><button class="primary">保存审批附件政策</button><p id="r006-config-error" role="alert"></p></form><details><summary>审批附件配置修改记录</summary><pre>${esc(JSON.stringify(state.workflowConfigChanges || [], null, 2))}</pre></details><h4>模拟费用类型与科目映射</h4><form id="r005-config"><label>科目、法人映射、有效期、状态及场景政策JSON<textarea name="config" rows="16">${esc(JSON.stringify(state.accountConfig || defaultAccounts(), null, 2))}</textarea></label><label>修改原因<input name="reason"></label><button class="primary">财务保存科目映射</button><p id="r005-config-error" role="alert"></p></form><details><summary>科目映射修改记录</summary><pre>${esc(JSON.stringify(state.accountConfigChanges || [], null, 2))}</pre></details><h4>模拟法人及票据政策</h4><form id="r004-config"><label>配置JSON（名称/税号/别名有效期/票据政策）<textarea name="config" rows="16">${esc(JSON.stringify(state.entityConfig || defaultEntities(), null, 2))}</textarea></label><label>修改原因<input name="reason"></label><button class="primary">财务保存配置</button><p id="r004-config-error" role="alert"></p></form><details><summary>法人配置变更记录</summary><pre>${esc(JSON.stringify(state.entityConfigChanges || [], null, 2))}</pre></details></section></details>` : list()}`;
+    if(page === "财务审核" && !broken && view === "list"){const b=document.createElement("button");b.id="s002-open";b.textContent="批量自动审核 / 效果实验";b.onclick=()=>{view="s002";render();};root.prepend(b);}
     bind();
     if(view === "rules" && !broken){bindRuleManager(root,state,actor,persist,render);bindAISettings(root,state,actor);}
     if(!broken && ['detail','history-detail'].includes(view)){
