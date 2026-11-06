@@ -1,0 +1,27 @@
+{
+  "at": "2026-11-06T10:42:30.353695+00:00",
+  "scope": "isolated-local-v1.1",
+  "oldRulesUnitPassed": 470,
+  "serverAndUnitPassed": 31,
+  "newApiPassed": 16,
+  "businessBrowserPassed": 9,
+  "backupRestorePassed": 3,
+  "backendTypecheckPassed": true,
+  "viteBuildPassed": true,
+  "originalPrdSha256": "a6633184930717ffa709c0da330d5bb1c90c7de873fc0f2bf6195d40f9828e3d",
+  "sourceRuleFreeze": "cd21c40e1c8f32fac572d58a929aa86ba91be7c1b1587b018053b4d1eff69045",
+  "originalDatabaseNotUpgradedInPlace": true,
+  "migration004ValidatedOnRestoredDatabase": true,
+  "applicationRestart": {
+    "at": "2026-11-06T10:42:30.324Z",
+    "paidClaim": true,
+    "maskedReceivingSnapshot": true,
+    "historyRetained": true,
+    "originalFileHashesMatch": true,
+    "sameClaimAfterRestart": true
+  },
+  "realPublicDeployment": false,
+  "physicalDifferentComputerAcceptance": false,
+  "realCompanyAcceptance": false,
+  "remoteCIResultVerified": false
+}

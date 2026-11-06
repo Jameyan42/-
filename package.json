@@ -23,7 +23,7 @@
     "db:migrate": "node --env-file=.env --import tsx server/migrate.ts",
     "db:bootstrap": "node --env-file=.env --import tsx server/bootstrap.ts",
     "typecheck:server": "tsc --noEmit -p tsconfig.server.json",
-    "test:server": "node --env-file=.env --import tsx --test server/integration.test.ts server/time.test.ts server/config.test.ts",
+    "test:server": "node --env-file=.env --import tsx --test server/integration.test.ts server/time.test.ts server/config.test.ts server/claim-v11.test.ts && node --env-file=.env --import tsx --test server/claim-v11.integration.test.ts",
     "backup:server": "node --env-file=.env --import tsx server/backup.ts backup",
     "restore:server": "node --env-file=.env --import tsx server/backup.ts restore",
     "test:ops": "node --env-file=.env --import tsx --test server/ops.test.ts"

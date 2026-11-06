@@ -38,7 +38,7 @@ jobs:
       - run: npm ci
       - name: Generate ephemeral CI session key and private dotenv
         run: |
-          node --input-type=module -e "import {randomBytes} from 'node:crypto'; import {writeFileSync} from 'node:fs'; const value=randomBytes(48).toString('hex'); writeFileSync('.env','SESSION_SECRET='+value+'\n',{mode:0o600});"
+          node --input-type=module -e "import {randomBytes} from 'node:crypto'; import {writeFileSync} from 'node:fs'; const value=randomBytes(48).toString('hex'); writeFileSync('.env','SESSION_SECRET='+value+'\nACCOUNT_ENCRYPTION_KEY='+randomBytes(32).toString('hex')+'\n',{mode:0o600});"
       - run: npm run typecheck:server && npm run db:migrate && npm run build
       - name: Authenticated workflow and real recovery tests (synthetic data only)
         run: |

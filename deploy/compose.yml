@@ -29,6 +29,7 @@ services:
       PUBLIC_ORIGIN: https://${DOMAIN:?set your real domain}
       TRUST_PROXY: '1'
       SESSION_SECRET: ${SESSION_SECRET:?generate at least 32 characters}
+      ACCOUNT_ENCRYPTION_KEY: ${ACCOUNT_ENCRYPTION_KEY:-}
       DATABASE_URL: postgresql://qb_app:${APP_DB_PASSWORD:?generate hexadecimal app database password}@db:5432/qingbao
       FILE_STORAGE_DIR: /app/.data/files
     volumes:
